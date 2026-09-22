@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import {
   Command,
@@ -16,6 +16,7 @@ import {
   Boton,
   Cargando,
   Insignia,
+  LimiteError,
   ItemMenu,
   Menu,
   SeparadorMenu,
@@ -32,8 +33,18 @@ import { describirAlcance, tieneAlcance } from '@/domain/permisos/alcance'
 import { usarTema } from './tema'
 import { DENSIDADES, NOMBRES_DENSIDAD, usarDensidad } from './densidad'
 import { NAVEGACION } from './navegacion'
-import { PaletaComandos } from './PaletaComandos'
-import { AyudaAtajos } from './AyudaAtajos'
+/**
+ * La paleta y la ayuda de atajos solo aparecen cuando alguien las abre (⌘K, ?),
+ * asi que no tienen por que viajar en el trozo inicial. Son ~25 kB entre las dos
+ * y nadie las necesita para ver la primera pantalla; el precargador de rutas.tsx
+ * las trae cuando el navegador queda libre, asi que al abrirlas ya estan.
+ *
+ * No llevan Suspense propio: se montan solo tras un gesto, y el fallback del
+ * <main> no corresponde porque son superpuestas. Mientras llega el modulo no se
+ * pinta nada, que para un cuadro es preferible a un salto de layout.
+ */
+const PaletaComandos = lazy(() => import('./PaletaComandos').then((m) => ({ default: m.PaletaComandos })))
+const AyudaAtajos = lazy(() => import('./AyudaAtajos').then((m) => ({ default: m.AyudaAtajos })))
 import { IndicadorConexion } from './IndicadorConexion'
 import { useAtajosGlobales } from './atajos'
 
@@ -289,15 +300,29 @@ export function Layout() {
           style={{ viewTransitionName: 'contenido' }}
           className="hoja flex min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radio-lente)]"
         >
-          {/* Red de seguridad para las pantallas que se cargan bajo demanda. */}
-          <Suspense fallback={<Cargando texto="Abriendo…" />}>
-            <Outlet />
-          </Suspense>
+          {/*
+            El limite va DENTRO del main, no envolviendo el Layout: si una
+            pantalla se rompe, la barra lateral y la navegacion siguen ahi y la
+            persona puede irse a otra parte en vez de quedarse sin app.
+
+            La `key` lo reinicia al cambiar de ruta: sin eso, entrar a una
+            pantalla rota dejaria el mensaje de error pegado en las siguientes.
+          */}
+          <LimiteError key={ubicacion.pathname}>
+            {/* Red de seguridad para las pantallas que se cargan bajo demanda. */}
+            <Suspense fallback={<Cargando texto="Abriendo…" />}>
+              <Outlet />
+            </Suspense>
+          </LimiteError>
         </main>
       </div>
 
-      {paletaAbierta && <PaletaComandos onCerrar={() => setPaletaAbierta(false)} />}
-      <AyudaAtajos abierta={ayudaAbierta} onCerrar={() => setAyudaAbierta(false)} />
+      <Suspense fallback={null}>
+        {paletaAbierta && <PaletaComandos onCerrar={() => setPaletaAbierta(false)} />}
+        {/* Antes se montaba siempre y se escondia con `abierta`; ahora se monta
+            solo al abrirla, que ademas evita cargar su modulo sin necesidad. */}
+        {ayudaAbierta && <AyudaAtajos abierta onCerrar={() => setAyudaAbierta(false)} />}
+      </Suspense>
     </div>
   )
 }
