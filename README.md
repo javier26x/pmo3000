@@ -133,8 +133,20 @@ VITE_FIREBASE_APP_ID=1:311927873870:web:9f01dafcd4307ee7593e1f
 VITE_FIREBASE_STORAGE_BUCKET=pmoclr.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=311927873870
 VITE_DOMINIO_PERMITIDO=clarovtr.cl
+VITE_CORREOS_ADMIN=javier.neo@gmail.com
 EOF
 ```
+
+`VITE_CORREOS_ADMIN` es la lista de correos externos que además entran como
+administradores. **Tiene que decir lo mismo que `correosAdministradores()` en
+`firestore.rules`**: el cliente decide qué rol se escribe al crear el perfil y
+las reglas deciden si aceptan ese rol; si las dos listas no coinciden, el ingreso
+falla con un error de permisos.
+
+Si falta este archivo, `npm run build` **falla a propósito** con un mensaje que
+dice qué variable falta. Antes no fallaba: se publicaba un sitio que compilaba
+bien y recién al intentar entrar respondía
+`auth/api-key-not-valid`, porque el bundle se llevaba los valores de ejemplo.
 
 ### 3.2 Autenticarse
 
