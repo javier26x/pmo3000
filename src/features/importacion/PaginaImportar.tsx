@@ -505,6 +505,14 @@ export default function PaginaImportar() {
               />
             </div>
 
+            {resultado.seguimientosFueraDeAlcance > 0 && (
+              <Aviso tono="riesgo" titulo="Seguimientos fuera de tu alcance">
+                {resultado.seguimientosFueraDeAlcance.toLocaleString('es-CL')} fila(s) apuntaban a
+                un programa o proyecto que no está en tu alcance: se escribió el sitio, pero no su
+                seguimiento. Pídele a un administrador que lo incorpore.
+              </Aviso>
+            )}
+
             {resultado.programasNoEncontrados.length > 0 && (
               <Aviso tono="riesgo" titulo="Programas que no existen en la app">
                 <p>

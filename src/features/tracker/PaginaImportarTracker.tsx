@@ -3,8 +3,11 @@ import { FileSpreadsheet, Layers, Upload } from 'lucide-react'
 import { leerHojaCruda, EXTENSIONES_ACEPTADAS, type ArchivoCrudo } from '@/data/archivos'
 import { guardarPlantillaTracker, ejecutarImportacionTracker } from '@/data/repos/tracker'
 import { inferirPlantilla, type PlantillaInferida } from '@/domain/tracker/inferencia'
-import { construirPlantilla, indexarColumnas } from '@/domain/tracker/aplicacion'
+import { construirPlantilla, convertirFila, indexarColumnas } from '@/domain/tracker/aplicacion'
 import { coercionar, type TipoCampo } from '@/domain/tracker/campos'
+import { resumirCalidad } from '@/domain/tracker/calidad'
+import type { TipoEtapa } from '@/domain/gates/catalogo'
+import { estaEnAlcance, tieneAlcance } from '@/domain/permisos/alcance'
 import { puedeCorregirComoAdmin } from '@/domain/gates/maquina'
 import { crearId } from '@/domain/tipos/identificadores'
 import { mensajeDeError, usarAvisos } from '@/app/avisos'
@@ -23,6 +26,7 @@ import {
   Selector,
 } from '@/components/ui'
 import { RevisionPlantillaInferida } from './RevisionPlantilla'
+import { PanelCalidadArchivo } from './CalidadArchivo'
 import { EliminarSeguimientosProyecto } from './EliminarSeguimientosProyecto'
 
 type Paso = 'archivo' | 'revisar' | 'importando' | 'listo'
@@ -34,6 +38,8 @@ interface Resumen {
   sitios: number
   omitidas: number
   fueraDeOrden: number
+  noVigentes: number
+  enHold: number
   problemas: [string, number][]
 }
 
@@ -58,7 +64,16 @@ export default function PaginaImportarTracker() {
   const [proyectoId, setProyectoId] = useState('')
   const [proveedorId, setProveedorId] = useState('')
 
-  const proyecto = proyectos.find((p) => p.id === proyectoId) ?? null
+  // Un usuario acotado solo puede importar a proyectos de su alcance: las reglas
+  // rechazarian cualquier otro. No se le ofrecen.
+  const acotado = tieneAlcance(actor)
+  const proyectosElegibles = acotado
+    ? proyectos.filter((p) =>
+        estaEnAlcance(actor, { celulaId: p.celulaId, programaId: p.programaId, proyectoId: p.id }),
+      )
+    : proyectos
+
+  const proyecto = proyectosElegibles.find((p) => p.id === proyectoId) ?? null
   const programaDe = (id: string | null) => programas.find((p) => p.id === id) ?? null
 
   const filasDatos = useMemo(() => {
@@ -92,6 +107,23 @@ export default function PaginaImportarTracker() {
       ),
     })
   }
+
+  /** Cambia una etapa entre secuencial y paralela. */
+  const cambiarTipoEtapa = (idEtapa: string, tipo: TipoEtapa) => {
+    if (propuesta === null) return
+    setPropuesta({
+      ...propuesta,
+      etapas: propuesta.etapas.map((e) => (e.id === idEtapa ? { ...e, tipo } : e)),
+    })
+  }
+
+  // Se recalcula al cambiar la propuesta: pasar una etapa a paralela cambia en
+  // que etapa queda cada sitio y, con eso, cuanto coincide con el Excel.
+  const calidad = useMemo(() => {
+    if (propuesta === null || filasDatos.length === 0) return null
+    const indiceCalidad = indexarColumnas(propuesta)
+    return resumirCalidad(filasDatos.map((f) => convertirFila(f, propuesta, indiceCalidad)))
+  }, [propuesta, filasDatos])
 
   const cargar = async (f: File, hoja?: string) => {
     setLeyendo(true)
@@ -167,6 +199,8 @@ export default function PaginaImportarTracker() {
         sitios: r.seguimientosEscritos,
         omitidas: r.filasOmitidas,
         fueraDeOrden: r.fueraDeOrden,
+        noVigentes: r.noVigentes,
+        enHold: r.enHold,
         problemas: [...r.problemas].sort((a, b) => b[1] - a[1]),
       })
       setPaso('listo')
@@ -254,7 +288,10 @@ export default function PaginaImportarTracker() {
                 propuesta={propuesta}
                 indice={indice}
                 onCambiarTipo={cambiarTipo}
+                onCambiarTipoEtapa={cambiarTipoEtapa}
               />
+
+              {calidad !== null && <PanelCalidadArchivo calidad={calidad} />}
 
               <div className="rounded-lg border border-borde bg-superficie p-3">
                 <h3 className="mb-3 flex items-center gap-2 text-md">
@@ -273,7 +310,15 @@ export default function PaginaImportarTracker() {
                     etiqueta="Proyecto"
                     htmlFor="proy"
                     obligatorio
-                    ayuda={proyectos.length === 0 ? 'Créalo en Configuración' : undefined}
+                    ayuda={
+                      proyectosElegibles.length === 0
+                        ? acotado
+                          ? 'Ningún proyecto de tu alcance'
+                          : 'Créalo en Configuración'
+                        : acotado
+                          ? 'Solo los proyectos de tu alcance'
+                          : undefined
+                    }
                   >
                     <Selector
                       id="proy"
@@ -281,7 +326,7 @@ export default function PaginaImportarTracker() {
                       onChange={(e) => setProyectoId(e.target.value)}
                     >
                       <option value="">Elige un proyecto…</option>
-                      {proyectos.map((p) => (
+                      {proyectosElegibles.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.nombre}
                         </option>
@@ -358,11 +403,21 @@ export default function PaginaImportarTracker() {
                 </Aviso>
               )}
 
+              {(resumen.noVigentes > 0 || resumen.enHold > 0) && (
+                <Aviso tono="info" titulo="Vigencia y On Hold">
+                  {resumen.noVigentes > 0 &&
+                    `${resumen.noVigentes} sitios quedaron como no vigentes: no aparecen en la lista de sitios salvo que cambies el filtro de vigencia. `}
+                  {resumen.enHold > 0 &&
+                    `${resumen.enHold} sitios quedaron bloqueados porque el tracker los marca On Hold.`}
+                </Aviso>
+              )}
+
               {resumen.fueraDeOrden > 0 && (
                 <Aviso tono="riesgo" titulo="Avance fuera de orden">
-                  {resumen.fueraDeOrden} sitios tienen etapas aprobadas <em>después</em> de la que
-                  los tiene frenados. No es un problema de la importación: es lo que dice el
-                  tracker, y casi siempre significa que una celda quedó sin actualizar.
+                  {resumen.fueraDeOrden} sitios tienen etapas secuenciales aprobadas{' '}
+                  <em>después</em> de la que los tiene frenados. No es un problema de la
+                  importación: es lo que dice el tracker, y casi siempre significa que una celda
+                  quedó sin actualizar.
                 </Aviso>
               )}
 

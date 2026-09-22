@@ -55,6 +55,7 @@ describe('codificacion de filtros en la URL', () => {
         prioridad: 'critica',
         soloAtrasados: true,
         soloBloqueados: true,
+        vigencia: 'no_vigentes',
       },
       orden: { campo: 'plan', direccion: 'asc' },
     })
@@ -84,6 +85,21 @@ describe('codificacion de filtros en la URL', () => {
     expect(estado.vista.texto).toBe('')
     expect(estado.servidor.programaId).toBeNull()
     expect(estado.vista.region).toBeNull()
+  })
+
+  it('la vigencia por defecto no ensucia la URL, las otras viajan como vig', () => {
+    expect(aTextoUrl(con({ vista: { ...ESTADO_VACIO.vista, vigencia: 'vigentes' } }))).toBe('')
+    expect(aTextoUrl(con({ vista: { ...ESTADO_VACIO.vista, vigencia: 'todos' } }))).toBe(
+      'vig=todos',
+    )
+    expect(desdeParametros(new URLSearchParams('vig=no_vigentes')).vista.vigencia).toBe(
+      'no_vigentes',
+    )
+  })
+
+  it('una vigencia desconocida vuelve a la de por defecto', () => {
+    expect(desdeParametros(new URLSearchParams('vig=quiza')).vista.vigencia).toBe('vigentes')
+    expect(desdeParametros(new URLSearchParams('')).vista.vigencia).toBe('vigentes')
   })
 
   it('acepta CERRADO como gate', () => {

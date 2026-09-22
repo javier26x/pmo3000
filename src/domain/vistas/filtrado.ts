@@ -47,6 +47,20 @@ export interface FiltrosVista {
   gateActual: GateActual | null
   soloAtrasados: boolean
   soloBloqueados: boolean
+  /**
+   * Por defecto solo los vigentes: un sitio eliminado o fuera de plan conserva
+   * su historia, pero no deberia inflar ni los conteos ni la lista de trabajo.
+   */
+  vigencia: FiltroVigencia
+}
+
+export const FILTROS_VIGENCIA = ['vigentes', 'todos', 'no_vigentes'] as const
+export type FiltroVigencia = (typeof FILTROS_VIGENCIA)[number]
+
+export const NOMBRES_VIGENCIA: Record<FiltroVigencia, string> = {
+  vigentes: 'Solo vigentes',
+  todos: 'Vigentes y no vigentes',
+  no_vigentes: 'Solo no vigentes',
 }
 
 export const FILTROS_VISTA_VACIOS: FiltrosVista = {
@@ -57,6 +71,7 @@ export const FILTROS_VISTA_VACIOS: FiltrosVista = {
   gateActual: null,
   soloAtrasados: false,
   soloBloqueados: false,
+  vigencia: 'vigentes',
 }
 
 export function hayFiltrosServidor(filtros: FiltrosSeguimiento): boolean {
@@ -70,8 +85,28 @@ export function hayFiltrosActivos(filtros: FiltrosVista): boolean {
     filtros.comuna !== null ||
     filtros.prioridad !== null ||
     filtros.soloAtrasados ||
-    filtros.soloBloqueados
+    filtros.soloBloqueados ||
+    filtros.vigencia !== 'vigentes'
   )
+}
+
+/**
+ * IDs de sitio pegados en el buscador.
+ *
+ * Reemplaza la hoja SEARCH del tracker: se pega una columna de IDs sacada de un
+ * correo o de otra planilla y la lista muestra exactamente esos sitios. Se
+ * activa solo con dos o mas "palabras" y solo si TODAS parecen un ID (tienen un
+ * digito y ningun espacio interno), para no confundir "cerro azul" con dos IDs.
+ * Devuelve los IDs normalizados, o null si el texto es una busqueda comun.
+ */
+export function idsDeBusqueda(texto: string): string[] | null {
+  const tokens = texto
+    .split(/[\s,;]+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+  if (tokens.length < 2) return null
+  if (!tokens.every((t) => /\d/.test(t) && /^[\p{L}\p{N}_\-./]+$/u.test(t))) return null
+  return [...new Set(tokens.map((t) => normalizar(t)))]
 }
 
 function normalizar(texto: string): string {
@@ -122,8 +157,15 @@ export function filtrarSeguimientos(
   hoy: FechaISO = hoyEnChile(),
 ): SitioProyecto[] {
   const buscado = normalizar(filtros.texto.trim())
+  const ids = idsDeBusqueda(filtros.texto)
+  const conjuntoIds = ids === null ? null : new Set(ids)
+  // Filtros armados antes de que existiera la vigencia (vistas guardadas, codigo
+  // viejo) no la traen: se leen como el valor por defecto.
+  const vigencia = filtros.vigencia ?? 'vigentes'
 
   return lista.filter((sp) => {
+    if (vigencia === 'vigentes' && sp.vigente === false) return false
+    if (vigencia === 'no_vigentes' && sp.vigente !== false) return false
     if (filtros.gateActual && sp.gateActual !== filtros.gateActual) return false
     if (filtros.region && sp.region !== filtros.region) return false
     if (filtros.comuna && sp.comuna !== filtros.comuna) return false
@@ -131,6 +173,7 @@ export function filtrarSeguimientos(
     if (filtros.soloBloqueados && !sp.bloqueado) return false
     if (filtros.soloAtrasados && !estaAtrasado(sp, hoy)) return false
 
+    if (conjuntoIds !== null) return conjuntoIds.has(normalizar(sp.sitioId))
     if (buscado !== '' && !henoDe(sp).includes(buscado)) return false
 
     return true
@@ -142,9 +185,12 @@ export function filtrarSitios(
   filtros: Pick<FiltrosVista, 'texto' | 'region' | 'comuna'>,
 ): Sitio[] {
   const buscado = normalizar(filtros.texto.trim())
+  const ids = idsDeBusqueda(filtros.texto)
+  const conjuntoIds = ids === null ? null : new Set(ids)
   return lista.filter((s) => {
     if (filtros.region && s.region !== filtros.region) return false
     if (filtros.comuna && s.comuna !== filtros.comuna) return false
+    if (conjuntoIds !== null) return conjuntoIds.has(normalizar(s.id))
     if (buscado === '') return true
     return normalizar(
       `${s.id} ${s.nombre} ${s.comuna} ${s.region} ${s.tecnologias.join(' ')}`,

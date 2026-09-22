@@ -28,6 +28,7 @@ import {
   type TipoCampo,
 } from './campos'
 import { normalizarTexto } from './estados'
+import type { TipoEtapa } from '@/domain/gates/catalogo'
 
 // --------------------------------------------------------------- identidad
 
@@ -80,13 +81,80 @@ const ALIAS_ETAPA: Record<string, string> = {
   dom: 'DOM',
   subtel: 'Subtel',
   empalme: 'Empalme',
-  sitio: 'Sitio',
+  // "Estado OOCC" es el avance de las obras civiles en terreno: la etapa de
+  // construccion. OOCC como disciplina que revisa ("Status Ing OOCC") no pasa
+  // por aca, porque la cola de un encabezado se lee antes como disciplina.
+  oocc: 'Construcción',
+  construccion: 'Construcción',
+  'obras civiles': 'Construcción',
+  'on air': 'On Air',
+  onair: 'On Air',
 }
 
 function nombreEtapa(crudo: string): string {
   const clave = normalizarTexto(crudo)
   return ALIAS_ETAPA[clave] ?? crudo.trim()
 }
+
+/**
+ * Etapas que son requisitos paralelos y no pasos del proceso.
+ *
+ * En el tracker Outdoor el proceso es TSS -> Ingenieria -> Construccion -> As
+ * Built -> On Air. El FC, el contrato, el DOM, la transmision, el IPRAN, la
+ * energia (OOEE, empalme), Subtel y el API firmado corren al lado: se exigen,
+ * pero un sitio con el contrato sin firmar puede estar perfectamente en
+ * construccion. Tratarlos como pasos dejaba a 1.169 de 1.388 sitios "en FC".
+ *
+ * Es la unica lista de esto en la app. Solo se aplica a etapas SIN revisiones
+ * por disciplina: una etapa que revisan RF y OOCC es un paso del proceso, se
+ * llame como se llame. Y es una propuesta: en la revision de la plantilla cada
+ * etapa se puede cambiar a mano.
+ */
+export const PALABRAS_ETAPA_PARALELA = [
+  'fc',
+  'contrato',
+  'dom',
+  'transmision',
+  'tx',
+  'ipran',
+  'uan',
+  'ooee',
+  'energia',
+  'subtel',
+  'api',
+  'empalme',
+] as const
+
+export function esNombreDeEtapaParalela(nombre: string): boolean {
+  const palabras = normalizarTexto(nombre).split(/[^a-z0-9]+/)
+  return palabras.some((p) => (PALABRAS_ETAPA_PARALELA as readonly string[]).includes(p))
+}
+
+/** Tipo que se propone para una etapa. Ver PALABRAS_ETAPA_PARALELA. */
+export function tipoPropuestoDeEtapa(nombre: string, conRevisiones: boolean): TipoEtapa {
+  return !conRevisiones && esNombreDeEtapaParalela(nombre) ? 'paralela' : 'secuencial'
+}
+
+/**
+ * La columna consolidada del sitio ("Status Sitio") NO es una etapa: es el
+ * resultado que alguien escribe a mano a partir de las etapas. Si se leyera
+ * como etapa quedaria ultima, abierta para siempre ("On Air 4G" no es un
+ * aprobado) y todos los sitios quedarian fuera de orden. Se guarda aparte, solo
+ * para compararla con lo que dicen las etapas.
+ */
+const RE_ESTADO_SITIO = /^(status|estado)s?\s+(del\s+)?(sitio|consolidados?|general)$/i
+
+/** "Vigencia": si el sitio sigue en el plan. */
+const ALIAS_VIGENCIA = ['vigencia', 'vigente', 'estado vigencia', 'vigencia sitio']
+
+/** La columna de fase del proyecto, donde tambien se anota "On Hold" o "Eliminado". */
+const ALIAS_FASE = ['proyecto', 'fase', 'fase proyecto', 'etapa proyecto']
+
+/** "Sitios On air" y "Fecha Sitio On Air": el hito final del proceso. */
+const RE_ON_AIR = /^(sitios?\s+)?on\s*air$/
+const RE_FECHA_ON_AIR = /^fecha\s+(de\s+)?(sitio\s+)?on\s*air$/
+
+const ETAPA_ON_AIR = 'On Air'
 
 /**
  * Todas las formas en que un encabezado puede nombrar a una etapa.
@@ -174,7 +242,21 @@ export function inferirTipo(
 
 // --------------------------------------------------------------- resultado
 
-export type RolColumna = 'identidad' | 'estado' | 'comentario' | 'fecha' | 'semana' | 'atributo'
+/**
+ * - vigencia: si el sitio sigue en el plan ("Vigencia"). Se guarda como campo y
+ *   ademas define `vigente` del seguimiento.
+ * - estadoSitio: el estado consolidado que el tracker escribe a mano ("Status
+ *   Sitio"). No es una etapa; se guarda como campo y sirve para comparar.
+ */
+export type RolColumna =
+  | 'identidad'
+  | 'estado'
+  | 'comentario'
+  | 'fecha'
+  | 'semana'
+  | 'atributo'
+  | 'vigencia'
+  | 'estadoSitio'
 
 export interface ColumnaInferida {
   indice: number
@@ -194,7 +276,22 @@ export interface EtapaInferida {
   id: string
   nombre: string
   orden: number
+  /** Paso del proceso o requisito paralelo. Ver PALABRAS_ETAPA_PARALELA. */
+  tipo: TipoEtapa
   revisiones: { id: string; nombre: string }[]
+  /**
+   * Si una fecha en la columna de fecha de la etapa basta para cerrarla. Es el
+   * caso de On Air: "Fecha Sitio On Air" llena dice que el sitio salio al aire
+   * aunque nadie haya escrito "On Air" al lado.
+   */
+  cierraConFecha?: boolean
+}
+
+/** Columnas que no son etapas pero dicen algo de la condicion del sitio. */
+export interface CondicionInferida {
+  vigencia?: number
+  fase?: number
+  estadoSitio?: number
 }
 
 export interface PlantillaInferida {
@@ -202,6 +299,7 @@ export interface PlantillaInferida {
   etapas: EtapaInferida[]
   columnas: ColumnaInferida[]
   identidad: Partial<Record<ClaveIdentidad, number>>
+  condicion: CondicionInferida
   avisos: string[]
 }
 
@@ -272,7 +370,11 @@ function etapaMencionada(
     ),
   )
   if (calzan.length === 0) return null
-  const noDisciplinas = calzan.filter((e) => !disciplinas.has(normalizarTexto(e)))
+  // Se mira cada forma de nombrar la etapa, no solo el nombre bueno: la etapa
+  // "Construcción" se escribe "OOCC", que tambien es una disciplina.
+  const noDisciplinas = calzan.filter(
+    (e) => !tokensDeEtapa(e).some((token) => disciplinas.has(token)),
+  )
   const candidatas = noDisciplinas.length > 0 ? noDisciplinas : calzan
   return candidatas.reduce((a, b) =>
     normalizarTexto(b).length > normalizarTexto(a).length ? b : a,
@@ -336,7 +438,7 @@ function asignarColumnasAEtapas(
   })
 
   encabezados.forEach((enc, i) => {
-    if (enc === '' || identidad.has(i)) return
+    if (enc === '' || identidad.has(i) || RE_ESTADO_SITIO.test(enc)) return
     const explicita = RE_ESTADO.test(enc)
       ? (partirEncabezadoDeEstado(enc, disciplinas)?.etapa ?? null)
       : etapaMencionada(enc, fiables, disciplinas)
@@ -349,7 +451,7 @@ function asignarColumnasAEtapas(
   // reclamar las sesenta y ocho columnas del medio, que son de otras etapas.
   const rangos = new Map<string, { min: number; max: number }>()
   encabezados.forEach((enc, i) => {
-    if (enc === '' || !RE_ESTADO.test(enc)) return
+    if (enc === '' || !RE_ESTADO.test(enc) || RE_ESTADO_SITIO.test(enc)) return
     const etapa = partirEncabezadoDeEstado(enc, disciplinas)?.etapa
     if (etapa === undefined) return
     const r = rangos.get(etapa)
@@ -418,7 +520,7 @@ export function inferirPlantilla(
   //    aparicion de izquierda a derecha es el orden del proceso.
   const etapasPorNombre = new Map<string, { orden: number; revisiones: Map<string, string> }>()
   encabezados.forEach((enc, i) => {
-    if (enc === '' || !RE_ESTADO.test(enc)) return
+    if (enc === '' || !RE_ESTADO.test(enc) || RE_ESTADO_SITIO.test(enc)) return
     const partido = partirEncabezadoDeEstado(enc, disciplinas)
     if (partido === null) return
     if (!etapasPorNombre.has(partido.etapa)) {
@@ -431,13 +533,29 @@ export function inferirPlantilla(
     }
   })
 
+  // El hito On Air no viene como "Status": viene como "Sitios On air" y "Fecha
+  // Sitio On Air". Cuando esta, es el ultimo paso del proceso.
+  const indiceOnAir = encabezados.findIndex((enc) => RE_ON_AIR.test(normalizarTexto(enc)))
+  const indiceFechaOnAir = encabezados.findIndex((enc) =>
+    RE_FECHA_ON_AIR.test(normalizarTexto(enc)),
+  )
+  const conOnAir = (indiceOnAir >= 0 || indiceFechaOnAir >= 0) && !etapasPorNombre.has(ETAPA_ON_AIR)
+  if (conOnAir) {
+    etapasPorNombre.set(ETAPA_ON_AIR, {
+      orden: Number.MAX_SAFE_INTEGER,
+      revisiones: new Map(),
+    })
+  }
+
   const etapas: EtapaInferida[] = [...etapasPorNombre.entries()]
     .sort((a, b) => a[1].orden - b[1].orden)
     .map(([nombre, datosEtapa], orden) => ({
       id: idUnico(nombre, new Set()),
       nombre,
       orden,
+      tipo: tipoPropuestoDeEtapa(nombre, datosEtapa.revisiones.size > 0),
       revisiones: [...datosEtapa.revisiones.entries()].map(([id, nom]) => ({ id, nombre: nom })),
+      ...(nombre === ETAPA_ON_AIR && conOnAir ? { cierraConFecha: true } : {}),
     }))
 
   if (etapas.length === 0) {
@@ -456,6 +574,19 @@ export function inferirPlantilla(
     const i = encabezados.findIndex((enc) => enc !== '' && alias.includes(normalizarTexto(enc)))
     if (i >= 0) identidad[clave] = i
   }
+  // 3b. Condicion del sitio: vigencia, fase (con sus On Hold) y el estado
+  //     consolidado. No son identidad (se guardan igual como campos), pero la
+  //     importacion las lee aparte.
+  const condicion: CondicionInferida = {}
+  const buscar = (alias: readonly string[]) =>
+    encabezados.findIndex((enc) => enc !== '' && alias.includes(normalizarTexto(enc)))
+  const iVigencia = buscar(ALIAS_VIGENCIA)
+  if (iVigencia >= 0) condicion.vigencia = iVigencia
+  const iFase = buscar(ALIAS_FASE)
+  if (iFase >= 0) condicion.fase = iFase
+  const iEstadoSitio = encabezados.findIndex((enc) => enc !== '' && RE_ESTADO_SITIO.test(enc))
+  if (iEstadoSitio >= 0) condicion.estadoSitio = iEstadoSitio
+
   for (const obligatoria of ['id', 'nombre'] as const) {
     if (identidad[obligatoria] === undefined) {
       avisos.push(
@@ -482,16 +613,42 @@ export function inferirPlantilla(
     const llenos = valores.filter((v) => v !== null && String(v).trim() !== '')
     if (llenos.length === 0) return // columna vacía: no se propone
 
-    const { tipo, opciones: ops } = inferirTipo(enc, valores)
+    const inferido = inferirTipo(enc, valores)
+    let tipo = inferido.tipo
+    let ops = inferido.opciones
     const id = idUnico(enc, idsTomados)
     idsTomados.add(id)
 
-    const etapa = indicesIdentidad.has(i) ? null : (etapaPorColumna.get(i) ?? null)
-    const revision = RE_ESTADO.test(enc)
-      ? (partirEncabezadoDeEstado(enc, disciplinas)?.revision ?? null)
-      : null
+    const esOnAir = conOnAir && (i === indiceOnAir || i === indiceFechaOnAir)
+    let etapa = indicesIdentidad.has(i) ? null : (etapaPorColumna.get(i) ?? null)
+    if (esOnAir) etapa = ETAPA_ON_AIR
+    else if (etapa === ETAPA_ON_AIR) etapa = null
+    if (i === condicion.estadoSitio || i === condicion.vigencia) etapa = null
 
-    const rol: RolColumna = indicesIdentidad.has(i) ? 'identidad' : rolDe(enc, tipo)
+    const revision =
+      RE_ESTADO.test(enc) && i !== condicion.estadoSitio
+        ? (partirEncabezadoDeEstado(enc, disciplinas)?.revision ?? null)
+        : null
+
+    let rol: RolColumna = indicesIdentidad.has(i) ? 'identidad' : rolDe(enc, tipo)
+    if (i === condicion.estadoSitio) {
+      rol = 'estadoSitio'
+      // Se guarda como lista de opciones: su texto ("En Construcción 4G") no es
+      // un estado de revision y clasificarlo como tal no diria nada.
+      tipo = 'opcion'
+      ops = [...new Set(llenos.map((v) => String(v).trim()))].sort((a, b) =>
+        a.localeCompare(b, 'es'),
+      )
+    } else if (i === condicion.vigencia) {
+      rol = 'vigencia'
+    } else if (esOnAir && i === indiceOnAir) {
+      // "Sitios On air" es el estado consolidado de la etapa On Air.
+      rol = 'estado'
+      tipo = 'estado'
+      ops = [...new Set(llenos.map((v) => String(v).trim()))].sort()
+    } else if (esOnAir) {
+      rol = 'fecha'
+    }
     const noConvertibles = llenos.filter((v) => !coercionar(tipo, v).ok).length
 
     columnas.push({
@@ -525,5 +682,5 @@ export function inferirPlantilla(
   // congelado al momento de inferir seguiria nombrando una columna ya
   // arreglada. Se deriva de `columnas` donde se muestra.
 
-  return { filaEncabezado, etapas, columnas, identidad, avisos }
+  return { filaEncabezado, etapas, columnas, identidad, condicion, avisos }
 }

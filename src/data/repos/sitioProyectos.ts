@@ -8,6 +8,7 @@
  * el cliente sobre el conjunto ya acotado.
  */
 import {
+  and,
   collection,
   doc,
   getCountFromServer,
@@ -15,6 +16,7 @@ import {
   getDoc,
   limit as limitar,
   onSnapshot,
+  or,
   orderBy,
   query,
   serverTimestamp,
@@ -22,6 +24,9 @@ import {
   where,
   writeBatch,
   type DocumentReference,
+  type Query,
+  type QueryFieldFilterConstraint,
+  type QueryNonFilterConstraint,
   type WriteBatch,
   type Unsubscribe,
 } from 'firebase/firestore'
@@ -31,6 +36,7 @@ import { normalizarComentario, normalizarSitioProyecto, type Comentario } from '
 import { agregarEventos } from '../auditoria'
 import { crearGatesDesdePlantilla, type Parche } from '@/domain/gates/maquina'
 import { filtroObligatorio } from '@/domain/permisos/matriz'
+import { planAlcance } from '@/domain/permisos/alcance'
 import { FILTROS_SERVIDOR_VACIOS, type FiltrosSeguimiento } from '@/domain/vistas/filtrado'
 import { idSitioProyecto, type SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import type { GateTemplate } from '@/domain/tipos/gate'
@@ -73,6 +79,65 @@ export function refSeguimiento(id: string) {
   return doc(db, COLECCIONES.sitioProyectos, id).withConverter(convertidor)
 }
 
+/** Campos por los que se filtra un seguimiento con igualdad en el servidor. */
+export type IgualdadesSeguimiento = Partial<
+  Record<'sitioId' | 'proveedorId' | 'programaId' | 'proyectoId' | 'celulaId', string>
+>
+
+/**
+ * Consulta de seguimientos con lo que las reglas exigen para ESTE actor, o null
+ * si con esos filtros no hay nada que el actor pueda ver (no hace falta ir al
+ * servidor).
+ *
+ * Firestore evalua las reglas sobre la CONSULTA: si la consulta no demuestra
+ * que todo lo que puede devolver es visible, falla completa con
+ * permission-denied. Por eso toda consulta de la coleccion pasa por aqui y
+ * lleva:
+ *
+ * - el filtro por proveedor del contratista (filtroObligatorio), y
+ * - si el actor tiene alcance, un or() con un where-in por cada lista del
+ *   alcance (celulaId in C, programaId in P, proyectoId in Q), ajustado a las
+ *   igualdades que ya trae la consulta. El ajuste no es cosmetico: ver
+ *   planAlcance() en src/domain/permisos/alcance.ts.
+ *
+ * El or() no pasa de 30 valores (MAX_ENTRADAS_ALCANCE), asi que la consulta
+ * combinada tampoco pasa del tope de disyunciones de Firestore. Son todas
+ * igualdades, sin orderBy: no piden indices compuestos.
+ */
+export function consultaVisible(
+  actor: Pick<Actor, 'rol' | 'proveedorId' | 'alcance'>,
+  igualdades: IgualdadesSeguimiento,
+  ...resto: QueryNonFilterConstraint[]
+): Query<SitioProyecto> | null {
+  const base = collection(db, COLECCIONES.sitioProyectos).withConverter(convertidor)
+
+  const fijados: IgualdadesSeguimiento = { ...igualdades }
+  const obligatorio = filtroObligatorio(actor)
+  if (obligatorio) fijados[obligatorio.campo] = obligatorio.valor
+
+  const filtros: QueryFieldFilterConstraint[] = Object.entries(fijados)
+    .filter((par): par is [string, string] => typeof par[1] === 'string' && par[1] !== '')
+    .map(([campo, valor]) => where(campo, '==', valor))
+
+  const plan = planAlcance(actor, fijados)
+  if (plan.tipo === 'vacio') return null
+  if (plan.tipo === 'sinRestriccion') return query(base, ...filtros, ...resto)
+
+  const enAlcance = or(...plan.disyunciones.map((d) => where(d.campo, 'in', d.valores)))
+  return query(base, and(...filtros, enAlcance), ...resto)
+}
+
+/** Para cuando consultaVisible() dice que no hay nada: entrega [] y no escucha. */
+function suscripcionVacia(cb: (datos: SitioProyecto[]) => void): Unsubscribe {
+  let activa = true
+  queueMicrotask(() => {
+    if (activa) cb([])
+  })
+  return () => {
+    activa = false
+  }
+}
+
 export function observarSeguimientos(
   actor: Actor,
   filtros: FiltrosSeguimiento,
@@ -80,24 +145,19 @@ export function observarSeguimientos(
   onError: (e: Error) => void,
   tope: number = TOPE_SEGUIMIENTOS,
 ): Unsubscribe {
-  const restricciones = []
-
-  // Un contratista SIEMPRE consulta acotado a su empresa. Sin este where la
-  // consulta completa falla con permission-denied: Firestore evalua las reglas
-  // documento por documento.
-  const obligatorio = filtroObligatorio(actor)
-  if (obligatorio) restricciones.push(where(obligatorio.campo, '==', obligatorio.valor))
-  else if (filtros.proveedorId) restricciones.push(where('proveedorId', '==', filtros.proveedorId))
-
-  if (filtros.programaId) restricciones.push(where('programaId', '==', filtros.programaId))
-  if (filtros.proyectoId) restricciones.push(where('proyectoId', '==', filtros.proyectoId))
-  if (filtros.celulaId) restricciones.push(where('celulaId', '==', filtros.celulaId))
-
-  const q = query(
-    collection(db, COLECCIONES.sitioProyectos).withConverter(convertidor),
-    ...restricciones,
+  // Un contratista SIEMPRE consulta acotado a su empresa: consultaVisible le
+  // pone su proveedor encima de lo que diga el filtro.
+  const q = consultaVisible(
+    actor,
+    {
+      ...(filtros.proveedorId ? { proveedorId: filtros.proveedorId } : {}),
+      ...(filtros.programaId ? { programaId: filtros.programaId } : {}),
+      ...(filtros.proyectoId ? { proyectoId: filtros.proyectoId } : {}),
+      ...(filtros.celulaId ? { celulaId: filtros.celulaId } : {}),
+    },
     limitar(tope),
   )
+  if (!q) return suscripcionVacia(cb)
 
   // Cuando alguien avanza un gate, el snapshot trae los 1.500 documentos pero
   // solo uno cambio. Normalizar solo los que cambiaron ahorra el trabajo y, mas
@@ -130,15 +190,19 @@ export function observarSeguimiento(
   )
 }
 
+/**
+ * Participaciones de un sitio en sus proyectos. Un usuario acotado ve solo las
+ * de su alcance (y un contratista, las de su empresa): el mismo sitio puede
+ * estar en proyectos que no le corresponden.
+ */
 export function observarSeguimientosDeSitio(
+  actor: Actor,
   sitioId: string,
   cb: (datos: SitioProyecto[]) => void,
   onError: (e: Error) => void,
 ): Unsubscribe {
-  const q = query(
-    collection(db, COLECCIONES.sitioProyectos).withConverter(convertidor),
-    where('sitioId', '==', sitioId),
-  )
+  const q = consultaVisible(actor, { sitioId })
+  if (!q) return suscripcionVacia(cb)
   return onSnapshot(
     q,
     (snap) => cb(snap.docs.map((d) => d.data())),
@@ -462,7 +526,10 @@ export async function eliminarSeguimiento(
   return { comentarios: comentarios.length }
 }
 
-/** Cuantos seguimientos tiene un proyecto. Lee el conteo, no los documentos. */
+/**
+ * Cuantos seguimientos tiene un proyecto. Lee el conteo, no los documentos.
+ * Sin acotar por alcance: solo la usa el admin, antes de eliminar.
+ */
 export async function contarSeguimientosDeProyecto(proyectoId: string): Promise<number> {
   const snap = await getCountFromServer(
     query(collection(db, COLECCIONES.sitioProyectos), where('proyectoId', '==', proyectoId)),
@@ -493,13 +560,10 @@ export async function eliminarSeguimientosDeProyecto(
 ): Promise<{ seguimientos: number; comentarios: number }> {
   if (!motivo.trim()) throw new Error('Eliminar seguimientos exige un motivo')
 
-  const snap = await getDocs(
-    query(
-      collection(db, COLECCIONES.sitioProyectos).withConverter(convertidor),
-      where('proyectoId', '==', proyectoId),
-    ),
-  )
-  const seguimientos = snap.docs.map((d) => d.data())
+  // Es cosa de admin, que no tiene alcance; consultaVisible deja la consulta
+  // igual que siempre y no hay que recordar agregarle nada si eso cambia.
+  const consulta = consultaVisible(actor, { proyectoId })
+  const seguimientos = consulta ? (await getDocs(consulta)).docs.map((d) => d.data()) : []
   if (seguimientos.length === 0) return { seguimientos: 0, comentarios: 0 }
 
   // Los comentarios se leen en tandas en paralelo: uno por uno serian 1.500

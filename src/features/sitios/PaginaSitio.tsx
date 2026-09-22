@@ -75,9 +75,9 @@ export function PaginaSitio() {
   const suscribirSeguimientos = useCallback(
     (cb: (s: SitioProyecto[]) => void, onError: (e: Error) => void) => {
       if (!sitioId) return () => {}
-      return observarSeguimientosDeSitio(sitioId, cb, onError)
+      return observarSeguimientosDeSitio(actor, sitioId, cb, onError)
     },
-    [sitioId],
+    [actor, sitioId],
   )
 
   const {

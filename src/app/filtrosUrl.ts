@@ -11,10 +11,12 @@
 import {
   CAMPOS_ORDEN,
   FILTROS_SERVIDOR_VACIOS,
+  FILTROS_VIGENCIA,
   FILTROS_VISTA_VACIOS,
   gateDesdeTexto,
   type CampoOrden,
   type DireccionOrden,
+  type FiltroVigencia,
   type FiltrosSeguimiento,
   type FiltrosVista,
 } from '@/domain/vistas/filtrado'
@@ -47,6 +49,7 @@ const CLAVES = {
   prioridad: 'pri',
   soloAtrasados: 'atr',
   soloBloqueados: 'blo',
+  vigencia: 'vig',
   orden: 'ord',
 } as const
 
@@ -68,6 +71,10 @@ export function aParametros(estado: EstadoFiltros): URLSearchParams {
   poner(CLAVES.prioridad, estado.vista.prioridad)
   if (estado.vista.soloAtrasados) p.set(CLAVES.soloAtrasados, '1')
   if (estado.vista.soloBloqueados) p.set(CLAVES.soloBloqueados, '1')
+  // Como el orden, la vigencia solo viaja si no es la de por defecto.
+  if (estado.vista.vigencia !== FILTROS_VISTA_VACIOS.vigencia) {
+    p.set(CLAVES.vigencia, estado.vista.vigencia)
+  }
 
   // El orden solo viaja si no es el de por defecto: una URL sin filtros queda limpia.
   if (
@@ -91,6 +98,7 @@ export function desdeParametros(p: URLSearchParams): EstadoFiltros {
   const direccion = ordenCrudo[1]
 
   const prioridad = texto(p, CLAVES.prioridad)
+  const vigencia = texto(p, CLAVES.vigencia)
 
   return {
     servidor: {
@@ -110,6 +118,10 @@ export function desdeParametros(p: URLSearchParams): EstadoFiltros {
           : null,
       soloAtrasados: p.get(CLAVES.soloAtrasados) === '1',
       soloBloqueados: p.get(CLAVES.soloBloqueados) === '1',
+      vigencia:
+        vigencia && (FILTROS_VIGENCIA as readonly string[]).includes(vigencia)
+          ? (vigencia as FiltroVigencia)
+          : FILTROS_VISTA_VACIOS.vigencia,
     },
     orden: {
       campo:

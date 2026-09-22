@@ -74,12 +74,18 @@ export function crearGatesDesdePlantilla(
   fechaPlanGateActual: FechaISO | null
 } {
   const ordenados = [...plantilla.gates].sort((a, b) => a.orden - b.orden)
+  // Las paralelas se instancian (se siguen y se muestran) pero no entran en la
+  // cadena: no tienen `siguiente`, no suman SLA a la secuencia y el sitio nunca
+  // arranca en una de ellas.
+  const secuenciales = ordenados.filter((g) => g.tipo !== 'paralela')
   const gates: Partial<Record<CodigoGate, GateSitio>> = {}
 
   let acumulado = opciones.fechaInicio
-  for (const [i, g] of ordenados.entries()) {
-    const fechaPlan = acumulado ? sumarDias(acumulado, g.slaDias) : null
+  for (const g of ordenados) {
+    const paralela = g.tipo === 'paralela'
+    const fechaPlan = !paralela && acumulado ? sumarDias(acumulado, g.slaDias) : null
     if (fechaPlan) acumulado = fechaPlan
+    const i = secuenciales.indexOf(g)
 
     const checklist: Record<string, ItemChecklist> = {}
     for (const item of g.checklist) {
@@ -98,7 +104,8 @@ export function crearGatesDesdePlantilla(
       // pertenece. Ver el comentario de esquemaGateSitio.
       nombre: g.nombre,
       color: g.color,
-      siguiente: ordenados[i + 1]?.codigo ?? null,
+      siguiente: paralela ? null : (secuenciales[i + 1]?.codigo ?? null),
+      tipo: paralela ? 'paralela' : 'secuencial',
       estado: 'no_iniciado',
       fechaPlan,
       fechaReal: null,
@@ -112,7 +119,7 @@ export function crearGatesDesdePlantilla(
     }
   }
 
-  const primero = ordenados[0]
+  const primero = secuenciales[0]
   if (!primero) {
     return { gates, gateActual: CERRADO, estadoGate: 'completado', fechaPlanGateActual: null }
   }

@@ -8,7 +8,7 @@ un cliente manipulado no gana nada saltándose la matriz.
 > `src/domain/permisos/matriz.ts` y `tests/rules/`.
 
 ```bash
-npm run test:rules             # 95 casos contra el emulador
+npm run test:rules             # 123 casos contra el emulador
 npm run test:rules:conectado   # usando el emulador que ya tienes levantado
 ```
 
@@ -55,6 +55,10 @@ fuera (hay tests para ambos).
 | Administrar usuarios          | ✓     | —           | —        | —                     | —      |
 | Borrar sitios o seguimientos  | ✓     | —           | —        | —                     | —      |
 | Corrección administrativa     | ✓     | —           | —        | —                     | —      |
+
+Cualquier rol salvo admin puede además tener un **alcance** que acota el
+seguimiento a ciertas células, programas y proyectos. Ver
+[Perfiles acotados](#perfiles-acotados-alcance).
 
 «Corrección administrativa» es mover un sitio a cualquier etapa de su secuencia
 (saltando hacia adelante o hacia atrás), eliminar un seguimiento completo con sus
@@ -169,6 +173,83 @@ asignado la función lanza un error en vez de devolver una consulta sin filtro.
 El contratista tampoco puede reasignarse un sitio de otra empresa ni sacar el
 suyo de su cartera.
 
+### Perfiles acotados (alcance)
+
+Un usuario no admin puede tener un **alcance** en su perfil
+(`usuarios/{uid}.alcance`): listas de células, programas y proyectos. Si alguna
+trae algo, solo ve **y** solo escribe los `sitioProyectos` (y sus comentarios)
+que caen en alguna de ellas:
+
+```
+celulaId in alcance.celulas || programaId in alcance.programas || proyectoId in alcance.proyectos
+```
+
+Las tres vacías, o el campo ausente, es «sin restricción» (el comportamiento de
+siempre). **Al admin nunca se le aplica**, aunque su perfil traiga listas. Al
+contratista se le aplica **además** de su proveedor: ve lo de su empresa que cae
+en su alcance.
+
+En las reglas son `listaAlcance()`, `sinAlcance()` y `enAlcance(d)`:
+
+- `get`: el documento debe estar en el alcance. Leer un id que **no existe** se
+  permite (no revela nada, y el alta lo necesita para saber si el sitio ya
+  estaba en el proyecto).
+- `list`: igual, evaluado sobre la consulta (ver abajo).
+- `create`: el documento nuevo debe quedar dentro.
+- `update`: dentro **antes y después** de la escritura: un usuario acotado no
+  puede sacar un seguimiento de su alcance (por ejemplo, cambiándole la célula).
+  Vale también para el contratista.
+- `delete`: sigue siendo solo del admin.
+- `comentarios`: se mira el alcance del seguimiento padre (con `get()`) para
+  leer y para comentar. `sinAlcance()` va primero, así que sin restricción no se
+  paga esa lectura extra.
+
+Quién lo asigna: **solo un admin**. El propio usuario solo puede tocar
+`ultimoAcceso`, la corrección del administrador inicial no incluye `alcance`, y
+el alta de un perfil exige el alcance ausente o vacío. Al guardarlo, las reglas
+exigen la forma (solo las tres listas) y **30 entradas como máximo** en total.
+
+#### Qué consulta tiene que hacer un usuario acotado
+
+Igual que con el contratista, Firestore evalúa la regla sobre la **consulta**:
+si la consulta no demuestra que todo lo que puede devolver está en el alcance,
+falla completa con `permission-denied`. La forma que sí pasa es:
+
+```
+and(<igualdades>, or(where('celulaId','in',C), where('programaId','in',P), where('proyectoId','in',Q)))
+```
+
+con solo las listas no vacías. La arma `consultaVisible()` en
+`src/data/repos/sitioProyectos.ts`, por la que pasan **todas** las consultas de
+la colección (la tabla, el mapa, el kanban, la ficha del sitio y la reescritura
+de datos del sitio).
+
+Hay una sutileza, probada contra el emulador: Firestore reparte la consulta en
+disyunciones y evalúa la regla sobre cada una. Si el usuario filtra por
+`programaId == 'p1'` y el `or()` trae `programaId in ['p2']`, esa disyunción
+(«programa p1 **y** programa p2») no devuelve nada, pero la regla no puede
+probarla y rechaza la consulta **entera**. Por eso el `or()` se ajusta a las
+igualdades (`planAlcance()` en `src/domain/permisos/alcance.ts`):
+
+- si el usuario fijó un campo con un valor que **está** en su lista, esa
+  igualdad sola prueba el alcance y no va `or()`;
+- si el valor **no está**, esa disyunción se quita;
+- si no queda ninguna, no hay nada visible y ni siquiera se consulta.
+
+El tope de 30 entradas no es arbitrario: un `or()` admite 30 disyunciones como
+máximo y un `in`, 30 valores. Como el resto de los filtros son igualdades, la
+consulta combinada nunca pasa de 30 disyunciones. Todo son igualdades sin
+`orderBy`, así que no hace falta ningún índice compuesto.
+
+#### Lo que el alcance NO acota
+
+El alcance restringe **solo** `sitioProyectos` y sus comentarios. Un usuario
+acotado sigue viendo el maestro de `sitios`, las `tareas`, la `auditoria`, los
+catálogos y el RAID como cualquiera de su rol. Además, al editar un sitio del
+maestro solo se reescribe la copia desnormalizada de los seguimientos de su
+alcance; los demás conservan la copia vieja hasta que alguien sin restricción
+vuelva a guardar el sitio.
+
 ### El contratista reporta, no aprueba
 
 Puede marcar entregables y registrar la fecha real de su gate en curso, pero las
@@ -191,6 +272,7 @@ comprometida y `completadoPor`.
 - Un admin no puede quitarse a sí mismo el rol de admin (dejaría la instalación
   sin administrador y sin forma de volver).
 - Un contratista no puede quedar sin proveedor.
+- Nadie se asigna ni se quita su propio alcance: lo asigna un admin.
 - Los usuarios no se borran: se desactivan, para que su rastro en la auditoría
   siga apuntando a alguien.
 
@@ -267,7 +349,7 @@ desaparecen.
 
 ## Qué cubren los tests
 
-`tests/rules/` — 95 casos contra el emulador:
+`tests/rules/` — 123 casos contra el emulador:
 
 - **`acceso.test.ts`** — dominio, correo sin verificar, usuario sin perfil,
   usuario desactivado, permisos por rol sobre sitios, catálogos y tareas, y que
@@ -282,3 +364,11 @@ desaparecen.
   solo el admin elimina, y los comentarios solo se borran con el padre eliminado.
 - **`auditoria.test.ts`** — append-only, antedatado, suplantación, y todos los
   casos de escalamiento de privilegios sobre `usuarios`.
+- **`alcance.test.ts`** — perfiles acotados: la consulta con el `or()` del
+  alcance pasa y sin él falla; una igualdad sola no alcanza; igualdades más el
+  `or()` ajustado pasan, y el `or()` completo contradicho por una igualdad falla
+  (la razón de `planAlcance()`); un alcance de 30 entradas sigue siendo
+  consultable; no se lee, edita, crea ni comenta fuera del alcance; no se puede
+  sacar un seguimiento del alcance; contratista con proveedor y alcance; admin y
+  alcance vacío sin restricción; nadie se asigna su propio alcance, el alta no lo
+  trae, y el admin no pasa del tope ni guarda una forma rara.

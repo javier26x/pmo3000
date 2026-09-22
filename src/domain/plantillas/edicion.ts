@@ -91,6 +91,7 @@ export function etapaNueva(nombre: string, existentes: readonly GatePlantilla[])
     slaDias: 10,
     checklist: [],
     revisiones: [],
+    tipo: 'secuencial',
   }
 }
 

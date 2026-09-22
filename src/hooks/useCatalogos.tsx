@@ -127,6 +127,9 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
     for (const plantilla of plantillas) {
       if (!plantilla.activo) continue
       for (const g of plantilla.gates) {
+        // Una etapa paralela nunca es la etapa actual de un sitio: como columna
+        // del embudo o del kanban estaria siempre vacia.
+        if (g.tipo === 'paralela') continue
         const previa = porCodigo.get(g.codigo)
         if (previa === undefined || g.orden < previa.orden) {
           porCodigo.set(g.codigo, {

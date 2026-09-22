@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { COLORES_GATE, type CodigoGate } from '@/domain/gates/catalogo'
+import { COLORES_GATE, TIPOS_ETAPA, type CodigoGate } from '@/domain/gates/catalogo'
 import { ESTADOS_GATE, PRIORIDADES } from './comunes'
 import { esquemaSellos, zFechaISONula } from './base'
 
@@ -40,6 +40,12 @@ export const esquemaGateSitio = z.object({
    * pasaria la validacion del servidor.
    */
   siguiente: z.string().nullable().default(null),
+  /**
+   * Copia del tipo de la etapa en la plantilla. Una paralela (FC, contrato,
+   * DOM...) no entra en la secuencia: no tiene `siguiente` y nunca es el
+   * gateActual. Ausente en los documentos viejos, que se leen como secuencial.
+   */
+  tipo: z.enum(TIPOS_ETAPA).default('secuencial'),
   estado: z.enum(ESTADOS_GATE),
   fechaPlan: zFechaISONula,
   fechaReal: zFechaISONula,
@@ -79,6 +85,13 @@ const esquemaSitioProyectoBase = z
     estadoGate: z.enum(ESTADOS_GATE),
     bloqueado: z.boolean(),
     motivoBloqueo: z.string().nullable(),
+    /**
+     * Si el sitio sigue en el plan del proyecto. Un sitio eliminado o que salio
+     * de plan no se borra (tiene historia), pero sale de las vistas por
+     * defecto. Lo trae el tracker (columna "Vigencia", o un "Eliminado" / "Sale
+     * de Plan" en la fase). Los documentos anteriores a este campo son vigentes.
+     */
+    vigente: z.boolean().default(true),
     prioridad: z.enum(PRIORIDADES),
 
     /**

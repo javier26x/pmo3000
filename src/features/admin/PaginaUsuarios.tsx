@@ -18,11 +18,13 @@ import {
 import { avisar, mensajeDeError } from '@/app/avisos'
 import { actualizarUsuario } from '@/data/repos/usuarios'
 import { formatearFechaHora } from '@/domain/fechas'
-import { NOMBRES_ROL, ROLES, type Rol } from '@/domain/tipos/comunes'
+import { NOMBRES_ROL, ROLES, type Alcance, type Rol } from '@/domain/tipos/comunes'
+import { alcanceVacio, normalizarAlcance, validarAlcance } from '@/domain/permisos/alcance'
 import { esquemaUsuarioEditable, type Usuario } from '@/domain/tipos/usuario'
 import { useActor } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
+import { ChipsAlcance, EditorAlcance } from './EditorAlcance'
 
 const TONO_ROL: Record<Rol, 'acento' | 'info' | 'neutro' | 'riesgo'> = {
   admin: 'acento',
@@ -43,7 +45,9 @@ export function PaginaUsuarios() {
   const [celulaId, setCelulaId] = useState('')
   const [proveedorId, setProveedorId] = useState('')
   const [activo, setActivo] = useState(true)
+  const [alcance, setAlcance] = useState<Alcance>(alcanceVacio())
   const [error, setError] = useState<string | null>(null)
+  const [errorAlcance, setErrorAlcance] = useState<string | null>(null)
 
   const abrir = (usuario: Usuario) => {
     setEditando(usuario)
@@ -52,7 +56,9 @@ export function PaginaUsuarios() {
     setCelulaId(usuario.celulaId ?? '')
     setProveedorId(usuario.proveedorId ?? '')
     setActivo(usuario.activo)
+    setAlcance(usuario.alcance)
     setError(null)
+    setErrorAlcance(null)
   }
 
   const guardar = () => {
@@ -62,8 +68,15 @@ export function PaginaUsuarios() {
       rol,
       celulaId: celulaId || null,
       proveedorId: proveedorId || null,
+      // Un admin nunca queda acotado: su alcance se guarda vacio.
+      alcance: rol === 'admin' ? alcanceVacio() : normalizarAlcance(alcance),
       activo,
     }
+
+    // El tope de Firestore se avisa junto al editor, antes que el resto.
+    const problemaAlcance = validarAlcance(candidato.alcance)
+    setErrorAlcance(problemaAlcance)
+    if (problemaAlcance) return
 
     // El mismo esquema Zod del dominio: un contratista sin proveedor no pasa.
     const validado = esquemaUsuarioEditable.safeParse(candidato)
@@ -114,6 +127,7 @@ export function PaginaUsuarios() {
                   <Encabezado>Rol</Encabezado>
                   <Encabezado>Celula</Encabezado>
                   <Encabezado>Proveedor</Encabezado>
+                  <Encabezado>Alcance</Encabezado>
                   <Encabezado>Estado</Encabezado>
                   <Encabezado>Ultimo acceso</Encabezado>
                   <Encabezado />
@@ -136,6 +150,13 @@ export function PaginaUsuarios() {
                     </Celda>
                     <Celda className="max-w-36 text-texto-2">
                       {nombreProveedor(usuario.proveedorId)}
+                    </Celda>
+                    <Celda className="max-w-72">
+                      {usuario.rol === 'admin' ? (
+                        <span className="text-texto-3">Todo</span>
+                      ) : (
+                        <ChipsAlcance alcance={usuario.alcance} />
+                      )}
                     </Celda>
                     <Celda>
                       {usuario.activo ? (
@@ -165,6 +186,7 @@ export function PaginaUsuarios() {
         onCerrar={() => setEditando(null)}
         titulo={`Editar ${editando?.nombre ?? ''}`}
         descripcion={editando?.email}
+        ancho="lg"
         pie={
           <>
             <Boton onClick={() => setEditando(null)}>Cancelar</Boton>
@@ -236,6 +258,16 @@ export function PaginaUsuarios() {
               ))}
             </Selector>
           </Campo>
+
+          {rol !== 'admin' && (
+            <Campo
+              etiqueta="Alcance"
+              ayuda="Qué parte del despliegue ve y edita. Lo imponen las reglas del servidor, no solo la pantalla."
+              {...(errorAlcance ? { error: errorAlcance } : {})}
+            >
+              <EditorAlcance valor={alcance} onCambio={setAlcance} />
+            </Campo>
+          )}
 
           <Casilla
             etiqueta="Cuenta activa"

@@ -27,8 +27,15 @@ import { useDespliegue } from '@/hooks/useDespliegue'
 import { useFiltros } from '@/hooks/useFiltros'
 import { useSesion } from '@/hooks/useSesion'
 import { nombreGate } from '@/domain/gates/catalogo'
+import { estaEnAlcance, tieneAlcance } from '@/domain/permisos/alcance'
 import { NOMBRES_PRIORIDAD, PRIORIDADES } from '@/domain/tipos/comunes'
-import type { FiltrosSeguimiento, FiltrosVista } from '@/domain/vistas/filtrado'
+import {
+  FILTROS_VIGENCIA,
+  NOMBRES_VIGENCIA,
+  type FiltroVigencia,
+  type FiltrosSeguimiento,
+  type FiltrosVista,
+} from '@/domain/vistas/filtrado'
 
 /** Un filtro disponible: de dónde saca sus opciones y cómo se lee. */
 interface DefinicionFiltro {
@@ -48,14 +55,36 @@ interface FiltroBooleano {
 }
 
 export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
-  const { perfil } = useSesion()
-  const { programas, proyectos, proveedores, celulas } = useCatalogos()
+  const { perfil, actor } = useSesion()
+  const catalogos = useCatalogos()
   const { etapas } = useCatalogos()
   const { regiones, comunas } = useDespliegue()
   const { servidor, vista, consulta, fijarServidor, fijarVista, limpiar, aplicarConsulta } =
     useFiltros()
 
   const esContratista = perfil?.rol === 'contratista'
+
+  // Un usuario acotado no ve nada fuera de su alcance: ofrecerle esos programas,
+  // proyectos o celulas seria ofrecer filtros que siempre dan cero.
+  const { programas, proyectos, celulas } = useMemo(() => {
+    if (actor === null || !tieneAlcance(actor)) return catalogos
+    const a = actor.alcance
+    const proyectosEn = catalogos.proyectos.filter((p) =>
+      estaEnAlcance(actor, { celulaId: p.celulaId, programaId: p.programaId, proyectoId: p.id }),
+    )
+    const programasEn = new Set(proyectosEn.map((p) => p.programaId))
+    return {
+      proyectos: proyectosEn,
+      programas: catalogos.programas.filter(
+        (p) => a.programas.includes(p.id) || programasEn.has(p.id),
+      ),
+      celulas:
+        a.celulas.length > 0
+          ? catalogos.celulas.filter((c) => a.celulas.includes(c.id))
+          : catalogos.celulas.filter((c) => proyectosEn.some((p) => p.celulaId === c.id)),
+    }
+  }, [actor, catalogos])
+  const { proveedores } = catalogos
 
   const opcionesDe = (lista: { id: string; nombre: string }[]) =>
     lista.map((x) => ({ valor: x.id, texto: x.nombre }))
@@ -142,6 +171,19 @@ export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
         opciones: PRIORIDADES.map((p) => ({ valor: p, texto: NOMBRES_PRIORIDAD[p] })),
         activo: vista.prioridad,
         aplicar: vistaSetter('prioridad'),
+      },
+      {
+        // Por defecto solo vigentes, y ese valor no se muestra como chip: el
+        // filtro aparece "activo" solo cuando alguien pide ver los no vigentes.
+        clave: 'vigencia',
+        etiqueta: 'Vigencia',
+        opciones: FILTROS_VIGENCIA.filter((v) => v !== 'vigentes').map((v) => ({
+          valor: v,
+          texto: NOMBRES_VIGENCIA[v],
+        })),
+        activo: vista.vigencia === 'vigentes' ? null : vista.vigencia,
+        aplicar: (valor: string | null) =>
+          fijarVista({ vigencia: (valor ?? 'vigentes') as FiltroVigencia }),
       },
     ].filter((d) => !d.soloInterno || !esContratista)
   }, [

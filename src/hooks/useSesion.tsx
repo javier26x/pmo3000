@@ -76,6 +76,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       rol: perfil.rol,
       celulaId: perfil.celulaId,
       proveedorId: perfil.proveedorId,
+      alcance: perfil.alcance,
     }
   }, [perfil])
 

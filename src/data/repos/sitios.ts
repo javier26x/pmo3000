@@ -8,7 +8,6 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  where,
   writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore'
@@ -17,6 +16,7 @@ import { crearConvertidor } from '../convertidores'
 import { normalizarSitio } from '../normalizadores'
 import { agregarEventos } from '../auditoria'
 import { contarReferencias } from './catalogos'
+import { consultaVisible } from './sitioProyectos'
 import {
   CAMPOS_SITIO_DESNORMALIZADOS,
   parcheDesnormalizado,
@@ -171,6 +171,10 @@ export async function actualizarCarpeta(
  *
  * Devuelve cuantos seguimientos se reescribieron. Si la consulta de
  * seguimientos no alcanza al servidor, se usa lo que haya en la cache local.
+ *
+ * Un usuario con alcance solo reescribe los seguimientos que le corresponden:
+ * las reglas no le dejan leer ni tocar los demas. Esos conservan la copia vieja
+ * hasta que alguien sin esa restriccion vuelva a guardar el sitio.
  */
 export async function actualizarSitio(
   anterior: Sitio,
@@ -180,13 +184,8 @@ export async function actualizarSitio(
   if (datos.id !== anterior.id) throw new Error('El ID de un sitio no se puede cambiar')
 
   const parche = parcheDesnormalizado(anterior, datos)
-  const seguimientos = parche
-    ? (
-        await getDocs(
-          query(collection(db, COLECCIONES.sitioProyectos), where('sitioId', '==', anterior.id)),
-        )
-      ).docs
-    : []
+  const consulta = parche ? consultaVisible(actor, { sitioId: anterior.id }) : null
+  const seguimientos = consulta ? (await getDocs(consulta)).docs : []
 
   const batch = writeBatch(db)
   const { id, ...campos } = datos

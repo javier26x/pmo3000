@@ -12,9 +12,22 @@
  * trabajo registrado y no de una columna resumen que nadie actualizo.
  */
 import type { FechaISO } from '@/domain/fechas'
+import type { TipoEtapa } from '@/domain/gates/catalogo'
 import { coercionar, type ValorCampo } from './campos'
-import { clasificarEstado, estaCerrado, estadoResumen, type EstadoSemantico } from './estados'
+import {
+  clasificarEstado,
+  combinarTecnologias,
+  corregirErratas,
+  estaCerrado,
+  estadoResumen,
+  esFechaDeEstado,
+  normalizarTexto,
+  tecnologiaDe,
+  type EstadoSemantico,
+  type Tecnologia,
+} from './estados'
 import type { ColumnaInferida, EtapaInferida, PlantillaInferida } from './inferencia'
+import { condicionDelSitio, type CondicionSitio } from './estadoSitio'
 
 /** Un sitio del maestro, tal como sale de la fila. */
 export interface SitioDeFila {
@@ -35,6 +48,10 @@ export interface RevisionDeFila {
 
 export interface EtapaDeFila {
   codigo: string
+  /** Nombre visible de la etapa. Ausente en filas armadas a mano (pruebas). */
+  nombre?: string
+  /** Ausente equivale a secuencial. Una paralela nunca es la etapa actual. */
+  tipo?: TipoEtapa
   /** Lo que dicen las revisiones juntas: sirve para ver quien frena. */
   resumen: EstadoSemantico
   /** El veredicto propio del tracker, si la etapa trae columna consolidada. */
@@ -45,13 +62,30 @@ export interface EtapaDeFila {
   revisiones: Record<string, RevisionDeFila>
 }
 
+/** Lo que la lectura de la fila tuvo que arreglar o no pudo leer. */
+export interface CalidadDeFila {
+  /** Celdas de estado cuya clasificacion necesito corregir una errata. */
+  corregidas: number
+  /** Celdas de estado con "0": formula sobre una celda vacia, sin dato. */
+  ceros: number
+  /** Celdas de estado que traian una fecha en vez de un texto. */
+  fechas: number
+}
+
 export interface FilaTracker {
   sitio: SitioDeFila
   valores: Record<string, ValorCampo>
   etapas: EtapaDeFila[]
-  /** Primera etapa no cerrada, o CERRADO si todas lo estan. */
+  /** Primera etapa SECUENCIAL no cerrada, o CERRADO si todas lo estan. */
   etapaActual: string
   problemas: string[]
+  /** Vigencia y bloqueo que trae el tracker. Ausente en filas armadas a mano. */
+  condicion?: CondicionSitio
+  /** Texto de la columna consolidada del tracker ("Status Sitio"), si la hay. */
+  estadoSitioTracker?: string | null
+  /** 4G, 4G/5G, 5G o Indoor, segun los estados consolidados de las etapas. */
+  tecnologia?: Tecnologia | null
+  calidad?: CalidadDeFila
 }
 
 const CERRADO = 'CERRADO'
@@ -82,6 +116,11 @@ export interface IndiceColumnas {
   fechas: Map<string, number>
   /** Columna del estado consolidado de la etapa, si existe. */
   resumenEtapa: Map<string, number>
+  /**
+   * Fecha propia de la etapa, sin disciplina ("Fecha Sitio On Air"). Solo se
+   * usa en las etapas que cierran con fecha (EtapaInferida.cierraConFecha).
+   */
+  fechaEtapa: Map<string, number>
   campos: ColumnaInferida[]
 }
 
@@ -101,6 +140,7 @@ export function indexarColumnas(plantilla: PlantillaInferida): IndiceColumnas {
     comentarios: new Map(),
     fechas: new Map(),
     resumenEtapa: new Map(),
+    fechaEtapa: new Map(),
     campos: [],
   }
 
@@ -122,6 +162,13 @@ export function indexarColumnas(plantilla: PlantillaInferida): IndiceColumnas {
       if (col.rol === 'estado' && col.revision !== null) {
         indice.estados.set(llave(etapa.nombre, col.revision), col.indice)
       }
+      if (
+        etapa.cierraConFecha === true &&
+        col.rol === 'fecha' &&
+        !indice.fechaEtapa.has(etapa.nombre)
+      ) {
+        indice.fechaEtapa.set(etapa.nombre, col.indice)
+      }
     }
 
     for (const revision of etapa.revisiones) {
@@ -134,10 +181,16 @@ export function indexarColumnas(plantilla: PlantillaInferida): IndiceColumnas {
     }
   }
 
-  // Todo lo que no es estado ni identidad se guarda como valor del sitio: los
-  // comentarios y las fechas de revision ya viajan dentro de su revision.
+  // Todo lo que no es identidad ni parte de una revision se guarda como valor
+  // del sitio: los estados, comentarios y fechas de cada disciplina ya viajan
+  // dentro de su revision. El estado CONSOLIDADO de una etapa ("Status TSS",
+  // "Status FC") si se guarda: es lo que se mira a diario, y en una etapa sin
+  // disciplinas (FC, contrato, DOM) es el unico registro de su estado.
   indice.campos = plantilla.columnas.filter(
-    (c) => c.rol !== 'identidad' && c.rol !== 'estado' && !esColumnaDeRevision(c, plantilla),
+    (c) =>
+      c.rol !== 'identidad' &&
+      !(c.rol === 'estado' && c.revision !== null) &&
+      !esColumnaDeRevision(c, plantilla),
   )
 
   return indice
@@ -182,6 +235,24 @@ export function convertirFila(
     else problemas.push(`${col.encabezado}: ${r.motivo}`)
   }
 
+  const textoCondicion = (i: number | undefined) => textoDe(celda(i))
+  const fase = textoCondicion(plantilla.condicion.fase)
+  const tecnologiaFase = tecnologiaDe(fase)
+  const exige5g = tecnologiaFase === '5G' || tecnologiaFase === '4G/5G'
+
+  const calidad: CalidadDeFila = { corregidas: 0, ceros: 0, fechas: 0 }
+  /** Texto de una celda de estado, contando de paso lo que hubo que arreglar. */
+  const estadoDeCelda = (i: number | undefined): string => {
+    const crudo = celda(i)
+    if (crudo === null) return ''
+    const conv = coercionar('estado', crudo)
+    const texto = conv.ok && typeof conv.valor === 'string' ? conv.valor : textoDe(crudo)
+    if (texto === '0') calidad.ceros++
+    else if (esFechaDeEstado(crudo) || esFechaDeEstado(texto)) calidad.fechas++
+    else if (corregirErratas(normalizarTexto(texto)).correcciones > 0) calidad.corregidas++
+    return texto
+  }
+
   const etapas: EtapaDeFila[] = plantilla.etapas.map((etapa) => {
     const revisiones: Record<string, RevisionDeFila> = {}
     const clasificaciones: EstadoSemantico[] = []
@@ -189,7 +260,7 @@ export function convertirFila(
 
     for (const revision of etapa.revisiones) {
       const k = llave(etapa.nombre, revision.nombre)
-      const estado = textoDe(celda(indice.estados.get(k)))
+      const estado = estadoDeCelda(indice.estados.get(k))
       const comentario = textoDe(celda(indice.comentarios.get(k)))
       const crudoFecha = celda(indice.fechas.get(k))
       const conv = coercionar('fecha', crudoFecha)
@@ -208,7 +279,7 @@ export function convertirFila(
     // MMOO revisa el 6% de los sitios del tracker Outdoor. Exigiendo que las
     // cinco revisiones de TSS cierren, el 95% de los sitios se quedaba en TSS
     // por una celda vacia, cuando la propia planilla los daba por aprobados.
-    const crudoConsolidado = textoDe(celda(indice.resumenEtapa.get(etapa.nombre)))
+    const crudoConsolidado = estadoDeCelda(indice.resumenEtapa.get(etapa.nombre))
     const consolidado =
       crudoConsolidado === '' ? null : clasificarEstado(crudoConsolidado, homologacion)
 
@@ -217,28 +288,77 @@ export function convertirFila(
     const resumen =
       clasificaciones.length > 0 ? estadoResumen(clasificaciones) : (consolidado ?? 'no_recibido')
 
+    let cerrada = consolidado !== null ? estaCerrado(consolidado) : estaCerrado(resumen)
+
+    // Un sitio de un proyecto 5G no cierra una etapa con un aprobado SOLO 4G:
+    // "TSS Aprobado 4G" en un sitio del proyecto "5G" es el TSS del 4G que el
+    // sitio ya tenia, y el de 5G sigue pendiente. Es lo que hace el tracker
+    // Outdoor: 55 sitios 5G con "TSS Aprobado 4G" figuran "En Etapa de TSS".
+    if (cerrada && exige5g && tecnologiaDe(crudoConsolidado) === '4G') cerrada = false
+
+    // On Air: la fecha de salida al aire basta, aunque la celda de estado este
+    // vacia. Y es la fecha de la etapa, que no tiene revisiones de donde sacarla.
+    if (etapa.cierraConFecha === true) {
+      const conv = coercionar('fecha', celda(indice.fechaEtapa.get(etapa.nombre)))
+      const fechaPropia =
+        conv.ok && typeof conv.valor === 'string' ? (conv.valor as FechaISO) : null
+      if (fechaPropia !== null) {
+        cerrada = true
+        fechaMaxima = fechaPropia
+      }
+    }
+
     return {
       codigo: codigoDeEtapa(etapa),
+      nombre: etapa.nombre,
+      tipo: etapa.tipo,
       resumen,
       consolidado,
-      cerrada: consolidado !== null ? estaCerrado(consolidado) : estaCerrado(resumen),
+      cerrada,
       fecha: fechaMaxima,
       revisiones,
     }
   })
 
-  return { sitio, valores, etapas, etapaActual: primeraAbierta(etapas), problemas }
+  const condicion = condicionDelSitio(textoCondicion(plantilla.condicion.vigencia), fase)
+  const estadoSitioTracker =
+    plantilla.condicion.estadoSitio === undefined
+      ? null
+      : textoCondicion(plantilla.condicion.estadoSitio) || null
+
+  // La tecnologia sale de los consolidados de las etapas secuenciales ("Ing
+  // Aprobada 4G/5G"), no del Status Sitio: ese se escribe a mano y es lo que se
+  // quiere contrastar.
+  const tecnologia = combinarTecnologias(
+    plantilla.etapas
+      .filter((e) => e.tipo !== 'paralela')
+      .map((e) => tecnologiaDe(textoDe(celda(indice.resumenEtapa.get(e.nombre))))),
+  )
+
+  return {
+    sitio,
+    valores,
+    etapas,
+    etapaActual: primeraAbierta(etapas),
+    problemas,
+    condicion,
+    estadoSitioTracker,
+    tecnologia,
+    calidad,
+  }
 }
 
 /**
- * La etapa actual es la primera que no esta cerrada.
+ * La etapa actual es la primera SECUENCIAL que no esta cerrada.
  *
  * Se recorre en orden y se devuelve la primera abierta, aunque mas adelante haya
  * otras cerradas: en un tracker real eso pasa (alguien aprueba el As Built antes
  * de que cierre la Ingenieria) y lo que frena al sitio es la que quedo atras.
+ * Las paralelas (FC, contrato, DOM...) no cuentan: un contrato sin firmar no
+ * deja al sitio "en contrato".
  */
 export function primeraAbierta(etapas: readonly EtapaDeFila[]): string {
-  return etapas.find((e) => !e.cerrada)?.codigo ?? CERRADO
+  return etapas.find((e) => e.tipo !== 'paralela' && !e.cerrada)?.codigo ?? CERRADO
 }
 
 // ------------------------------------------------- de la fila al documento
@@ -274,6 +394,7 @@ export function construirPlantilla(
     slaDias: number
     checklist: never[]
     revisiones: { id: string; nombre: string; bloquea: boolean }[]
+    tipo: TipoEtapa
   }[]
   campos: ColumnaInferida['campo'][]
   homologacion: Record<string, EstadoSemantico>
@@ -296,6 +417,7 @@ export function construirPlantilla(
       slaDias: 0,
       checklist: [],
       revisiones: etapa.revisiones.map((r) => ({ id: r.id, nombre: r.nombre, bloquea: true })),
+      tipo: etapa.tipo,
     })),
     campos: indice.campos.map((c) => c.campo),
     homologacion: { ...datos.homologacion },
@@ -328,9 +450,16 @@ export function construirGates(
   opciones: { responsableUid: string | null; proveedorId: string | null },
 ): Record<string, Record<string, unknown>> {
   const gates: Record<string, Record<string, unknown>> = {}
-  const codigos = fila.etapas.map((e) => e.codigo)
+  // El enlace `siguiente` recorre solo las secuenciales: es la cadena que las
+  // reglas usan para validar que un sitio avanza de a una etapa. Una paralela
+  // no tiene siguiente y no es nunca el gate actual.
+  const secuenciales = fila.etapas.filter((e) => e.tipo !== 'paralela').map((e) => e.codigo)
 
   fila.etapas.forEach((etapa, i) => {
+    const paralela = etapa.tipo === 'paralela'
+    const siguiente = paralela
+      ? null
+      : (secuenciales[secuenciales.indexOf(etapa.codigo) + 1] ?? null)
     const revisiones: Record<string, unknown> = {}
     for (const [id, rev] of Object.entries(etapa.revisiones)) {
       revisiones[id] = {
@@ -343,12 +472,19 @@ export function construirGates(
     }
 
     const esActual = etapa.codigo === fila.etapaActual
+    // Una paralela abierta con algo registrado esta en curso: corre al lado.
+    const paralelaEnCurso = paralela && Object.values(etapa.revisiones).some((r) => r.estado !== '')
     gates[etapa.codigo] = {
       orden: i,
-      nombre: etapa.codigo,
+      nombre: etapa.nombre ?? etapa.codigo,
       color: COLORES[i % COLORES.length] ?? 'gris',
-      siguiente: codigos[i + 1] ?? null,
-      estado: etapa.cerrada ? 'completado' : esActual ? 'en_curso' : 'no_iniciado',
+      siguiente,
+      tipo: paralela ? 'paralela' : 'secuencial',
+      estado: etapa.cerrada
+        ? 'completado'
+        : esActual || paralelaEnCurso || (paralela && etapa.consolidado !== null)
+          ? 'en_curso'
+          : 'no_iniciado',
       fechaPlan: null,
       // Una etapa cerrada tiene que traer fecha real: es lo que las reglas
       // exigen para dejar avanzar. Si el tracker no la trae, se deja la fecha
@@ -373,9 +509,12 @@ export function construirGates(
  * vale la pena decirlo al importar: suele ser una celda que nadie actualizo.
  */
 export function avanceFueraDeOrden(fila: FilaTracker): string[] {
-  const i = fila.etapas.findIndex((e) => e.codigo === fila.etapaActual)
+  // Solo entre secuenciales: un FC enviado o un contrato firmado "antes" de
+  // tiempo no es desorden, es justamente lo que tiene de paralelo.
+  const secuenciales = fila.etapas.filter((e) => e.tipo !== 'paralela')
+  const i = secuenciales.findIndex((e) => e.codigo === fila.etapaActual)
   if (i < 0) return []
-  return fila.etapas
+  return secuenciales
     .slice(i + 1)
     .filter((e) => e.cerrada)
     .map((e) => e.codigo)

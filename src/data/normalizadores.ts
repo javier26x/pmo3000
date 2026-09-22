@@ -46,7 +46,7 @@ import type {
   RevisionSitio,
   SitioProyecto,
 } from '@/domain/tipos/sitioProyecto'
-import { CERRADO, COLORES_GATE, type CodigoGate } from '@/domain/gates/catalogo'
+import { CERRADO, COLORES_GATE, TIPOS_ETAPA, type CodigoGate } from '@/domain/gates/catalogo'
 import { ESTADOS_SEMANTICOS, type EstadoSemantico } from '@/domain/tracker/estados'
 import { TIPOS_CAMPO } from '@/domain/tracker/campos'
 
@@ -58,6 +58,13 @@ export function normalizarUsuario(id: string, d: DocumentData): Usuario {
     rol: enumerado(d.rol, ROLES, 'lector'),
     celulaId: textoNulo(d.celulaId),
     proveedorId: textoNulo(d.proveedorId),
+    // Los perfiles anteriores al alcance no traen el campo: listas vacias, que
+    // significan "sin restriccion", igual que en firestore.rules.
+    alcance: {
+      celulas: listaTexto(objeto(d.alcance).celulas),
+      programas: listaTexto(objeto(d.alcance).programas),
+      proyectos: listaTexto(objeto(d.alcance).proyectos),
+    },
     activo: booleano(d.activo, true),
     ultimoAcceso: instante(d.ultimoAcceso),
     ...sellos(d),
@@ -184,6 +191,8 @@ function normalizarGatePlantilla(valor: unknown, indice: number): GatePlantilla 
     slaDias: numero(d.slaDias, 0),
     checklist: (Array.isArray(d.checklist) ? d.checklist : []).map(normalizarItemPlantilla),
     revisiones: (Array.isArray(d.revisiones) ? d.revisiones : []).map(normalizarRevisionPlantilla),
+    // Sin tipo es secuencial: es lo que eran todas las etapas antes del campo.
+    tipo: enumerado(d.tipo, TIPOS_ETAPA, 'secuencial'),
   }
 }
 
@@ -282,6 +291,7 @@ function normalizarGateSitio(valor: unknown, codigo: string, orden: number): Gat
     nombre: texto(d.nombre, codigo),
     color: enumerado(d.color, COLORES_GATE, 'gris'),
     siguiente: textoNulo(d.siguiente),
+    tipo: enumerado(d.tipo, TIPOS_ETAPA, 'secuencial'),
     estado: enumerado(d.estado, ESTADOS_GATE, 'no_iniciado'),
     fechaPlan: fechaISO(d.fechaPlan),
     fechaReal: fechaISO(d.fechaReal),
@@ -334,6 +344,8 @@ export function normalizarSitioProyecto(id: string, d: DocumentData): SitioProye
     estadoGate: enumerado(d.estadoGate, ESTADOS_GATE, 'no_iniciado'),
     bloqueado: booleano(d.bloqueado, false),
     motivoBloqueo: textoNulo(d.motivoBloqueo),
+    // Los seguimientos anteriores al campo son vigentes: nadie los dio de baja.
+    vigente: booleano(d.vigente, true),
     prioridad: enumerado(d.prioridad, PRIORIDADES, 'media'),
     fechaPlanGateActual: fechaISO(d.fechaPlanGateActual),
     gates,

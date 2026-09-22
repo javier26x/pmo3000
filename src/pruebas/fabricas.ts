@@ -15,6 +15,7 @@ export function actor(rol: Rol, extra: Partial<Actor> = {}): Actor {
     rol,
     celulaId: 'celula-1',
     proveedorId: rol === 'contratista' ? 'prov-alfa' : null,
+    alcance: { celulas: [], programas: [], proyectos: [] },
     ...extra,
   }
 }
@@ -44,6 +45,7 @@ export function sitioProyecto(extra: Partial<SitioProyecto> = {}): SitioProyecto
     estadoGate: inicial.estadoGate,
     bloqueado: false,
     motivoBloqueo: null,
+    vigente: true,
     prioridad: 'media',
     fechaPlanGateActual: inicial.fechaPlanGateActual,
     gates: inicial.gates,

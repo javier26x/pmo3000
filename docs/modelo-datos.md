@@ -30,11 +30,21 @@ El id del documento es el UID de Firebase Auth.
 | `rol`          | `admin` \| `jefe_celula` \| `analista` \| `contratista` \| `lector` |                                            |
 | `celulaId`     | string \| null                                                      |                                            |
 | `proveedorId`  | string \| null                                                      | **obligatorio** si el rol es `contratista` |
+| `alcance`      | `{ celulas: string[], programas: string[], proyectos: string[] }`   | ver abajo; ausente = listas vacías         |
 | `activo`       | boolean                                                             | desactivar en vez de borrar                |
 | `ultimoAcceso` | Timestamp \| null                                                   |                                            |
 
 Sin Cloud Functions no hay _custom claims_: el rol vive aquí y las reglas lo leen
 con `get()`.
+
+**`alcance`** acota lo que un usuario no admin ve y edita del seguimiento: un
+`sitioProyecto` le es visible si su `celulaId` está en `celulas`, **o** su
+`programaId` en `programas`, **o** su `proyectoId` en `proyectos`. Las tres
+listas vacías (o el campo ausente, en perfiles anteriores) significan «sin
+restricción». Al admin nunca se le aplica. Tope: 30 entradas sumando las tres
+listas (lo que admite un `or()` de Firestore). Solo lo escribe un admin, desde
+Usuarios y roles; el alta de un perfil lo crea vacío. Las reglas lo imponen:
+ver [reglas-seguridad.md](reglas-seguridad.md#perfiles-acotados-alcance).
 
 ### `celulas/{id}` [F1]
 

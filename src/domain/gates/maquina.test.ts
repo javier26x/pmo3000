@@ -13,9 +13,44 @@ import {
   porcentajeAvance,
 } from './maquina'
 import { gateDePlantilla } from '@/domain/tipos/gate'
+import { secuenciaDeGates } from './catalogo'
 
 const AHORA = new Date('2026-02-01T15:00:00Z')
 const ctx = (rol: Parameters<typeof actor>[0]) => contextoDe(actor(rol), AHORA)
+
+describe('crearGatesDesdePlantilla con etapas paralelas', () => {
+  // Una paralela al principio: el sitio no debe arrancar en ella ni la cadena
+  // de `siguiente` debe pasar por ella.
+  const conParalela = {
+    ...plantilla,
+    gates: [
+      {
+        ...plantilla.gates[0]!,
+        codigo: 'FC_PAR',
+        nombre: 'FC',
+        orden: 0,
+        tipo: 'paralela' as const,
+      },
+      ...plantilla.gates.map((g) => ({ ...g, orden: g.orden + 1 })),
+    ],
+  }
+  const r = crearGatesDesdePlantilla(conParalela, {
+    fechaInicio: '2026-01-01',
+    responsableUid: null,
+    proveedorId: null,
+  })
+
+  it('arranca en la primera secuencial y la paralela queda fuera de la cadena', () => {
+    const primera = plantilla.gates[0]!.codigo
+    expect(r.gateActual).toBe(primera)
+    expect(r.gates.FC_PAR?.tipo).toBe('paralela')
+    expect(r.gates.FC_PAR?.siguiente).toBeNull()
+    expect(r.gates.FC_PAR?.fechaPlan).toBeNull()
+    expect(r.gates[primera]?.siguiente).toBe(plantilla.gates[1]!.codigo)
+    expect(secuenciaDeGates(r.gates)).not.toContain('FC_PAR')
+    expect(secuenciaDeGates(r.gates)).toHaveLength(plantilla.gates.length)
+  })
+})
 
 describe('crearGatesDesdePlantilla', () => {
   it('abre el primer gate y deja el resto sin iniciar', () => {

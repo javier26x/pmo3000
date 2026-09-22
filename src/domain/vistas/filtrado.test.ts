@@ -7,6 +7,7 @@ import {
   FILTROS_VISTA_VACIOS,
   filtrarSeguimientos,
   hayFiltrosActivos,
+  idsDeBusqueda,
   ordenarSeguimientos,
   resumirSeguimientos,
   valoresDistintos,
@@ -122,6 +123,55 @@ describe('filtrarSeguimientos', () => {
     expect(hayFiltrosActivos(FILTROS_VISTA_VACIOS)).toBe(false)
     expect(hayFiltrosActivos({ ...FILTROS_VISTA_VACIOS, texto: ' ' })).toBe(false)
     expect(hayFiltrosActivos({ ...FILTROS_VISTA_VACIOS, soloAtrasados: true })).toBe(true)
+    expect(hayFiltrosActivos({ ...FILTROS_VISTA_VACIOS, vigencia: 'todos' })).toBe(true)
+  })
+})
+
+describe('vigencia', () => {
+  const lista = [
+    sitioProyecto({ id: 'a', sitioId: 'A-1' }),
+    sitioProyecto({ id: 'b', sitioId: 'B-2', vigente: false }),
+  ]
+
+  it('por defecto esconde los no vigentes', () => {
+    const r = filtrarSeguimientos(lista, FILTROS_VISTA_VACIOS, HOY)
+    expect(r.map((s) => s.sitioId)).toEqual(['A-1'])
+  })
+
+  it('todos los muestra y no_vigentes muestra solo esos', () => {
+    expect(
+      filtrarSeguimientos(lista, { ...FILTROS_VISTA_VACIOS, vigencia: 'todos' }, HOY),
+    ).toHaveLength(2)
+    const r = filtrarSeguimientos(lista, { ...FILTROS_VISTA_VACIOS, vigencia: 'no_vigentes' }, HOY)
+    expect(r.map((s) => s.sitioId)).toEqual(['B-2'])
+  })
+})
+
+describe('busqueda de varios IDs', () => {
+  const lista = [
+    sitioProyecto({ id: '1', sitioId: '53i_379', sitioNombre: 'Uno' }),
+    sitioProyecto({ id: '2', sitioId: '28i_331', sitioNombre: 'Dos' }),
+    sitioProyecto({ id: '3', sitioId: '01_043', sitioNombre: 'Tres 53i_379 bis' }),
+    sitioProyecto({ id: '4', sitioId: '01_0430', sitioNombre: 'Cuatro' }),
+  ]
+
+  it('reconoce una columna de IDs pegada, con cualquier separador', () => {
+    expect(idsDeBusqueda('53i_379\n28i_331')).toEqual(['53i_379', '28i_331'])
+    expect(idsDeBusqueda('53i_379; 28i_331,\t01_043')).toEqual(['53i_379', '28i_331', '01_043'])
+    expect(idsDeBusqueda('53I_379 28i_331')).toEqual(['53i_379', '28i_331'])
+  })
+
+  it('no confunde una busqueda comun con una lista de IDs', () => {
+    expect(idsDeBusqueda('53i_379')).toBeNull()
+    expect(idsDeBusqueda('cerro azul')).toBeNull()
+    expect(idsDeBusqueda('maipu 2')).toBeNull()
+  })
+
+  it('calza exacto, sin mayusculas, y solo por ID', () => {
+    const r = filtrarSeguimientos(lista, { ...FILTROS_VISTA_VACIOS, texto: '53I_379\n01_043' }, HOY)
+    // "01_0430" contiene "01_043" y "Tres 53i_379 bis" lo nombra: ninguno de los
+    // dos es lo que se pego.
+    expect(r.map((s) => s.sitioId).sort()).toEqual(['01_043', '53i_379'])
   })
 })
 

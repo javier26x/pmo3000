@@ -168,6 +168,11 @@ export function coercionar(tipo: TipoCampo, crudo: unknown): Coercion {
     case 'estado': {
       // El texto original se guarda tal cual; la clasificación se calcula al
       // leer, con la homologación de la plantilla, que puede cambiar después.
+      // Una fecha en una celda de estado se guarda como fecha legible y no como
+      // el "Wed Sep 03 2025 00:00:00 GMT-0400" que deja String() sobre un Date.
+      if (crudo instanceof Date) {
+        return { ok: true, valor: formatearFecha(parsearFechaFlexible(crudo)) }
+      }
       return { ok: true, valor: String(crudo).trim() }
     }
 

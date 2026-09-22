@@ -11,6 +11,7 @@ import { doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { COLECCIONES, db } from '../firebase'
 import { agregarEventos } from '../auditoria'
 import { prepararSeguimiento } from './sitioProyectos'
+import { estaEnAlcance } from '@/domain/permisos/alcance'
 import type { FilaImportacion } from '@/domain/importacion/validacion'
 import type { GateTemplate } from '@/domain/tipos/gate'
 import type { Actor, Prioridad } from '@/domain/tipos/comunes'
@@ -39,6 +40,12 @@ export interface ContextoImportacion {
 export interface ResultadoImportacion {
   sitiosEscritos: number
   seguimientosCreados: number
+  /**
+   * Seguimientos que no se escribieron porque su destino queda fuera del
+   * alcance de quien importa. Las reglas los rechazarian y, con ellos, el lote
+   * completo; se saltan y se informan.
+   */
+  seguimientosFueraDeAlcance: number
   filasOmitidas: number
   programasNoEncontrados: string[]
   proveedoresNoEncontrados: string[]
@@ -65,6 +72,7 @@ export async function ejecutarImportacion(
   const resultado: ResultadoImportacion = {
     sitiosEscritos: 0,
     seguimientosCreados: 0,
+    seguimientosFueraDeAlcance: 0,
     filasOmitidas: filas.length - importables.length,
     programasNoEncontrados: [],
     proveedoresNoEncontrados: [],
@@ -117,7 +125,9 @@ export async function ejecutarImportacion(
         if (!proveedorId) proveedoresFaltantes.add(fila.proveedor)
       }
 
-      if (destino) {
+      if (destino && !estaEnAlcance(actor, destino)) {
+        resultado.seguimientosFueraDeAlcance += 1
+      } else if (destino) {
         const preparado = prepararSeguimiento({
           sitio: {
             id,
@@ -182,7 +192,7 @@ export async function ejecutarImportacion(
           campo: null,
           valorAnterior: null,
           valorNuevo: String(resultado.sitiosEscritos),
-          detalle: `${resultado.sitiosEscritos} sitio(s) escrito(s), ${resultado.seguimientosCreados} seguimiento(s), ${resultado.filasOmitidas} fila(s) omitida(s)`,
+          detalle: `${resultado.sitiosEscritos} sitio(s) escrito(s), ${resultado.seguimientosCreados} seguimiento(s), ${resultado.filasOmitidas} fila(s) omitida(s)${resultado.seguimientosFueraDeAlcance ? `, ${resultado.seguimientosFueraDeAlcance} seguimiento(s) fuera de alcance` : ''}`,
         },
       ],
       actor,

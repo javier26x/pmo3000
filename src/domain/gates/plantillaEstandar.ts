@@ -111,6 +111,7 @@ export const GATES_ESTANDAR: GatePlantilla[] = GATES_BASE.map((g, i) => {
     descripcion: etapa?.descripcion ?? '',
     color: etapa?.color ?? colorPorIndice(i),
     revisiones: [],
+    tipo: 'secuencial',
   }
 })
 

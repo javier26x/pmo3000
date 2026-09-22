@@ -78,17 +78,38 @@ export const ETAPA_CERRADO: EtapaCatalogo = {
 // ----------------------------------------------------------- sobre secuencias
 
 /**
+ * Tipo de una etapa.
+ *
+ * - secuencial: es un paso del proceso. El sitio no pasa a la siguiente sin
+ *   cerrarla, y la etapa actual es siempre la primera secuencial abierta.
+ * - paralela: es un requisito que corre en paralelo (FC, contrato, DOM,
+ *   transmision, IPRAN, energia). Se sigue y se muestra, pero no define en que
+ *   etapa va el sitio ni frena la secuencia.
+ *
+ * Ausente equivale a secuencial: asi las plantillas y los documentos que
+ * existian antes de este campo siguen funcionando igual.
+ */
+export const TIPOS_ETAPA = ['secuencial', 'paralela'] as const
+export type TipoEtapa = (typeof TIPOS_ETAPA)[number]
+
+export function esParalela(etapa: { tipo?: TipoEtapa | undefined } | undefined): boolean {
+  return etapa?.tipo === 'paralela'
+}
+
+/**
  * La secuencia que lleva un sitio, sacada de su propio documento.
  *
  * El `orden` va embebido en cada gate justamente para esto: la ficha de un sitio
  * se dibuja sin cargar la plantilla, y las reglas de Firestore validan la
- * secuencia sin un get() extra.
+ * secuencia sin un get() extra. Las etapas paralelas no son parte de la
+ * secuencia: el sitio nunca "esta" en una de ellas.
  */
 export function secuenciaDeGates(
-  gates: Readonly<Record<string, { orden: number } | undefined>>,
+  gates: Readonly<Record<string, { orden: number; tipo?: TipoEtapa | undefined } | undefined>>,
 ): CodigoGate[] {
   return Object.entries(gates)
-    .filter((par): par is [string, { orden: number }] => par[1] !== undefined)
+    .filter((par): par is [string, { orden: number; tipo?: TipoEtapa }] => par[1] !== undefined)
+    .filter(([, g]) => !esParalela(g))
     .sort((a, b) => a[1].orden - b[1].orden)
     .map(([codigo]) => codigo)
 }

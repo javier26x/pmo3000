@@ -16,6 +16,7 @@ import { crearConvertidor } from '../convertidores'
 import { normalizarUsuario } from '../normalizadores'
 import { agregarEventos } from '../auditoria'
 import type { Usuario, UsuarioEditable } from '@/domain/tipos/usuario'
+import { normalizarAlcance, serializarAlcance } from '@/domain/permisos/alcance'
 import type { Actor, Rol } from '@/domain/tipos/comunes'
 
 const convertidor = crearConvertidor(normalizarUsuario)
@@ -84,6 +85,8 @@ export async function asegurarPerfil(datos: {
       rol: datos.rolInicial,
       celulaId: null,
       proveedorId: null,
+      // Sin restriccion: el alcance lo asigna un admin, nunca el propio usuario.
+      alcance: { celulas: [], programas: [], proyectos: [] },
       activo: true,
       ultimoAcceso: serverTimestamp(),
       creadoEn: serverTimestamp(),
@@ -121,13 +124,20 @@ export async function actualizarUsuario(
 ): Promise<void> {
   const batch = writeBatch(db)
 
+  // Un admin nunca queda acotado (las reglas lo dejan pasar igual), asi que al
+  // promover a alguien se le limpia el alcance para que el perfil no diga una
+  // cosa y las reglas hagan otra.
+  const alcance =
+    cambios.rol === 'admin' ? normalizarAlcance(null) : normalizarAlcance(cambios.alcance)
+
   batch.update(doc(db, COLECCIONES.usuarios, objetivo.id), {
     ...cambios,
+    alcance,
     actualizadoEn: serverTimestamp(),
     actualizadoPor: actor.uid,
   })
 
-  const campos: [keyof UsuarioEditable, string][] = [
+  const campos: [Exclude<keyof UsuarioEditable, 'alcance'>, string][] = [
     ['rol', 'rol'],
     ['celulaId', 'celulaId'],
     ['proveedorId', 'proveedorId'],
@@ -153,6 +163,31 @@ export async function actualizarUsuario(
       })),
     actor,
   )
+
+  // El alcance es una lista: se audita como texto estable (ver
+  // serializarAlcance), con "Todo" para la ausencia de restriccion.
+  const alcanceAnterior = serializarAlcance(objetivo.alcance)
+  const alcanceNuevo = serializarAlcance(alcance)
+  if (alcanceAnterior !== alcanceNuevo) {
+    agregarEventos(
+      batch,
+      [
+        {
+          entidadTipo: 'usuario',
+          entidadId: objetivo.id,
+          sitioId: null,
+          proyectoId: null,
+          programaId: null,
+          accion: 'actualizar',
+          campo: 'alcance',
+          valorAnterior: alcanceAnterior,
+          valorNuevo: alcanceNuevo,
+          detalle: null,
+        },
+      ],
+      actor,
+    )
+  }
 
   await batch.commit()
 }

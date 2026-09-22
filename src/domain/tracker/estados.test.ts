@@ -2,11 +2,36 @@ import { describe, expect, it } from 'vitest'
 import {
   avanceDeEtapa,
   clasificarEstado,
+  combinarTecnologias,
+  corregirErratas,
+  esFechaDeEstado,
   estaCerrado,
   estadoResumen,
   normalizarTexto,
   pideAccion,
+  tecnologiaDe,
 } from './estados'
+
+describe('tecnologiaDe', () => {
+  it('separa la tecnologia del estado', () => {
+    expect(tecnologiaDe('Ing Aprobada 4G')).toBe('4G')
+    expect(tecnologiaDe('Ing Aprobada 4G/5G')).toBe('4G/5G')
+    expect(tecnologiaDe('Ing Aprobada 4G/ 5G')).toBe('4G/5G')
+    expect(tecnologiaDe('Ing Aprobada 4G/ Ing 5G En Revisión')).toBe('4G/5G')
+    expect(tecnologiaDe('5G - Implementado en 26GHZ')).toBe('5G')
+    expect(tecnologiaDe('TSS Aprobado Indoor')).toBe('Indoor')
+    expect(tecnologiaDe('TSS Aprobado')).toBeNull()
+    expect(tecnologiaDe(null)).toBeNull()
+  })
+
+  it('en un sitio manda la tecnologia mas amplia', () => {
+    expect(combinarTecnologias(['4G', '4G/5G', null])).toBe('4G/5G')
+    expect(combinarTecnologias(['4G', '5G'])).toBe('4G/5G')
+    expect(combinarTecnologias(['Indoor', '4G'])).toBe('4G')
+    expect(combinarTecnologias(['Indoor', null])).toBe('Indoor')
+    expect(combinarTecnologias([null])).toBeNull()
+  })
+})
 
 describe('clasificarEstado', () => {
   it('reconoce las variantes de redaccion del mismo estado', () => {
@@ -42,11 +67,15 @@ describe('clasificarEstado', () => {
     expect(clasificarEstado('FC No Enviado a OOII')).toBe('no_recibido')
   })
 
-  it('entiende que enviar a un area es esperar, no cerrar', () => {
-    // Mas de mil celdas de los trackers reales dicen esto. Leerlas como
-    // aprobadas inflaria el avance de todo el programa.
-    expect(clasificarEstado('FC Enviado a OOII')).toBe('en_revision')
-    expect(clasificarEstado('FC Entregado a OOII')).toBe('en_revision')
+  it('entiende que el FC enviado a OOII es el FC hecho', () => {
+    // Antes esto se leia como "en revision". En el tracker Outdoor "FC Enviado
+    // a OOII" es el estado final del FC (1.019 sitios); lo pendiente se escribe
+    // "Pendiente FC" o "FC No Enviado".
+    expect(clasificarEstado('FC Enviado a OOII')).toBe('aprobado')
+    expect(clasificarEstado('FC Entregado a OOII')).toBe('aprobado')
+    expect(clasificarEstado('FC Enviado OOII')).toBe('aprobado')
+    expect(clasificarEstado('Pendiente FC')).toBe('no_recibido')
+    expect(clasificarEstado('FC No Enviado')).toBe('no_recibido')
   })
 
   it('clasifica la etapa declarada del sitio como trabajo en curso', () => {
@@ -71,8 +100,71 @@ describe('clasificarEstado', () => {
   it('admite que no sabe en vez de inventar', () => {
     // Vocabulario propio del negocio. Que caiga en desconocido es el
     // comportamiento correcto: la app lo muestra para que alguien lo homologue.
-    expect(clasificarEstado('Contrato Post RFI')).toBe('desconocido')
     expect(clasificarEstado('TDI')).toBe('desconocido')
+    expect(clasificarEstado('Poste')).toBe('desconocido')
+  })
+
+  it('el contrato post RFI esta diferido, no pendiente', () => {
+    // Antes caia en desconocido. Es un acuerdo: el contrato se firma despues
+    // del RFI, asi que hoy no falta nada.
+    expect(clasificarEstado('Contrato Post RFI')).toBe('no_aplica')
+    expect(clasificarEstado('Contrato Firmado')).toBe('aprobado')
+    expect(clasificarEstado('Contrato No Firmado')).toBe('no_recibido')
+  })
+
+  it('"0" es falta de dato, no "no aplica"', () => {
+    // Es lo que deja una formula sobre una celda vacia: 362 celdas de "Estado
+    // OOCC" en el tracker Outdoor. Leerlo como cerrado daba obras por hechas.
+    expect(clasificarEstado('0')).toBe('no_recibido')
+    expect(clasificarEstado('-')).toBe('no_aplica')
+    expect(clasificarEstado('No aplica')).toBe('no_aplica')
+  })
+
+  it('corrige las erratas reales antes de clasificar', () => {
+    expect(clasificarEstado('Finaliazada')).toBe('aprobado')
+    expect(clasificarEstado('Termnaida')).toBe('aprobado')
+    expect(clasificarEstado('Finalaizado')).toBe('aprobado')
+    expect(clasificarEstado('Finallizadas')).toBe('aprobado')
+    expect(clasificarEstado('Ing Apobada')).toBe('aprobado')
+    expect(clasificarEstado('In Aprobada')).toBe('aprobado')
+    expect(clasificarEstado('TSs Aprobado')).toBe('aprobado')
+    expect(clasificarEstado('As Built Rachazado')).toBe('rechazado')
+    expect(clasificarEstado('FC Emviado a OOII')).toBe('aprobado')
+    expect(clasificarEstado('Starlink Instadado')).toBe('aprobado')
+    expect(clasificarEstado('As Bult En Revisión')).toBe('en_revision')
+    expect(clasificarEstado('TSS Aprobado con Obervaciones')).toBe('aprobado_con_obs')
+    expect(clasificarEstado('As Built Aprobado Con Observaciobes')).toBe('aprobado_con_obs')
+  })
+
+  it('no corrige de mas', () => {
+    // Un infinitivo es un pendiente, no una errata del participio.
+    expect(corregirErratas('por integrar').correcciones).toBe(0)
+    expect(corregirErratas('revisar').correcciones).toBe(0)
+    expect(corregirErratas('tss aprobado').correcciones).toBe(0)
+    expect(corregirErratas('finaliazada')).toEqual({ texto: 'finalizada', correcciones: 1 })
+  })
+
+  it('una fecha en una celda de estado dice que la cosa ocurrio', () => {
+    expect(clasificarEstado(new Date(Date.UTC(2025, 8, 3)))).toBe('aprobado')
+    expect(clasificarEstado('2025-09-03')).toBe('aprobado')
+    expect(clasificarEstado('03-09-2025')).toBe('aprobado')
+    expect(clasificarEstado('Wed Sep 03 2025 00:00:00 GMT-0400 (hora estándar de Chile)')).toBe(
+      'aprobado',
+    )
+    expect(esFechaDeEstado('TSS Aprobado 2025')).toBe(false)
+  })
+
+  it('entiende el vocabulario de obras, energia y transmision', () => {
+    expect(clasificarEstado('Energia Provisoria')).toBe('en_revision')
+    expect(clasificarEstado('Revisar')).toBe('en_revision')
+    expect(clasificarEstado('En Diseño')).toBe('en_revision')
+    expect(clasificarEstado('PreFactibilidad Ing MMOO')).toBe('en_revision')
+    expect(clasificarEstado('Espera OC')).toBe('no_recibido')
+    expect(clasificarEstado('Starlink')).toBe('aprobado')
+    expect(clasificarEstado('Integrado')).toBe('aprobado')
+    expect(clasificarEstado('No Iniciadas')).toBe('no_recibido')
+    expect(clasificarEstado('En Ejecución')).toBe('en_revision')
+    expect(clasificarEstado('Sin Energía Provisoria')).toBe('no_recibido')
   })
 
   it('la homologacion de la plantilla manda sobre la heuristica', () => {

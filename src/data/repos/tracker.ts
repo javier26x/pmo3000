@@ -24,7 +24,17 @@ import {
 } from '@/domain/tracker/aplicacion'
 import type { PlantillaInferida } from '@/domain/tracker/inferencia'
 import type { EstadoSemantico } from '@/domain/tracker/estados'
+import { estadoSitio } from '@/domain/tracker/estadoSitio'
+import { estaEnAlcance } from '@/domain/permisos/alcance'
 import type { Actor, Prioridad } from '@/domain/tipos/comunes'
+
+/**
+ * Valores derivados que la importacion agrega a los del tracker. Llevan un
+ * prefijo para no chocar con el id de ninguna columna (los ids de columna salen
+ * del encabezado y no empiezan con guion bajo).
+ */
+export const VALOR_TECNOLOGIA = 'tecnologia'
+export const VALOR_ESTADO_SITIO = '_estado-sitio'
 
 const MAX_OPERACIONES = 450
 
@@ -45,6 +55,10 @@ export interface ResultadoTracker {
   filasOmitidas: number
   /** Sitios con etapas aprobadas despues de la que los tiene frenados. */
   fueraDeOrden: number
+  /** Sitios que el tracker da por no vigentes (se escriben igual, con vigente=false). */
+  noVigentes: number
+  /** Sitios que el tracker marca On Hold (se escriben bloqueados). */
+  enHold: number
   /** Columna -> cuantas celdas no se pudieron convertir. */
   problemas: Map<string, number>
   error: string | null
@@ -136,8 +150,27 @@ export async function ejecutarImportacionTracker(
     seguimientosEscritos: 0,
     filasOmitidas: 0,
     fueraDeOrden: 0,
+    noVigentes: 0,
+    enHold: 0,
     problemas: new Map(),
     error: null,
+  }
+
+  // Todas las filas van al mismo destino, asi que el alcance es todo o nada: si
+  // el proyecto queda fuera, las reglas rechazarian el primer lote. Se corta
+  // aca, antes de escribir nada, con un mensaje que se entiende.
+  if (
+    !estaEnAlcance(actor, {
+      celulaId: destino.celulaId,
+      programaId: destino.programaId,
+      proyectoId: destino.proyectoId,
+    })
+  ) {
+    resultado.error =
+      'Ese proyecto está fuera de tu alcance: no puedes escribir sus seguimientos. Elige un ' +
+      'proyecto de tu alcance o pide a un administrador que lo amplíe.'
+    resultado.filasOmitidas = filas.length
+    return resultado
   }
 
   let lote = writeBatch(db)
@@ -165,6 +198,19 @@ export async function ejecutarImportacionTracker(
         continue
       }
       if (avanceFueraDeOrden(fila).length > 0) resultado.fueraDeOrden++
+
+      // Vigencia y On Hold vienen del tracker (columna Vigencia y la fase). Sin
+      // esas columnas el sitio queda vigente y sin bloquear, como siempre.
+      const vigente = fila.condicion?.vigente ?? true
+      const bloqueado = fila.condicion?.bloqueado ?? false
+      if (!vigente) resultado.noVigentes++
+      if (bloqueado) resultado.enHold++
+
+      const valores = { ...fila.valores }
+      if (fila.tecnologia && (valores[VALOR_TECNOLOGIA] ?? null) === null) {
+        valores[VALOR_TECNOLOGIA] = fila.tecnologia
+      }
+      valores[VALOR_ESTADO_SITIO] = estadoSitio(fila).estado
 
       const sellos = {
         actualizadoEn: serverTimestamp(),
@@ -212,13 +258,15 @@ export async function ejecutarImportacionTracker(
           lat: fila.sitio.lat ?? 0,
           lon: fila.sitio.lon ?? 0,
           gateActual: fila.etapaActual,
-          estadoGate: fila.etapaActual === 'CERRADO' ? 'completado' : 'en_curso',
-          bloqueado: false,
-          motivoBloqueo: null,
+          estadoGate:
+            fila.etapaActual === 'CERRADO' ? 'completado' : bloqueado ? 'bloqueado' : 'en_curso',
+          bloqueado,
+          motivoBloqueo: bloqueado ? (fila.condicion?.motivoBloqueo ?? 'On Hold (tracker)') : null,
+          vigente,
           prioridad: destino.prioridad,
           fechaPlanGateActual: (actual?.fechaPlan as string | null) ?? null,
           gates,
-          valores: fila.valores,
+          valores,
           gateTemplateId: destino.plantillaId,
           gateTemplateVersion: destino.plantillaVersion,
           creadoEn: serverTimestamp(),

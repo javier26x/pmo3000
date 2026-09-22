@@ -8,19 +8,68 @@ import { ProveedorDespliegue } from '@/hooks/useDespliegue'
 import { Layout } from './Layout'
 
 // El mapa (Leaflet) y el importador (SheetJS) son los modulos pesados: se
-// cargan solo cuando alguien entra a esas pantallas.
-const PaginaMapa = lazy(() => import('@/features/sitios/PaginaMapa'))
-const PaginaImportar = lazy(() => import('@/features/importacion/PaginaImportar'))
-const PaginaImportarTracker = lazy(() => import('@/features/tracker/PaginaImportarTracker'))
+// cargan solo cuando alguien entra a esas pantallas. Kanban (dnd-kit) y las
+// pantallas de administracion tambien: casi nadie las abre al entrar, y sacarlas
+// del trozo inicial acorta el primer pintado del Inicio.
+const cargarMapa = () => import('@/features/sitios/PaginaMapa')
+const cargarImportar = () => import('@/features/importacion/PaginaImportar')
+const cargarTracker = () => import('@/features/tracker/PaginaImportarTracker')
+const cargarKanban = () => import('@/features/kanban/PaginaKanban')
+const cargarAuditoria = () => import('@/features/auditoria/PaginaAuditoria')
+const cargarUsuarios = () => import('@/features/admin/PaginaUsuarios')
+const cargarConfiguracion = () => import('@/features/admin/PaginaConfiguracion')
+
+const PaginaMapa = lazy(cargarMapa)
+const PaginaImportar = lazy(cargarImportar)
+const PaginaImportarTracker = lazy(cargarTracker)
+const PaginaKanban = lazy(() => cargarKanban().then((m) => ({ default: m.PaginaKanban })))
+const PaginaAuditoria = lazy(() => cargarAuditoria().then((m) => ({ default: m.PaginaAuditoria })))
+const PaginaUsuarios = lazy(() => cargarUsuarios().then((m) => ({ default: m.PaginaUsuarios })))
+const PaginaConfiguracion = lazy(() =>
+  cargarConfiguracion().then((m) => ({ default: m.PaginaConfiguracion })),
+)
+
+/**
+ * Precarga en segundo plano, cuando el navegador queda libre despues del primer
+ * pintado. Asi el trozo inicial es chico y, aun asi, saltar al kanban o al mapa
+ * no espera la red: el modulo ya esta en cache cuando alguien hace clic.
+ */
+function precargarPantallas(): void {
+  const cargas = [
+    cargarKanban,
+    cargarMapa,
+    cargarConfiguracion,
+    cargarUsuarios,
+    cargarAuditoria,
+    cargarTracker,
+    cargarImportar,
+  ]
+  const siguiente = () => {
+    const carga = cargas.shift()
+    if (!carga) return
+    carga()
+      .catch(() => {
+        // Sin red la precarga falla en silencio: la pantalla se pedira al abrirla.
+      })
+      .finally(() => programar(siguiente))
+  }
+  const programar = (fn: () => void) => {
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(fn, { timeout: 4000 })
+    } else {
+      setTimeout(fn, 400)
+    }
+  }
+  // Un respiro antes de empezar: la carga del seguimiento compite por el hilo.
+  window.setTimeout(() => programar(siguiente), 3000)
+}
+
+if (typeof window !== 'undefined') precargarPantallas()
 
 import { PaginaInicio } from '@/features/inicio/PaginaInicio'
 import { PaginaSitios } from '@/features/sitios/PaginaSitios'
 import { PaginaSitio } from '@/features/sitios/PaginaSitio'
 import { PaginaSeguimiento } from '@/features/gates/PaginaSeguimiento'
-import { PaginaKanban } from '@/features/kanban/PaginaKanban'
-import { PaginaAuditoria } from '@/features/auditoria/PaginaAuditoria'
-import { PaginaUsuarios } from '@/features/admin/PaginaUsuarios'
-import { PaginaConfiguracion } from '@/features/admin/PaginaConfiguracion'
 
 /** Envuelve las rutas de la app con los proveedores de datos compartidos. */
 function AppProtegida() {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import {
   Command,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import {
   Boton,
+  Cargando,
   Insignia,
   ItemMenu,
   Menu,
@@ -26,6 +27,8 @@ import { NOMBRES_ROL } from '@/domain/tipos/comunes'
 import { cerrarSesion } from '@/features/auth/servicio'
 import { avisar, mensajeDeError } from '@/app/avisos'
 import { useSesion } from '@/hooks/useSesion'
+import { useCatalogos } from '@/hooks/useCatalogos'
+import { describirAlcance, tieneAlcance } from '@/domain/permisos/alcance'
 import { usarTema } from './tema'
 import { DENSIDADES, NOMBRES_DENSIDAD, usarDensidad } from './densidad'
 import { NAVEGACION } from './navegacion'
@@ -39,6 +42,7 @@ const VISTAS_DESPLIEGUE = new Set(['/sitios', '/mapa', '/kanban'])
 
 export function Layout() {
   const { perfil, puedeHacer } = useSesion()
+  const { nombreCelula, nombrePrograma, nombreProyecto } = useCatalogos()
   const { tema, alternar } = usarTema()
   const densidad = usarDensidad((e) => e.densidad)
   const fijarDensidad = usarDensidad((e) => e.fijar)
@@ -247,6 +251,28 @@ export function Layout() {
             </div>
           )}
 
+          {/* Perfil acotado: que sepa por que no ve todo el despliegue. */}
+          {perfil && tieneAlcance(perfil) && (
+            <div className="mt-3 rounded border border-borde bg-superficie-2 p-2">
+              <Insignia tono="info">Vista acotada</Insignia>
+              <p
+                className="mt-1.5 text-xs text-texto-2"
+                title={describirAlcance(
+                  perfil.alcance,
+                  { celula: nombreCelula, programa: nombrePrograma, proyecto: nombreProyecto },
+                  Infinity,
+                )}
+              >
+                Ves:{' '}
+                {describirAlcance(perfil.alcance, {
+                  celula: nombreCelula,
+                  programa: nombrePrograma,
+                  proyecto: nombreProyecto,
+                })}
+              </p>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => setAyudaAbierta(true)}
@@ -263,7 +289,10 @@ export function Layout() {
           style={{ viewTransitionName: 'contenido' }}
           className="hoja flex min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radio-lente)]"
         >
-          <Outlet />
+          {/* Red de seguridad para las pantallas que se cargan bajo demanda. */}
+          <Suspense fallback={<Cargando texto="Abriendo…" />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

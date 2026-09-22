@@ -3,6 +3,7 @@ import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import { NOMBRES_TIPO, TIPOS_CAMPO, type TipoCampo } from '@/domain/tracker/campos'
 import type { ColumnaInferida, PlantillaInferida } from '@/domain/tracker/inferencia'
 import type { IndiceColumnas } from '@/domain/tracker/aplicacion'
+import type { TipoEtapa } from '@/domain/gates/catalogo'
 import { Aviso, Insignia, Selector, cn } from '@/components/ui'
 
 /** Hasta tres nombres con su conteo; el resto se resume. */
@@ -15,6 +16,8 @@ function listar(columnas: readonly ColumnaInferida[]): string {
 
 const TONO_ROL: Record<string, string> = {
   estado: 'text-[var(--acento)]',
+  vigencia: 'text-[var(--ok-fg)]',
+  estadoSitio: 'text-[var(--riesgo-fg)]',
   comentario: 'text-texto-3',
   fecha: 'text-texto-2',
   semana: 'text-texto-2',
@@ -89,14 +92,22 @@ function FilaColumna({
   )
 }
 
+const AYUDA_TIPO_ETAPA: Record<TipoEtapa, string> = {
+  secuencial: 'Paso del proceso: el sitio no pasa a la siguiente sin cerrarla.',
+  paralela:
+    'Requisito que corre al lado (FC, contrato, DOM…): se sigue, pero no define en qué etapa va el sitio.',
+}
+
 export function RevisionPlantillaInferida({
   propuesta,
   indice,
   onCambiarTipo,
+  onCambiarTipoEtapa,
 }: {
   propuesta: PlantillaInferida
   indice: IndiceColumnas
   onCambiarTipo: (indiceColumna: number, tipo: TipoCampo) => void
+  onCambiarTipoEtapa: (idEtapa: string, tipo: TipoEtapa) => void
 }) {
   const [abierta, setAbierta] = useState<string | null>(propuesta.etapas[0]?.nombre ?? null)
 
@@ -153,6 +164,11 @@ export function RevisionPlantillaInferida({
           el orden de las columnas en la planilla, que es el orden real del proceso. Dentro de cada
           etapa, cada disciplina que revisa queda con su propio estado, comentario y fecha.
           <br />
+          Las etapas <strong>secuenciales</strong> son los pasos del proceso: el sitio está en la
+          primera que no cerró. Las <strong>paralelas</strong> (FC, contrato, DOM, transmisión…) son
+          requisitos que corren al lado: se siguen, pero no frenan ni definen la etapa. Se proponen
+          solas y se pueden cambiar acá.
+          <br />
           El tipo de cada columna se puede corregir acá: el número en rojo dice cuántas celdas no
           calzan con el tipo elegido, y se recalcula al cambiarlo.
         </p>
@@ -163,28 +179,47 @@ export function RevisionPlantillaInferida({
             const esta = abierta === etapa.nombre
             return (
               <li key={etapa.nombre} className="rounded border border-borde">
-                <button
-                  type="button"
-                  onClick={() => setAbierta(esta ? null : etapa.nombre)}
-                  aria-expanded={esta}
-                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-superficie-2"
-                >
-                  {esta ? (
-                    <ChevronDown aria-hidden className="size-3.5 shrink-0 text-texto-3" />
-                  ) : (
-                    <ChevronRight aria-hidden className="size-3.5 shrink-0 text-texto-3" />
-                  )}
-                  <span className="font-mono text-xs text-texto-3">{i + 1}</span>
-                  <span className="text-sm font-medium">{etapa.nombre}</span>
-                  {etapa.revisiones.length > 0 && (
-                    <span className="text-xs text-texto-2">
-                      revisan {etapa.revisiones.map((r) => r.nombre).join(', ')}
+                <div className="flex items-center gap-2 pr-2 hover:bg-superficie-2">
+                  <button
+                    type="button"
+                    onClick={() => setAbierta(esta ? null : etapa.nombre)}
+                    aria-expanded={esta}
+                    className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left"
+                  >
+                    {esta ? (
+                      <ChevronDown aria-hidden className="size-3.5 shrink-0 text-texto-3" />
+                    ) : (
+                      <ChevronRight aria-hidden className="size-3.5 shrink-0 text-texto-3" />
+                    )}
+                    <span className="font-mono text-xs text-texto-3">{i + 1}</span>
+                    <span
+                      className={cn(
+                        'text-sm font-medium',
+                        etapa.tipo === 'paralela' && 'text-texto-2',
+                      )}
+                    >
+                      {etapa.nombre}
                     </span>
-                  )}
-                  <Insignia tono="neutro" className="ml-auto">
-                    {columnas.length} col.
-                  </Insignia>
-                </button>
+                    {etapa.revisiones.length > 0 && (
+                      <span className="truncate text-xs text-texto-2">
+                        revisan {etapa.revisiones.map((r) => r.nombre).join(', ')}
+                      </span>
+                    )}
+                    <Insignia tono="neutro" className="ml-auto shrink-0">
+                      {columnas.length} col.
+                    </Insignia>
+                  </button>
+                  <Selector
+                    value={etapa.tipo}
+                    aria-label={`Tipo de la etapa ${etapa.nombre}`}
+                    title={AYUDA_TIPO_ETAPA[etapa.tipo]}
+                    className="h-6 w-28 shrink-0 py-0 text-xs"
+                    onChange={(e) => onCambiarTipoEtapa(etapa.id, e.target.value as TipoEtapa)}
+                  >
+                    <option value="secuencial">Secuencial</option>
+                    <option value="paralela">Paralela</option>
+                  </Selector>
+                </div>
 
                 {esta && (
                   <ul className="border-t border-borde px-2 py-1.5">

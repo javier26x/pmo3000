@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { COLORES_GATE, type CodigoGate } from '@/domain/gates/catalogo'
+import { COLORES_GATE, TIPOS_ETAPA, type CodigoGate } from '@/domain/gates/catalogo'
 import { ESTADOS_SEMANTICOS } from '@/domain/tracker/estados'
 import { TIPOS_CAMPO } from '@/domain/tracker/campos'
 import { esquemaSellos } from './base'
@@ -40,6 +40,12 @@ export const esquemaGatePlantilla = z.object({
   slaDias: z.number().int().min(0),
   checklist: z.array(esquemaItemPlantilla),
   revisiones: z.array(esquemaRevisionPlantilla).default([]),
+  /**
+   * Secuencial (un paso del proceso) o paralela (un requisito que corre al
+   * lado, como el FC o el contrato). Ver TIPOS_ETAPA en gates/catalogo.ts. Por
+   * defecto secuencial: las plantillas anteriores a este campo no cambian.
+   */
+  tipo: z.enum(TIPOS_ETAPA).default('secuencial'),
 })
 export type GatePlantilla = z.infer<typeof esquemaGatePlantilla>
 
@@ -92,6 +98,18 @@ export function gateDePlantilla(
   return plantilla.gates.find((g) => g.codigo === codigo)
 }
 
+/** La secuencia de la plantilla: solo las etapas secuenciales, en orden. */
 export function codigosDePlantilla(plantilla: GateTemplate): CodigoGate[] {
-  return [...plantilla.gates].sort((a, b) => a.orden - b.orden).map((g) => g.codigo)
+  return [...plantilla.gates]
+    .filter((g) => g.tipo !== 'paralela')
+    .sort((a, b) => a.orden - b.orden)
+    .map((g) => g.codigo)
+}
+
+/** Las etapas paralelas de la plantilla, en orden. No forman parte de la secuencia. */
+export function codigosParalelosDePlantilla(plantilla: GateTemplate): CodigoGate[] {
+  return [...plantilla.gates]
+    .filter((g) => g.tipo === 'paralela')
+    .sort((a, b) => a.orden - b.orden)
+    .map((g) => g.codigo)
 }

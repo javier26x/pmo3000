@@ -124,7 +124,12 @@ export function FilaSeguimiento({
               className="size-3 shrink-0 text-[var(--riesgo-fg)]"
             />
           )}
-          {sp.sitioNombre}
+          <span className="truncate">{sp.sitioNombre}</span>
+          {!sp.vigente && (
+            <Insignia tono="neutro" className="shrink-0">
+              No vigente
+            </Insignia>
+          )}
         </span>
       </Celda>
       <Celda titulo={`${sp.comuna}, ${sp.region}`} className="max-w-36 text-texto-2">
@@ -184,6 +189,7 @@ export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
         {sp.bloqueado && (
           <Lock aria-label="Sitio bloqueado" className="size-3 text-[var(--riesgo-fg)]" />
         )}
+        {!sp.vigente && <Insignia tono="neutro">No vigente</Insignia>}
         <span className="flex-1" />
         <Insignia tono={TONO_PRIORIDAD[sp.prioridad]}>{NOMBRES_PRIORIDAD[sp.prioridad]}</Insignia>
       </div>

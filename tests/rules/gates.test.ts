@@ -292,6 +292,16 @@ describe('secuencia con una plantilla propia', () => {
         completadoPor: null,
       }
     })
+    // Requisito paralelo, como FC en los trackers reales: tambien lleva
+    // `siguiente: null`, igual que la ultima etapa, pero nunca es etapa actual.
+    gates.FC = {
+      ...(gates.TSS as Record<string, unknown>),
+      orden: 5,
+      nombre: 'FC',
+      tipo: 'paralela',
+      siguiente: null,
+      estado: 'no_iniciado',
+    }
     return gates
   }
 
@@ -358,6 +368,14 @@ describe('secuencia con una plantilla propia', () => {
     await assertSucceeds(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'ON_AIR' }))
     await ponerEn('CERRADO')
     await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'TSS' }))
+  })
+
+  it('una etapa paralela nunca es destino, ni para el jefe ni para el admin', async () => {
+    await ponerEn('CERRADO')
+    await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'FC' }))
+    await assertFails(como(entorno, PERFILES.admin!).doc(RUTA).update({ gateActual: 'FC' }))
+    await ponerEn('TSS')
+    await assertFails(como(entorno, PERFILES.admin!).doc(RUTA).update({ gateActual: 'FC' }))
   })
 })
 

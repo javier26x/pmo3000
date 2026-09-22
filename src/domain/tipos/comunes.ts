@@ -48,6 +48,20 @@ export interface Sellos {
   actualizadoPor: string | null
 }
 
+/**
+ * Alcance de un usuario: que parte del despliegue puede ver y tocar.
+ *
+ * Un seguimiento queda dentro si su celula, su programa O su proyecto esta en
+ * la lista correspondiente. Las tres listas vacias significan "sin
+ * restriccion" (el comportamiento de siempre). A un admin nunca se le aplica.
+ * Ver src/domain/permisos/alcance.ts y firestore.rules > enAlcance().
+ */
+export interface Alcance {
+  celulas: string[]
+  programas: string[]
+  proyectos: string[]
+}
+
 /** Identidad minima de quien ejecuta una operacion de dominio. */
 export interface Actor {
   uid: string
@@ -56,4 +70,5 @@ export interface Actor {
   rol: Rol
   celulaId: string | null
   proveedorId: string | null
+  alcance: Alcance
 }
