@@ -101,12 +101,44 @@ comprometida y `completadoPor`.
 
 - Al darse de alta, un usuario nuevo solo puede crearse a sí mismo, con rol
   `lector` y sin proveedor.
-- Nadie puede modificar su propio rol.
+- Nadie puede modificar su propio rol, **salvo** los correos de
+  `correosAdministradores()`, que pueden fijar el suyo en `admin` (ver abajo).
 - Un admin no puede quitarse a sí mismo el rol de admin (dejaría la instalación
   sin administrador y sin forma de volver).
 - Un contratista no puede quedar sin proveedor.
 - Los usuarios no se borran: se desactivan, para que su rastro en la auditoría
   siga apuntando a alguien.
+
+### El arranque
+
+Una instalación nueva no tiene a nadie: la base está vacía, no hay perfiles y la
+promoción de roles es cosa de un admin. Alguien tiene que entrar primero, y puede
+no tener cuenta corporativa.
+
+Para eso existe `correosAdministradores()` en las reglas, una lista corta de
+correos que además entran como `admin`. Su espejo en el cliente es la variable
+`VITE_CORREOS_ADMIN`, pero **la lista de las reglas es la que manda**: agregar un
+correo solo en el cliente no autoriza a nadie, la persona entra y no puede leer
+nada.
+
+Las reglas le conceden dos cosas, y nada más:
+
+1. Crear su propio perfil con `rol == 'admin'` en el primer ingreso.
+2. Corregir **su propio** rol a `admin` si el perfil ya existe con un rol menor.
+
+El segundo permiso no es redundante. Basta que el primer ingreso ocurra con un
+cliente desplegado antes de agregar el correo a `VITE_CORREOS_ADMIN` para que el
+perfil quede como `lector`, y desde ahí no hay salida: promover es cosa de un
+admin y no hay ninguno. Sin ese permiso la única reparación es editar el
+documento a mano en la consola de Firebase.
+
+Está acotado: el cambio solo puede tocar `rol`, `ultimoAcceso`, `actualizadoEn` y
+`actualizadoPor`; solo sobre el propio documento; y solo para los correos de la
+lista. Un corporativo cualquiera no puede ascenderse, y quien está en la lista no
+puede ascender a un tercero por esta vía (sí como admin, una vez que lo es).
+
+Cuando exista un admin corporativo estable, lo correcto es vaciar la lista en
+`firestore.rules` y en `VITE_CORREOS_ADMIN`, y volver a desplegar.
 
 ### Todo lo demás, cerrado
 

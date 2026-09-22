@@ -94,6 +94,23 @@ export async function asegurarPerfil(datos: {
     return
   }
 
+  // El perfil ya existe. Si la cuenta está en la lista de administradores pero el
+  // documento quedó con un rol menor, se corrige acá. Pasa de verdad: basta que
+  // el primer ingreso ocurra con un cliente desplegado antes de agregar el correo
+  // a la lista, y esa persona queda como lector sin nadie que pueda promoverla,
+  // porque promover es cosa de un admin. Las reglas permiten esta corrección solo
+  // para los correos de su propia lista.
+  const actual = snap.data()
+  if (datos.rolInicial === 'admin' && actual?.['rol'] !== 'admin') {
+    await updateDoc(ref, {
+      rol: 'admin',
+      ultimoAcceso: serverTimestamp(),
+      actualizadoEn: serverTimestamp(),
+      actualizadoPor: datos.uid,
+    })
+    return
+  }
+
   await updateDoc(ref, { ultimoAcceso: serverTimestamp() })
 }
 

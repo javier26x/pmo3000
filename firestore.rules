@@ -155,6 +155,21 @@ service cloud.firestore {
         && request.auth.uid == uid
         && soloCambia(['ultimoAcceso']);
 
+      // Arranque, segunda parte: si el perfil ya existe con un rol menor (porque
+      // la instalación se estrenó antes de agregar el correo a la lista, o porque
+      // el cliente desplegado todavía no la traía), un correo de
+      // correosAdministradores() corrige SU PROPIO rol a admin. Sin esto, la
+      // persona que tiene que administrar la instalación queda atrapada como
+      // lector y nadie puede promoverla, porque promover es cosa de un admin: el
+      // arranque se rompe y la única salida es editar el documento a mano en la
+      // consola. La lista vive en estas reglas, así que el permiso no lo concede
+      // el cliente.
+      allow update: if dominioValido()
+        && esAdministradorInicial()
+        && request.auth.uid == uid
+        && request.resource.data.rol == 'admin'
+        && soloCambia(['rol', 'actualizadoEn', 'actualizadoPor', 'ultimoAcceso']);
+
       // Un admin administra roles, pero no se quita a si mismo el suyo por
       // accidente: eso dejaria la instalacion sin administrador.
       allow update: if esAdmin()
