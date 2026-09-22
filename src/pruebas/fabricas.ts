@@ -48,6 +48,8 @@ export function sitioProyecto(extra: Partial<SitioProyecto> = {}): SitioProyecto
     vigente: true,
     prioridad: 'media',
     fechaPlanGateActual: inicial.fechaPlanGateActual,
+    fechaRealGateActual: inicial.fechaRealGateActual,
+    ordenGateActual: inicial.ordenGateActual,
     gates: inicial.gates,
     valores: {},
     gateTemplateId: plantilla.id,

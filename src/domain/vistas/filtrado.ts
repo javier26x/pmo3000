@@ -7,7 +7,7 @@
  * igualdad. Ver el comentario de src/data/repos/sitioProyectos.ts.
  */
 import { hoyEnChile, type FechaISO } from '@/domain/fechas'
-import { diasAtraso } from '@/domain/gates/atraso'
+import { diasAtraso, semaforo, type Semaforo } from '@/domain/gates/atraso'
 import { CERRADO, type GateActual } from '@/domain/gates/catalogo'
 import type { Prioridad } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
@@ -141,9 +141,23 @@ export function atrasoDeSeguimiento(
   sp: SitioProyecto,
   hoy: FechaISO = hoyEnChile(),
 ): number | null {
-  const gate = sp.gateActual === 'CERRADO' ? null : sp.gates[sp.gateActual]
-  if (!gate) return null
-  return diasAtraso(gate.fechaPlan, gate.fechaReal, hoy)
+  // Lee las copias del gate en curso, no el mapa `gates`: son el mismo dato y
+  // asi las vistas de lista no dependen de la parte pesada del documento.
+  if (sp.gateActual === CERRADO) return null
+  // Sin fecha plan, diasAtraso ya devuelve null: no hay compromiso que medir.
+  return diasAtraso(sp.fechaPlanGateActual, sp.fechaRealGateActual, hoy)
+}
+
+/**
+ * Semaforo del gate en curso.
+ *
+ * La tabla, el kanban, el mapa y el Inicio pintaban esto abriendo el mapa de
+ * gates cada uno por su cuenta; con las copias desnormalizadas es el mismo dato
+ * y una sola funcion. Un sitio CERRADO no tiene compromiso vigente: 'sin_fecha'.
+ */
+export function semaforoDeSeguimiento(sp: SitioProyecto, hoy: FechaISO = hoyEnChile()): Semaforo {
+  if (sp.gateActual === CERRADO) return 'sin_fecha'
+  return semaforo(sp.fechaPlanGateActual, sp.fechaRealGateActual, hoy)
 }
 
 export function estaAtrasado(sp: SitioProyecto, hoy: FechaISO = hoyEnChile()): boolean {
@@ -215,7 +229,7 @@ const PESO_PRIORIDAD: Record<Prioridad, number> = { baja: 0, media: 1, alta: 2, 
 /** Posicion de la etapa actual dentro de la secuencia del propio sitio. */
 function ordenDeSitio(sp: SitioProyecto): number {
   if (sp.gateActual === CERRADO) return Number.MAX_SAFE_INTEGER
-  return sp.gates[sp.gateActual]?.orden ?? Number.MAX_SAFE_INTEGER - 1
+  return sp.ordenGateActual ?? Number.MAX_SAFE_INTEGER - 1
 }
 
 /**

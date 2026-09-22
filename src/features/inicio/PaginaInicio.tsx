@@ -2,11 +2,11 @@ import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { ArrowRight, Clock, Lock } from 'lucide-react'
 import { InsigniaGate, cn } from '@/components/ui'
-import { leerRecientes } from '@/app/PaletaComandos'
+import { leerRecientes } from '@/app/sitiosRecientes'
 import { ZONA_HORARIA, formatearFecha } from '@/domain/fechas'
-import { semaforo, textoAtraso } from '@/domain/gates/atraso'
+import { textoAtraso } from '@/domain/gates/atraso'
 import { CERRADO, claseGate, nombreGate, type GateActual } from '@/domain/gates/catalogo'
-import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
+import { atrasoDeSeguimiento, semaforoDeSeguimiento } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useDespliegue } from '@/hooks/useDespliegue'
@@ -60,8 +60,7 @@ function resumir(lista: readonly SitioProyecto[], hoy: string): Resumen {
       cerrados += 1
       continue
     }
-    const gate = sp.gates[sp.gateActual]
-    const estado = semaforo(gate?.fechaPlan ?? null, gate?.fechaReal ?? null, hoy)
+    const estado = semaforoDeSeguimiento(sp, hoy)
     if (estado === 'atrasado' || estado === 'por_vencer') {
       if (estado === 'atrasado') atrasados += 1
       else porVencer += 1

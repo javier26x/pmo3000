@@ -326,6 +326,8 @@ export function normalizarSitioProyecto(id: string, d: DocumentData): SitioProye
       ? crudoActual
       : (primerGate ?? CERRADO)
 
+  const gateEnCurso = gateActual === CERRADO ? undefined : gates[gateActual]
+
   return {
     id,
     sitioId: texto(d.sitioId),
@@ -348,6 +350,18 @@ export function normalizarSitioProyecto(id: string, d: DocumentData): SitioProye
     vigente: booleano(d.vigente, true),
     prioridad: enumerado(d.prioridad, PRIORIDADES, 'media'),
     fechaPlanGateActual: fechaISO(d.fechaPlanGateActual),
+    // Respaldo desde el mapa de gates para los documentos escritos antes de que
+    // estos dos campos existieran. Sin el, esos seguimientos quedarian sin
+    // semaforo y al final de la lista al ordenar por etapa hasta que algo los
+    // reescriba. Se puede quitar cuando no queden documentos viejos.
+    fechaRealGateActual:
+      d.fechaRealGateActual === undefined
+        ? (gateEnCurso?.fechaReal ?? null)
+        : fechaISO(d.fechaRealGateActual),
+    ordenGateActual:
+      d.ordenGateActual === undefined
+        ? (gateEnCurso?.orden ?? null)
+        : numeroNulo(d.ordenGateActual),
     gates,
     valores: normalizarValores(d.valores),
     gateTemplateId: texto(d.gateTemplateId, 'estandar-despliegue'),

@@ -3,10 +3,10 @@ import { Check, Copy, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { Celda, Insignia, InsigniaGate, cn } from '@/components/ui'
 import { formatearFecha } from '@/domain/fechas'
-import { semaforo, textoAtraso } from '@/domain/gates/atraso'
+import { textoAtraso } from '@/domain/gates/atraso'
 import { NOMBRES_PRIORIDAD } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
-import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
+import { atrasoDeSeguimiento, semaforoDeSeguimiento } from '@/domain/vistas/filtrado'
 
 const TONO_SEMAFORO = {
   atrasado: 'error',
@@ -81,9 +81,8 @@ export function FilaSeguimiento({
   onApuntar: () => void
 }) {
   const { sp, hoy } = datos
-  const gate = sp.gateActual === 'CERRADO' ? null : sp.gates[sp.gateActual]
   const dias = atrasoDeSeguimiento(sp, hoy)
-  const estado = semaforo(gate?.fechaPlan ?? null, gate?.fechaReal ?? null, hoy)
+  const estado = semaforoDeSeguimiento(sp, hoy)
 
   return (
     <tr
@@ -142,7 +141,7 @@ export function FilaSeguimiento({
         <InsigniaGate gate={sp.gateActual} estado={sp.estadoGate} />
       </Celda>
       <Celda alineacion="derecha" className="text-texto-2 tabular-nums">
-        {formatearFecha(gate?.fechaPlan ?? null)}
+        {formatearFecha(sp.fechaPlanGateActual)}
       </Celda>
       <Celda alineacion="derecha">
         <span
@@ -174,9 +173,8 @@ export function FilaSeguimiento({
 /** Versión en tarjeta para celular: la tabla no cabe y forzarla la vuelve ilegible. */
 export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
   const { sp, hoy } = datos
-  const gate = sp.gateActual === 'CERRADO' ? null : sp.gates[sp.gateActual]
   const dias = atrasoDeSeguimiento(sp, hoy)
-  const estado = semaforo(gate?.fechaPlan ?? null, gate?.fechaReal ?? null, hoy)
+  const estado = semaforoDeSeguimiento(sp, hoy)
 
   return (
     <Link
@@ -197,7 +195,7 @@ export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
       <div className="flex flex-wrap items-center gap-x-3 text-xs text-texto-2">
         <span>{sp.comuna}</span>
         <span>{datos.nombrePrograma}</span>
-        <span>Plan {formatearFecha(gate?.fechaPlan ?? null)}</span>
+        <span>Plan {formatearFecha(sp.fechaPlanGateActual)}</span>
         <span
           className={cn(
             estado === 'atrasado' && 'font-semibold text-[var(--error-fg)]',

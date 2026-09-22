@@ -282,6 +282,8 @@ export function prepararSeguimiento(datos: DatosSeguimientoNuevo): {
       motivoBloqueo: null,
       prioridad: datos.prioridad,
       fechaPlanGateActual: inicial.fechaPlanGateActual,
+      fechaRealGateActual: inicial.fechaRealGateActual,
+      ordenGateActual: inicial.ordenGateActual,
       gates: inicial.gates,
       gateTemplateId: datos.plantilla.id,
       gateTemplateVersion: datos.plantilla.version,

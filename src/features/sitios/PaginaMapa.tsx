@@ -17,7 +17,8 @@ import {
   cn,
 } from '@/components/ui'
 import { formatearFecha } from '@/domain/fechas'
-import { NOMBRES_SEMAFORO, semaforo, textoAtraso } from '@/domain/gates/atraso'
+import { NOMBRES_SEMAFORO, textoAtraso } from '@/domain/gates/atraso'
+import { semaforoDeSeguimiento } from '@/domain/vistas/filtrado'
 import { CERRADO, claseGate, nombreGate, type EtapaCatalogo } from '@/domain/gates/catalogo'
 import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
@@ -110,8 +111,7 @@ function CapaSeguimientos({
     const marcadores = datos
       .filter((sp) => Number.isFinite(sp.lat) && Number.isFinite(sp.lon))
       .map((sp) => {
-        const gate = sp.gateActual === CERRADO ? null : sp.gates[sp.gateActual]
-        const estado = semaforo(gate?.fechaPlan ?? null, gate?.fechaReal ?? null, hoy)
+        const estado = semaforoDeSeguimiento(sp, hoy)
         const color =
           modo === 'gate'
             ? (paleta.gate[sp.gateActual] ?? paleta.gate[CERRADO] ?? '#888')
@@ -159,14 +159,7 @@ export default function PaginaMapa() {
     [visibles],
   )
 
-  const gateElegido = elegido
-    ? elegido.gateActual === CERRADO
-      ? null
-      : elegido.gates[elegido.gateActual]
-    : null
-  const estadoElegido = elegido
-    ? semaforo(gateElegido?.fechaPlan ?? null, gateElegido?.fechaReal ?? null, hoy)
-    : null
+  const estadoElegido = elegido ? semaforoDeSeguimiento(elegido, hoy) : null
 
   return (
     <>
@@ -315,7 +308,7 @@ export default function PaginaMapa() {
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-texto-3">Fecha plan</dt>
-                <dd>{formatearFecha(gateElegido?.fechaPlan ?? null)}</dd>
+                <dd>{formatearFecha(elegido.fechaPlanGateActual)}</dd>
               </div>
             </dl>
 

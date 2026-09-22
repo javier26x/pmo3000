@@ -101,6 +101,22 @@ const esquemaSitioProyectoBase = z
      */
     fechaPlanGateActual: zFechaISONula,
 
+    /**
+     * Las otras dos copias del gate en curso, hermanas de fechaPlanGateActual.
+     *
+     * Existen para que la tabla, el mapa, el kanban y el Inicio no tengan que
+     * abrir el mapa `gates`: con estas tres pueden calcular el semaforo (plan
+     * contra real) y ordenar por etapa, que es TODO lo que leian de ahi. El
+     * mapa de gates es el 86% del peso del documento, asi que dejar de
+     * depender de el es el paso previo para poder sacarlo de la consulta.
+     *
+     * Quien mueve el gate las mantiene: ver camposGateActual() en
+     * domain/gates/maquina.ts, que es el unico lugar que las calcula.
+     */
+    fechaRealGateActual: zFechaISONula,
+    /** Posicion del gate en curso. null si el sitio esta CERRADO. */
+    ordenGateActual: z.number().int().min(0).nullable().default(null),
+
     gates: z.record(z.string(), esquemaGateSitio),
 
     /**
