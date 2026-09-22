@@ -21,6 +21,7 @@ const ARCHIVO = '.env.production'
 const PROPIOS = {
   VITE_DOMINIO_PERMITIDO: 'clarovtr.cl',
   VITE_CORREOS_ADMIN: '',
+  VITE_MICROSOFT_TENANT: '',
 } as const
 
 interface ConfiguracionWeb {

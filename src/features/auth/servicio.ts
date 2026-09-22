@@ -15,6 +15,7 @@ export {
   hayEnlaceEnUrl,
   ingresarComoUsuarioDemo,
   ingresarConGoogle,
+  ingresarConMicrosoft,
   POLITICA,
   puedeEntrar,
   tomarAccesoDenegado,

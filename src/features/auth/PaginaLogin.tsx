@@ -11,11 +11,13 @@ import {
   hayEnlaceEnUrl,
   ingresarComoUsuarioDemo,
   ingresarConGoogle,
+  ingresarConMicrosoft,
   tomarAccesoDenegado,
   usuariosDemo,
   type UsuarioDemo,
 } from '@/features/auth/servicio'
 import { LogoGoogle } from './LogoGoogle'
+import { LogoMicrosoft } from './LogoMicrosoft'
 import { Aviso, Boton, Campo, Entrada, Insignia, Cargando } from '@/components/ui'
 
 import { NOMBRES_ROL, type Rol } from '@/domain/tipos/comunes'
@@ -52,7 +54,7 @@ export function PaginaLogin() {
   const [estado, setEstado] = useState<Estado>(inicial.estado)
   const [error, setError] = useState<string | null>(inicial.error)
   const [demos, setDemos] = useState<UsuarioDemo[]>([])
-  const [entrandoConGoogle, setEntrandoConGoogle] = useState(false)
+  const [entrandoCon, setEntrandoCon] = useState<'google' | 'microsoft' | null>(null)
 
   useEffect(() => {
     if (inicial.estado !== 'completando') return
@@ -79,10 +81,10 @@ export function PaginaLogin() {
   // tenga invitacion se comprueba al entrar.
   const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())
 
-  const entrarConGoogle = () => {
+  const entrarCon = (metodo: 'google' | 'microsoft') => {
     setError(null)
-    setEntrandoConGoogle(true)
-    ingresarConGoogle()
+    setEntrandoCon(metodo)
+    ;(metodo === 'google' ? ingresarConGoogle() : ingresarConMicrosoft())
       .catch((e) => {
         const texto = mensajeDeError(e)
         // Cancelar el popup no es un error que valga la pena mostrar.
@@ -94,7 +96,7 @@ export function PaginaLogin() {
           )
         }
       })
-      .finally(() => setEntrandoConGoogle(false))
+      .finally(() => setEntrandoCon(null))
   }
 
   const enviar = async (e: React.FormEvent) => {
@@ -160,10 +162,23 @@ export function PaginaLogin() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
+              {AJUSTES_UI.conMicrosoft && (
+                <Boton
+                  variante="secundario"
+                  cargando={entrandoCon === 'microsoft'}
+                  disabled={entrandoCon !== null}
+                  onClick={() => entrarCon('microsoft')}
+                  icono={<LogoMicrosoft className="size-4" />}
+                  className="w-full"
+                >
+                  Continuar con Microsoft 365
+                </Boton>
+              )}
               <Boton
                 variante="secundario"
-                cargando={entrandoConGoogle}
-                onClick={entrarConGoogle}
+                cargando={entrandoCon === 'google'}
+                disabled={entrandoCon !== null}
+                onClick={() => entrarCon('google')}
                 icono={<LogoGoogle className="size-4" />}
                 className="w-full"
               >

@@ -58,7 +58,18 @@ service cloud.firestore {
     function dominioValido() {
       return autenticado()
         && (esCorreoCorporativo() || esAdministradorInicial() || invitado())
-        && request.auth.token.email_verified == true;
+        && correoConfiable();
+    }
+
+    // El correo tiene que estar verificado. La excepcion es Microsoft 365: Firebase
+    // suele marcar esos correos como no verificados aunque vengan del directorio
+    // de Claro. Se acepta solo con correo corporativo, y lo que garantiza que la
+    // cuenta sea de Claro es que la aplicacion de Azure sea de un solo inquilino
+    // (docs/ingreso-microsoft.md).
+    function correoConfiable() {
+      return request.auth.token.email_verified == true
+        || (request.auth.token.firebase.sign_in_provider == 'microsoft.com'
+            && esCorreoCorporativo());
     }
 
     // Invitaciones: un admin invita un correo (de cualquier dominio) y deja

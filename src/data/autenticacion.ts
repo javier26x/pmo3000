@@ -19,6 +19,7 @@
  */
 import {
   GoogleAuthProvider,
+  OAuthProvider,
   isSignInWithEmailLink,
   onAuthStateChanged,
   sendSignInLinkToEmail,
@@ -41,7 +42,7 @@ import type { Rol } from '@/domain/tipos/comunes'
 
 const CLAVE_CORREO = 'pmo3000.correoPendiente'
 
-export type MetodoIngreso = 'enlace_correo' | 'google' | 'password_dev'
+export type MetodoIngreso = 'enlace_correo' | 'google' | 'microsoft' | 'password_dev'
 
 export const POLITICA: PoliticaAcceso = {
   dominio: AJUSTES.dominioPermitido,
@@ -53,6 +54,7 @@ export const AJUSTES_AUTENTICACION = {
   usarEmuladores: AJUSTES.usarEmuladores,
   dominioPermitido: AJUSTES.dominioPermitido,
   correosAdmin: AJUSTES.correosAdmin,
+  conMicrosoft: AJUSTES.tenantMicrosoft !== '',
 } as const
 
 export function dominioPermitido(): string {
@@ -185,6 +187,37 @@ export async function ingresarConGoogle(): Promise<User> {
   // la sesion al armar el perfil (ver la cabecera de este archivo).
   const credencial = await signInWithPopup(auth, proveedor)
   return credencial.user
+}
+
+// --- Microsoft 365 -----------------------------------------------------------
+
+/**
+ * Ingreso con la cuenta de Microsoft 365 (Office) de Claro.
+ *
+ * Solo lectura del perfil: se pide User.Read, que entrega nombre y correo, y
+ * nada mas. La app no lee correo, calendario ni archivos, y no guarda el token
+ * de Microsoft. El tenant se fija aca, pero lo que garantiza que solo entren
+ * cuentas de Claro es que el registro de la aplicacion en Azure sea de un solo
+ * inquilino (ver docs/ingreso-microsoft.md).
+ */
+export async function ingresarConMicrosoft(): Promise<User> {
+  if (!AJUSTES.tenantMicrosoft) throw new Error('El ingreso con Microsoft no esta configurado')
+  const proveedor = new OAuthProvider('microsoft.com')
+  proveedor.addScope('User.Read')
+  proveedor.setCustomParameters({ tenant: AJUSTES.tenantMicrosoft, prompt: 'select_account' })
+  try {
+    const credencial = await signInWithPopup(auth, proveedor)
+    return credencial.user
+  } catch (e) {
+    if ((e as { code?: string }).code === 'auth/account-exists-with-different-credential') {
+      throw new Error(
+        'Tu correo ya entró antes con otro método (enlace por correo o Google). ' +
+          'Entra con ese método; un administrador puede unificarlo después.',
+        { cause: e },
+      )
+    }
+    throw e
+  }
 }
 
 // --- Atajo de desarrollo ---------------------------------------------------

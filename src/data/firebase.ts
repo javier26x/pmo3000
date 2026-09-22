@@ -30,6 +30,10 @@ export const AJUSTES = {
   // La misma lista tiene que estar en firestore.rules: ver el comentario de
   // src/domain/permisos/dominio.ts.
   correosAdmin: listaDeCorreos(import.meta.env.VITE_CORREOS_ADMIN),
+  // Tenant de Microsoft 365 de Claro (el GUID o el dominio, p. ej. clarovtr.cl).
+  // Vacio: el boton "Continuar con Microsoft 365" no se muestra. Requiere el
+  // proveedor Microsoft activo en Firebase Auth (ver docs/ingreso-microsoft.md).
+  tenantMicrosoft: (import.meta.env.VITE_MICROSOFT_TENANT ?? '').trim(),
   puertoAuth: 9099,
   puertoFirestore: 8080,
 } as const
