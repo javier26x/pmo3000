@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
-import { Lock } from 'lucide-react'
+import { Check, Copy, Lock } from 'lucide-react'
+import { useState } from 'react'
 import { Celda, Insignia, InsigniaGate, cn } from '@/components/ui'
 import { formatearFecha } from '@/domain/fechas'
 import { semaforo, textoAtraso } from '@/domain/gates/atraso'
@@ -12,6 +13,13 @@ const TONO_SEMAFORO = {
   por_vencer: 'riesgo',
   ok: 'ok',
   sin_fecha: 'neutro',
+} as const
+
+const TEXTO_SEMAFORO = {
+  atrasado: 'atrasado',
+  por_vencer: 'por vencer',
+  ok: 'en plazo',
+  sin_fecha: 's/f',
 } as const
 
 const TONO_PRIORIDAD = {
@@ -29,8 +37,49 @@ export interface DatosFila {
   hoy: string
 }
 
-/** Fila de la tabla de seguimiento. Alto fijo: la virtualizacion lo necesita. */
-export function FilaSeguimiento({ datos }: { datos: DatosFila }) {
+/** Copiar el ID del sitio: es lo que se pega en el correo o en la planilla. */
+function BotonCopiar({ texto }: { texto: string }) {
+  const [copiado, setCopiado] = useState(false)
+
+  return (
+    <button
+      type="button"
+      aria-label={`Copiar el ID ${texto}`}
+      title="Copiar ID"
+      onClick={(e) => {
+        e.stopPropagation()
+        navigator.clipboard
+          ?.writeText(texto)
+          .then(() => {
+            setCopiado(true)
+            setTimeout(() => setCopiado(false), 1400)
+          })
+          .catch(() => setCopiado(false))
+      }}
+      className={cn(
+        'rounded p-0.5 text-texto-3 transition-opacity duration-[var(--ms-instante)]',
+        'hover:bg-superficie-3 hover:text-texto',
+        copiado ? 'text-[var(--ok-fg)] opacity-100' : 'opacity-0 group-hover:opacity-100',
+        'focus-visible:opacity-100',
+      )}
+    >
+      {copiado ? <Check aria-hidden className="size-3" /> : <Copy aria-hidden className="size-3" />}
+    </button>
+  )
+}
+
+/** Fila de la tabla de seguimiento. Alto fijo: lo necesita la virtualización. */
+export function FilaSeguimiento({
+  datos,
+  conCursor,
+  onActivar,
+  onApuntar,
+}: {
+  datos: DatosFila
+  conCursor: boolean
+  onActivar: () => void
+  onApuntar: () => void
+}) {
   const { sp, hoy } = datos
   const gate = sp.gateActual === 'CERRADO' ? null : sp.gates[sp.gateActual]
   const dias = atrasoDeSeguimiento(sp, hoy)
@@ -38,17 +87,35 @@ export function FilaSeguimiento({ datos }: { datos: DatosFila }) {
 
   return (
     <tr
-      className="border-b border-borde last:border-0 hover:bg-superficie-2"
+      onMouseMove={onApuntar}
+      onClick={onActivar}
+      aria-selected={conCursor}
+      className={cn(
+        'group cursor-pointer border-b border-borde last:border-0',
+        'transition-colors duration-[var(--ms-instante)]',
+        conCursor ? 'fila-cursor' : 'hover:bg-superficie-2',
+      )}
       style={{ height: 'var(--alto-fila)' }}
     >
-      <Celda className="font-mono text-xs">
-        <Link
-          to={`/seguimiento/${encodeURIComponent(sp.id)}`}
-          className="rounded text-[var(--acento)] hover:underline"
-        >
-          {sp.sitioId}
-        </Link>
+      {/* El ID queda fijo al desplazar en horizontal: es la referencia de la fila. */}
+      <Celda
+        className={cn(
+          'sticky left-0 z-[1] font-mono text-xs',
+          conCursor ? 'bg-[var(--acento-suave)]' : 'bg-superficie group-hover:bg-superficie-2',
+        )}
+      >
+        <span className="flex items-center gap-1">
+          <Link
+            to={`/seguimiento/${encodeURIComponent(sp.id)}`}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded text-[var(--acento)] hover:underline"
+          >
+            {sp.sitioId}
+          </Link>
+          <BotonCopiar texto={sp.sitioId} />
+        </span>
       </Celda>
+
       <Celda titulo={sp.sitioNombre} className="max-w-52">
         <span className="flex items-center gap-1">
           {sp.bloqueado && (
@@ -84,9 +151,7 @@ export function FilaSeguimiento({ datos }: { datos: DatosFila }) {
         </span>
       </Celda>
       <Celda>
-        <Insignia tono={TONO_SEMAFORO[estado]}>
-          {estado === 'sin_fecha' ? 's/f' : estado === 'por_vencer' ? 'por vencer' : estado}
-        </Insignia>
+        <Insignia tono={TONO_SEMAFORO[estado]}>{TEXTO_SEMAFORO[estado]}</Insignia>
       </Celda>
       <Celda titulo={datos.nombreProveedor} className="max-w-32 text-texto-2">
         {datos.nombreProveedor}
@@ -101,7 +166,7 @@ export function FilaSeguimiento({ datos }: { datos: DatosFila }) {
   )
 }
 
-/** Version en tarjeta para celular: la tabla no cabe y forzarla se vuelve ilegible. */
+/** Versión en tarjeta para celular: la tabla no cabe y forzarla la vuelve ilegible. */
 export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
   const { sp, hoy } = datos
   const gate = sp.gateActual === 'CERRADO' ? null : sp.gates[sp.gateActual]
@@ -111,7 +176,7 @@ export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
   return (
     <Link
       to={`/seguimiento/${encodeURIComponent(sp.id)}`}
-      className="flex flex-col gap-1 border-b border-borde px-3 py-2 last:border-0 active:bg-superficie-2"
+      className="flex flex-col gap-1 border-b border-borde px-3 py-2.5 last:border-0 active:bg-superficie-2"
     >
       <div className="flex items-center gap-2">
         <span className="font-mono text-xs text-[var(--acento)]">{sp.sitioId}</span>
@@ -137,5 +202,21 @@ export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
         </span>
       </div>
     </Link>
+  )
+}
+
+/** Fila fantasma mientras llegan los datos: evita el salto al aparecer la tabla. */
+export function FilaEsqueleto({ columnas }: { columnas: number }) {
+  return (
+    <tr className="border-b border-borde" style={{ height: 'var(--alto-fila)' }}>
+      {Array.from({ length: columnas }).map((_, i) => (
+        <Celda key={i}>
+          <span
+            className="esqueleto block h-3 rounded"
+            style={{ width: `${[60, 80, 55, 70, 40, 65, 50, 45, 60, 55, 45][i] ?? 60}%` }}
+          />
+        </Celda>
+      ))}
+    </tr>
   )
 }

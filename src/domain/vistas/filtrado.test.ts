@@ -77,6 +77,19 @@ describe('filtrarSeguimientos', () => {
     ).toHaveLength(1)
   })
 
+  it('filtra por gate en el cliente', () => {
+    const conGates = [
+      conPlan('A', '2026-05-01'),
+      { ...conPlan('B', '2026-05-01'), gateActual: 'FC' as const },
+    ]
+    expect(
+      filtrarSeguimientos(conGates, { ...FILTROS_VISTA_VACIOS, gateActual: 'FC' }, HOY),
+    ).toHaveLength(1)
+    expect(
+      filtrarSeguimientos(conGates, { ...FILTROS_VISTA_VACIOS, gateActual: 'TCSR' }, HOY),
+    ).toHaveLength(1)
+  })
+
   it('filtra por region y prioridad', () => {
     expect(
       filtrarSeguimientos(lista, { ...FILTROS_VISTA_VACIOS, region: 'Biobio' }, HOY),

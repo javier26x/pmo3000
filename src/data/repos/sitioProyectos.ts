@@ -27,8 +27,8 @@ import { normalizarComentario, normalizarSitioProyecto, type Comentario } from '
 import { agregarEventos } from '../auditoria'
 import { crearGatesDesdePlantilla, type Parche } from '@/domain/gates/maquina'
 import { filtroObligatorio } from '@/domain/permisos/matriz'
+import { FILTROS_SERVIDOR_VACIOS, type FiltrosSeguimiento } from '@/domain/vistas/filtrado'
 import { idSitioProyecto, type SitioProyecto } from '@/domain/tipos/sitioProyecto'
-import type { GateActual } from '@/domain/gates/catalogo'
 import type { GateTemplate } from '@/domain/tipos/gate'
 import type { Sitio } from '@/domain/tipos/sitio'
 import type { Actor, Prioridad } from '@/domain/tipos/comunes'
@@ -51,21 +51,18 @@ const convComentario = crearConvertidor(normalizarComentario)
  */
 export const TOPE_SEGUIMIENTOS = 1500
 
-export interface FiltrosSeguimiento {
-  programaId: string | null
-  proyectoId: string | null
-  proveedorId: string | null
-  celulaId: string | null
-  gateActual: GateActual | null
-}
+/**
+ * Primera tanda para pintar rápido.
+ *
+ * Medido: el documento de seguimiento pesa 4,85 kB y el 86% de eso es el mapa de
+ * gates con su checklist. Traer 1.500 son ~7 MB y ~9 s hasta el primer pintado.
+ * Con esta tanda corta hay tabla y embudo en torno a 1 s, y el resto llega por
+ * detrás y reemplaza sin que la persona espere mirando esqueletos.
+ */
+export const TOPE_PRIMERA_TANDA = 150
 
-export const FILTROS_VACIOS: FiltrosSeguimiento = {
-  programaId: null,
-  proyectoId: null,
-  proveedorId: null,
-  celulaId: null,
-  gateActual: null,
-}
+export const FILTROS_VACIOS = FILTROS_SERVIDOR_VACIOS
+export type { FiltrosSeguimiento }
 
 export function refSeguimiento(id: string) {
   return doc(db, COLECCIONES.sitioProyectos, id).withConverter(convertidor)
@@ -76,6 +73,7 @@ export function observarSeguimientos(
   filtros: FiltrosSeguimiento,
   cb: (datos: SitioProyecto[]) => void,
   onError: (e: Error) => void,
+  tope: number = TOPE_SEGUIMIENTOS,
 ): Unsubscribe {
   const restricciones = []
 
@@ -89,12 +87,11 @@ export function observarSeguimientos(
   if (filtros.programaId) restricciones.push(where('programaId', '==', filtros.programaId))
   if (filtros.proyectoId) restricciones.push(where('proyectoId', '==', filtros.proyectoId))
   if (filtros.celulaId) restricciones.push(where('celulaId', '==', filtros.celulaId))
-  if (filtros.gateActual) restricciones.push(where('gateActual', '==', filtros.gateActual))
 
   const q = query(
     collection(db, COLECCIONES.sitioProyectos).withConverter(convertidor),
     ...restricciones,
-    limitar(TOPE_SEGUIMIENTOS),
+    limitar(tope),
   )
 
   return onSnapshot(

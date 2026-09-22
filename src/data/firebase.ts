@@ -5,7 +5,14 @@
  */
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth'
-import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore'
+import {
+  connectFirestoreEmulator,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from 'firebase/firestore'
 
 export const AJUSTES = {
   usarEmuladores: import.meta.env.VITE_USAR_EMULADORES === 'true',
@@ -26,7 +33,28 @@ export const app: FirebaseApp = initializeApp({
 })
 
 export const auth: Auth = getAuth(app)
-export const db: Firestore = getFirestore(app)
+
+/**
+ * Cache local persistente: la app tiene que seguir siendo util en terreno, donde
+ * la senal se cae. Con esto, las lecturas salen del disco cuando no hay red y
+ * las escrituras quedan encoladas y se sincronizan solas al volver la conexion.
+ *
+ * El gestor multipestana comparte una sola cache entre las pestanas abiertas.
+ * Si el navegador no lo soporta (modo privado, almacenamiento bloqueado), se cae
+ * a la cache en memoria: la app funciona igual, solo pierde el modo sin conexion.
+ */
+function crearFirestore(): Firestore {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    })
+  } catch (e) {
+    console.warn('Sin cache persistente; se usara la cache en memoria.', e)
+    return getFirestore(app)
+  }
+}
+
+export const db: Firestore = crearFirestore()
 
 if (AJUSTES.usarEmuladores) {
   connectAuthEmulator(auth, `http://127.0.0.1:${AJUSTES.puertoAuth}`, { disableWarnings: true })

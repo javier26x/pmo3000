@@ -18,6 +18,11 @@
                 ? 'oscuro'
                 : 'claro'
           document.documentElement.dataset.tema = tema
+
+          var densidad = localStorage.getItem('pmo3000.densidad')
+          if (densidad === 'compacta' || densidad === 'comoda') {
+            document.documentElement.dataset.densidad = densidad
+          }
         } catch (_) {
           document.documentElement.dataset.tema = 'claro'
         }

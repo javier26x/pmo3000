@@ -17,7 +17,6 @@ import {
   Boton,
   CabeceraPantalla,
   Campo,
-  Cargando,
   Dialogo,
   EnlaceBoton,
   Entrada,
@@ -47,7 +46,9 @@ import {
 } from '@/domain/gates/maquina'
 import { NOMBRES_PRIORIDAD, PRIORIDADES, type Prioridad } from '@/domain/tipos/comunes'
 import { useActor, useSesion } from '@/hooks/useSesion'
+import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { useCatalogos } from '@/hooks/useCatalogos'
+import { EsqueletoFicha } from './EsqueletoFicha'
 import { Historial } from './Historial'
 import { LineaGates } from './LineaGates'
 import { PanelChecklist, type AccionChecklist } from './PanelChecklist'
@@ -73,10 +74,11 @@ export function PaginaSeguimiento() {
   const [comentarioCierre, setComentarioCierre] = useState('')
   const [motivo, setMotivo] = useState('')
   const [nuevoComentario, setNuevoComentario] = useState('')
-  const [guardando, setGuardando] = useState(false)
 
   const plantilla = sp ? plantillaPorId(sp.gateTemplateId) : null
   const hoy = hoyEnChile()
+
+  useTituloPagina(sp ? `${sp.sitioId} · ${sp.sitioNombre}` : 'Sitio')
 
   const gateVisible: CodigoGate | null = useMemo(() => {
     if (!sp) return null
@@ -89,7 +91,7 @@ export function PaginaSeguimiento() {
     [sp, plantilla, actor],
   )
 
-  if (cargando && !sp) return <Cargando texto="Cargando la ficha del sitio…" />
+  if (cargando && !sp) return <EsqueletoFicha />
 
   if (error) {
     return (
@@ -121,23 +123,32 @@ export function PaginaSeguimiento() {
     )
   }
 
-  /** Aplica un plan del dominio y avisa del resultado. */
-  const ejecutar = async (resultado: Resultado<Parche>, mensajeOk: string) => {
+  /**
+   * Aplica un plan del dominio.
+   *
+   * La validación es síncrona (vive en el dominio), así que un cambio inválido
+   * se rechaza al instante. Lo que NO se espera es la confirmación del servidor:
+   * con la caché persistente activa, Firestore aplica la escritura localmente de
+   * inmediato y la promesa de `commit()` recién resuelve cuando el backend
+   * responde —o nunca, si se está sin señal—. Esperarla dejaría los diálogos
+   * colgados justo en terreno, que es donde más falta hacen.
+   *
+   * Por eso la interfaz avanza con el cambio ya aplicado y el error del servidor,
+   * si llega, se avisa después.
+   */
+  const ejecutar = (
+    resultado: Resultado<Parche>,
+    mensajeOk: string | null,
+    opciones: { accion?: { texto: string; ejecutar: () => void } } = {},
+  ): boolean => {
     if (!resultado.ok) {
       avisar.error(resultado.motivo)
       return false
     }
-    setGuardando(true)
-    try {
-      await aplicarParche(sp, resultado.valor, actor)
-      avisar.ok(mensajeOk)
-      return true
-    } catch (e) {
-      avisar.error(mensajeDeError(e))
-      return false
-    } finally {
-      setGuardando(false)
-    }
+
+    aplicarParche(sp, resultado.valor, actor).catch((e) => avisar.error(mensajeDeError(e)))
+    if (mensajeOk) avisar.ok(mensajeOk, opciones.accion)
+    return true
   }
 
   const ctx = contextoDe(actor)
@@ -149,7 +160,7 @@ export function PaginaSeguimiento() {
     (actor.rol !== 'contratista' || sp.proveedorId === actor.proveedorId)
 
   const marcar = (accion: AccionChecklist) =>
-    void ejecutar(
+    ejecutar(
       planMarcarChecklist(sp, plantilla, ctx, {
         codigo: accion.codigo,
         itemId: accion.itemId,
@@ -157,7 +168,7 @@ export function PaginaSeguimiento() {
         ...(accion.evidenciaUrl !== undefined ? { evidenciaUrl: accion.evidenciaUrl } : {}),
         ...(accion.obs !== undefined ? { obs: accion.obs } : {}),
       }),
-      'Entregable actualizado',
+      null,
     )
 
   return (
@@ -304,10 +315,10 @@ export function PaginaSeguimiento() {
                 sp={sp}
                 plantilla={plantilla}
                 codigo={gateVisible}
-                editable={puedeEditar && !guardando}
+                editable={puedeEditar}
                 onMarcar={marcar}
                 onEditarFecha={(campo, valor) =>
-                  void ejecutar(
+                  ejecutar(
                     planRegistrarFecha(sp, plantilla, ctx, {
                       codigo: gateVisible,
                       campo,
@@ -332,8 +343,8 @@ export function PaginaSeguimiento() {
                     id="responsable"
                     value={sp.responsableUid ?? ''}
                     disabled={!puedeHacer('sitioProyectos', 'editar')}
-                    onChange={(e) =>
-                      void asignarResponsable(
+                    onChange={(e) => {
+                      asignarResponsable(
                         sp,
                         {
                           responsableUid: e.target.value || null,
@@ -341,10 +352,9 @@ export function PaginaSeguimiento() {
                           prioridad: sp.prioridad,
                         },
                         actor,
-                      )
-                        .then(() => avisar.ok('Responsable actualizado'))
-                        .catch((err) => avisar.error(mensajeDeError(err)))
-                    }
+                      ).catch((err) => avisar.error(mensajeDeError(err)))
+                      avisar.ok('Responsable actualizado')
+                    }}
                   >
                     <option value="">Sin asignar</option>
                     {usuarios
@@ -362,8 +372,8 @@ export function PaginaSeguimiento() {
                     id="proveedor"
                     value={sp.proveedorId ?? ''}
                     disabled={!puedeHacer('sitioProyectos', 'editar')}
-                    onChange={(e) =>
-                      void asignarResponsable(
+                    onChange={(e) => {
+                      asignarResponsable(
                         sp,
                         {
                           responsableUid: sp.responsableUid,
@@ -371,10 +381,9 @@ export function PaginaSeguimiento() {
                           prioridad: sp.prioridad,
                         },
                         actor,
-                      )
-                        .then(() => avisar.ok('Proveedor actualizado'))
-                        .catch((err) => avisar.error(mensajeDeError(err)))
-                    }
+                      ).catch((err) => avisar.error(mensajeDeError(err)))
+                      avisar.ok('Proveedor actualizado')
+                    }}
                   >
                     <option value="">Sin proveedor</option>
                     {proveedores.map((p) => (
@@ -390,8 +399,8 @@ export function PaginaSeguimiento() {
                     id="prioridad"
                     value={sp.prioridad}
                     disabled={!puedeHacer('sitioProyectos', 'editar')}
-                    onChange={(e) =>
-                      void asignarResponsable(
+                    onChange={(e) => {
+                      asignarResponsable(
                         sp,
                         {
                           responsableUid: sp.responsableUid,
@@ -399,10 +408,9 @@ export function PaginaSeguimiento() {
                           prioridad: e.target.value as Prioridad,
                         },
                         actor,
-                      )
-                        .then(() => avisar.ok('Prioridad actualizada'))
-                        .catch((err) => avisar.error(mensajeDeError(err)))
-                    }
+                      ).catch((err) => avisar.error(mensajeDeError(err)))
+                      avisar.ok('Prioridad actualizada')
+                    }}
                   >
                     {PRIORIDADES.map((p) => (
                       <option key={p} value={p}>
@@ -474,12 +482,10 @@ export function PaginaSeguimiento() {
                   onSubmit={(e) => {
                     e.preventDefault()
                     if (!nuevoComentario.trim()) return
-                    void agregarComentario(sp.id, nuevoComentario, gateVisible, actor)
-                      .then(() => {
-                        setNuevoComentario('')
-                        avisar.ok('Comentario publicado')
-                      })
-                      .catch((err) => avisar.error(mensajeDeError(err)))
+                    agregarComentario(sp.id, nuevoComentario, gateVisible, actor).catch((err) =>
+                      avisar.error(mensajeDeError(err)),
+                    )
+                    setNuevoComentario('')
                   }}
                 >
                   <AreaTexto
@@ -517,17 +523,20 @@ export function PaginaSeguimiento() {
             <Boton onClick={() => setDialogo(null)}>Cancelar</Boton>
             <Boton
               variante="primario"
-              cargando={guardando}
               disabled={!evaluacion?.permitido}
-              onClick={() =>
-                void ejecutar(
+              onClick={() => {
+                const ok = ejecutar(
                   planAvanzarGate(sp, plantilla, ctx, {
                     fechaReal: fechaCierre,
                     ...(comentarioCierre.trim() ? { comentario: comentarioCierre } : {}),
                   }),
-                  'Gate avanzado',
-                ).then((ok) => ok && setDialogo(null))
-              }
+                  `${sp.sitioId} avanzó a ${nombreGate(evaluacion?.destino ?? sp.gateActual)}`,
+                  {
+                    accion: { texto: 'Ver el historial', ejecutar: () => setPestana('historial') },
+                  },
+                )
+                if (ok) setDialogo(null)
+              }}
             >
               Confirmar avance
             </Boton>
@@ -588,14 +597,14 @@ export function PaginaSeguimiento() {
             <Boton onClick={() => setDialogo(null)}>Cancelar</Boton>
             <Boton
               variante="peligro"
-              cargando={guardando}
               disabled={!motivo.trim()}
-              onClick={() =>
-                void ejecutar(
+              onClick={() => {
+                const ok = ejecutar(
                   planRetrocederGate(sp, plantilla, ctx, motivo),
                   'Gate retrocedido',
-                ).then((ok) => ok && setDialogo(null))
-              }
+                )
+                if (ok) setDialogo(null)
+              }}
             >
               Retroceder
             </Boton>
@@ -627,14 +636,14 @@ export function PaginaSeguimiento() {
             <Boton onClick={() => setDialogo(null)}>Cancelar</Boton>
             <Boton
               variante={sp.bloqueado ? 'primario' : 'peligro'}
-              cargando={guardando}
               disabled={!sp.bloqueado && !motivo.trim()}
-              onClick={() =>
-                void ejecutar(
+              onClick={() => {
+                const ok = ejecutar(
                   planBloqueo(sp, ctx, { bloqueado: !sp.bloqueado, motivo }),
                   sp.bloqueado ? 'Sitio desbloqueado' : 'Sitio bloqueado',
-                ).then((ok) => ok && setDialogo(null))
-              }
+                )
+                if (ok) setDialogo(null)
+              }}
             >
               {sp.bloqueado ? 'Desbloquear' : 'Bloquear'}
             </Boton>

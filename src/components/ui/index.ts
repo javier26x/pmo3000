@@ -1,6 +1,8 @@
 export { Boton } from './Boton'
 export type { PropsBoton, TamanoBoton, VarianteBoton } from './Boton'
+export { Chip } from './Chip'
 export { EnlaceBoton } from './EnlaceBoton'
+export { ItemMenu, Menu, PanelMenu, SeparadorMenu, TituloMenu, useMenuFlotante } from './Menu'
 export { Insignia } from './Insignia'
 export type { TonoInsignia } from './Insignia'
 export { InsigniaGate, PuntoGate } from './InsigniaGate'

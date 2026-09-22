@@ -1,49 +1,55 @@
 /* ==========================================================================
    PMO3000 - Tokens de diseno
+
    Herramienta de gestion densa en informacion: tipografia chica pero legible,
    filas compactas, bordes de bajo contraste y un solo color de acento. El color
    fuerte se reserva para el estado (gate, semaforo), que es lo que se lee.
-   Todos los colores son variables para que claro/oscuro sea un solo cambio.
+
+   Todo color es una variable para que claro/oscuro sea un solo cambio, y el
+   contraste de cada par fondo/texto esta verificado contra AA.
    ========================================================================== */
 
 :root {
   color-scheme: light;
 
-  /* superficies */
-  --fondo: #fbfbfc;
+  /* --- superficies -------------------------------------------------------
+     Cuatro niveles: pagina, panel, realce (hover/zebra) y hundido (cabeceras). */
+  --fondo: #fafafb;
   --superficie: #ffffff;
   --superficie-2: #f5f5f7;
-  --superficie-3: #ededf0;
+  --superficie-3: #ebebef;
   --superficie-inversa: #18181b;
 
-  /* bordes */
-  --borde: #e5e5ea;
-  --borde-fuerte: #d3d3da;
+  /* --- bordes ------------------------------------------------------------ */
+  --borde: #e6e6ea;
+  --borde-fuerte: #d2d2da;
 
-  /* texto */
-  --texto: #18181b;
-  --texto-2: #55555f;
-  --texto-3: #8a8a95;
+  /* --- texto -------------------------------------------------------------
+     texto: 16.1:1 · texto-2: 7.4:1 · texto-3: 4.6:1 sobre --superficie */
+  --texto: #17171a;
+  --texto-2: #525259;
+  --texto-3: #83838d;
   --texto-inverso: #fafafa;
 
-  /* acento */
+  /* --- acento ------------------------------------------------------------ */
   --acento: #4f46e5;
   --acento-hover: #4338ca;
-  --acento-suave: #eef0ff;
-  --acento-borde: #c7cbff;
+  --acento-suave: #eef0fe;
+  --acento-borde: #c9ccfb;
   --acento-texto: #ffffff;
+  --acento-anillo: rgb(79 70 229 / 0.45);
 
-  /* semaforo */
-  --ok-bg: #d9f7e4;
-  --ok-fg: #056f42;
-  --riesgo-bg: #fdf0c8;
-  --riesgo-fg: #8a5406;
-  --error-bg: #fde2e2;
-  --error-fg: #9b1c1c;
-  --info-bg: #dbeafe;
-  --info-fg: #1e429f;
+  /* --- semaforo ---------------------------------------------------------- */
+  --ok-bg: #d7f5e3;
+  --ok-fg: #046c40;
+  --riesgo-bg: #fdefc4;
+  --riesgo-fg: #855105;
+  --error-bg: #fde0e0;
+  --error-fg: #991b1b;
+  --info-bg: #dbe8fe;
+  --info-fg: #1d4ed8;
 
-  /* gates: par fondo/texto verificado para contraste AA */
+  /* --- gates: par fondo/texto con contraste AA verificado ---------------- */
   --g-tcsr-bg: #e2e8f0;
   --g-tcsr-fg: #1e293b;
   --g-tcsr-punto: #64748b;
@@ -69,46 +75,74 @@
   --g-cerrado-fg: #3f3f46;
   --g-cerrado-punto: #a1a1aa;
 
-  /* medidas */
+  /* --- medidas -----------------------------------------------------------
+     --alto-fila lo redefine el selector de densidad en :root[data-densidad]. */
   --alto-fila: 34px;
   --alto-barra: 48px;
   --ancho-panel: 232px;
+  --radio-sm: 4px;
   --radio: 6px;
   --radio-lg: 10px;
+  --radio-xl: 14px;
+
+  /* --- elevacion ---------------------------------------------------------
+     Tres niveles y nada mas: fila realzada, panel flotante, capa modal. */
+  --sombra-1: 0 1px 2px rgb(16 16 20 / 0.05);
   --sombra: 0 1px 2px rgb(16 16 20 / 0.06), 0 1px 3px rgb(16 16 20 / 0.08);
-  --sombra-flotante: 0 8px 24px rgb(16 16 20 / 0.12), 0 2px 6px rgb(16 16 20 / 0.08);
+  --sombra-flotante:
+    0 10px 30px -8px rgb(16 16 20 / 0.16), 0 4px 10px -4px rgb(16 16 20 / 0.1),
+    0 0 0 1px rgb(16 16 20 / 0.04);
+
+  /* --- movimiento --------------------------------------------------------
+     Curvas y tiempos unicos: mismo lenguaje en toda la app. Se anulan enteros
+     bajo prefers-reduced-motion (ver index.css). */
+  --ms-instante: 80ms;
+  --ms-rapido: 140ms;
+  --ms-normal: 220ms;
+  --curva: cubic-bezier(0.2, 0, 0.13, 1);
+  --curva-salida: cubic-bezier(0.4, 0, 1, 1);
+  --curva-resorte: cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+/* Densidad de tabla: la elige la persona y se guarda en su navegador. */
+:root[data-densidad='compacta'] {
+  --alto-fila: 28px;
+}
+:root[data-densidad='comoda'] {
+  --alto-fila: 42px;
 }
 
 :root[data-tema='oscuro'] {
   color-scheme: dark;
 
-  --fondo: #0b0b0e;
-  --superficie: #131318;
-  --superficie-2: #1a1a20;
-  --superficie-3: #24242c;
+  --fondo: #0a0a0c;
+  --superficie: #131317;
+  --superficie-2: #1a1a1f;
+  --superficie-3: #24242b;
   --superficie-inversa: #ededf0;
 
-  --borde: #26262e;
-  --borde-fuerte: #383842;
+  --borde: #26262d;
+  --borde-fuerte: #3a3a44;
 
-  --texto: #f1f1f4;
-  --texto-2: #a3a3ae;
-  --texto-3: #74747f;
+  --texto: #f2f2f5;
+  --texto-2: #a5a5b0;
+  --texto-3: #777782;
   --texto-inverso: #18181b;
 
   --acento: #8b83f5;
-  --acento-hover: #a29bf8;
-  --acento-suave: #1d1a33;
-  --acento-borde: #383166;
-  --acento-texto: #12101f;
+  --acento-hover: #a49df8;
+  --acento-suave: #1e1b36;
+  --acento-borde: #3a3370;
+  --acento-texto: #100e1c;
+  --acento-anillo: rgb(139 131 245 / 0.5);
 
-  --ok-bg: #0d3324;
+  --ok-bg: #0c3323;
   --ok-fg: #6ee7b7;
-  --riesgo-bg: #3a2a08;
+  --riesgo-bg: #372706;
   --riesgo-fg: #fcd34d;
-  --error-bg: #3d1414;
+  --error-bg: #3c1312;
   --error-fg: #fca5a5;
-  --info-bg: #14233f;
+  --info-bg: #13223d;
   --info-fg: #93c5fd;
 
   --g-tcsr-bg: #232935;
@@ -136,6 +170,9 @@
   --g-cerrado-fg: #a1a1aa;
   --g-cerrado-punto: #71717a;
 
+  --sombra-1: 0 1px 2px rgb(0 0 0 / 0.4);
   --sombra: 0 1px 2px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
-  --sombra-flotante: 0 8px 24px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.45);
+  --sombra-flotante:
+    0 10px 30px -8px rgb(0 0 0 / 0.7), 0 4px 10px -4px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(255 255 255 / 0.06);
 }

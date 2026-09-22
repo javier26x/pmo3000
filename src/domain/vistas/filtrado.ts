@@ -8,16 +8,43 @@
  */
 import { hoyEnChile, type FechaISO } from '@/domain/fechas'
 import { diasAtraso } from '@/domain/gates/atraso'
-import { ordenGate, type GateActual } from '@/domain/gates/catalogo'
+import { esGateActual, ordenGate, type GateActual } from '@/domain/gates/catalogo'
 import type { Prioridad } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import type { Sitio } from '@/domain/tipos/sitio'
+
+/**
+ * Filtros que viajan al servidor como igualdades. Viven en el dominio (no en el
+ * repositorio) porque son una nocion de negocio: "el programa que estoy
+ * mirando", no un detalle de Firestore.
+ */
+export interface FiltrosSeguimiento {
+  programaId: string | null
+  proyectoId: string | null
+  proveedorId: string | null
+  celulaId: string | null
+}
+
+export const FILTROS_SERVIDOR_VACIOS: FiltrosSeguimiento = {
+  programaId: null,
+  proyectoId: null,
+  proveedorId: null,
+  celulaId: null,
+}
 
 export interface FiltrosVista {
   texto: string
   region: string | null
   comuna: string | null
   prioridad: Prioridad | null
+  /**
+   * El gate se filtra en el cliente, no en el servidor, a propósito: el embudo
+   * tiene que seguir mostrando la distribución completa mientras uno de sus
+   * tramos está seleccionado. Si el recorte fuera de servidor, al elegir un gate
+   * el embudo se quedaría con una sola barra y perdería justamente el contexto
+   * que lo hace útil.
+   */
+  gateActual: GateActual | null
   soloAtrasados: boolean
   soloBloqueados: boolean
 }
@@ -27,8 +54,13 @@ export const FILTROS_VISTA_VACIOS: FiltrosVista = {
   region: null,
   comuna: null,
   prioridad: null,
+  gateActual: null,
   soloAtrasados: false,
   soloBloqueados: false,
+}
+
+export function hayFiltrosServidor(filtros: FiltrosSeguimiento): boolean {
+  return Object.values(filtros).some((v) => v !== null)
 }
 
 export function hayFiltrosActivos(filtros: FiltrosVista): boolean {
@@ -69,6 +101,7 @@ export function filtrarSeguimientos(
   const buscado = normalizar(filtros.texto.trim())
 
   return lista.filter((sp) => {
+    if (filtros.gateActual && sp.gateActual !== filtros.gateActual) return false
     if (filtros.region && sp.region !== filtros.region) return false
     if (filtros.comuna && sp.comuna !== filtros.comuna) return false
     if (filtros.prioridad && sp.prioridad !== filtros.prioridad) return false
@@ -162,6 +195,11 @@ export function ordenarSeguimientos(
 }
 
 /** Valores distintos de un campo, ordenados, para poblar los selectores. */
+/** Valida un gate que viene de fuera (URL, vista guardada, selector). */
+export function gateDesdeTexto(valor: string | null): GateActual | null {
+  return valor && esGateActual(valor) ? valor : null
+}
+
 export function valoresDistintos<T>(lista: readonly T[], extraer: (item: T) => string): string[] {
   const conjunto = new Set<string>()
   for (const item of lista) {

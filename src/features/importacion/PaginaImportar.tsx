@@ -35,6 +35,7 @@ import {
 import { NOMBRES_PRIORIDAD, PRIORIDADES, type Prioridad } from '@/domain/tipos/comunes'
 import { useActor } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
+import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { TablaPrevia } from './TablaPrevia'
 
 type Paso = 'archivo' | 'mapeo' | 'previa' | 'resultado'
@@ -55,6 +56,7 @@ export default function PaginaImportar() {
   const { programas, proyectos, proveedores, plantillaPorId } = useCatalogos()
 
   const [paso, setPaso] = useState<Paso>('archivo')
+  useTituloPagina('Importar sitios')
   const [archivo, setArchivo] = useState<ArchivoTabular | null>(null)
   const [leyendo, setLeyendo] = useState(false)
   const [errorLectura, setErrorLectura] = useState<string | null>(null)

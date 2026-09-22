@@ -16,6 +16,7 @@ import { observarAuditoria } from '@/data/repos/auditoria'
 import { formatearFechaHora } from '@/domain/fechas'
 import { NOMBRES_ACCION, type EventoAuditoria } from '@/domain/tipos/auditoria'
 import { useCatalogos } from '@/hooks/useCatalogos'
+import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { useSuscripcion } from '@/hooks/useSuscripcion'
 
 const SIN_EVENTOS: EventoAuditoria[] = []
@@ -35,6 +36,7 @@ const TONO_ACCION = {
 export function PaginaAuditoria() {
   const { programas, usuarios } = useCatalogos()
   const [programaId, setProgramaId] = useState('')
+  useTituloPagina('Auditoría')
   const [uid, setUid] = useState('')
   const [sitioId, setSitioId] = useState('')
 

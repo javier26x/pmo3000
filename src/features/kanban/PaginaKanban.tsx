@@ -34,6 +34,7 @@ import { agruparPorGate } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useActor, useSesion } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
+import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { useDespliegue } from '@/hooks/useDespliegue'
 import { BarraFiltros } from '@/features/sitios/BarraFiltros'
 import { ColumnaGate } from './ColumnaGate'
@@ -51,6 +52,7 @@ export function PaginaKanban() {
   const { visibles, cargando, error, hoy } = useDespliegue()
 
   const [vista, setVista] = useState<Vista>('gates')
+  useTituloPagina('Kanban')
   const [arrastrando, setArrastrando] = useState<string | null>(null)
   const [confirmacion, setConfirmacion] = useState<{
     sp: SitioProyecto
@@ -59,7 +61,6 @@ export function PaginaKanban() {
   } | null>(null)
   const [fechaCierre, setFechaCierre] = useState(hoyEnChile())
   const [motivo, setMotivo] = useState('')
-  const [guardando, setGuardando] = useState(false)
 
   const sensores = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -111,7 +112,13 @@ export function PaginaKanban() {
     setConfirmacion({ sp, destino, tipo: evaluacion.tipo === 'retroceso' ? 'retroceso' : 'avance' })
   }
 
-  const confirmar = async () => {
+  /**
+   * No se espera la confirmación del servidor: con la caché persistente el
+   * cambio ya está aplicado localmente y la tarjeta se mueve de columna al
+   * instante. Esperar dejaría el diálogo colgado cuando no hay señal, que es
+   * justo cuando esto se usa en terreno.
+   */
+  const confirmar = () => {
     if (!confirmacion) return
     const plantilla = plantillaPorId(confirmacion.sp.gateTemplateId)
     if (!plantilla) return
@@ -127,20 +134,15 @@ export function PaginaKanban() {
       return
     }
 
-    setGuardando(true)
-    try {
-      await aplicarParche(confirmacion.sp, resultado.valor, actor)
-      avisar.ok(
-        confirmacion.tipo === 'avance'
-          ? `${confirmacion.sp.sitioId} avanzo a ${nombreGate(confirmacion.destino)}`
-          : `${confirmacion.sp.sitioId} volvio a ${nombreGate(confirmacion.destino)}`,
-      )
-      setConfirmacion(null)
-    } catch (e) {
-      avisar.error(mensajeDeError(e))
-    } finally {
-      setGuardando(false)
-    }
+    aplicarParche(confirmacion.sp, resultado.valor, actor).catch((e) =>
+      avisar.error(mensajeDeError(e)),
+    )
+    avisar.ok(
+      confirmacion.tipo === 'avance'
+        ? `${confirmacion.sp.sitioId} avanzó a ${nombreGate(confirmacion.destino)}`
+        : `${confirmacion.sp.sitioId} volvió a ${nombreGate(confirmacion.destino)}`,
+    )
+    setConfirmacion(null)
   }
 
   const puedeMover = puedeHacer('sitioProyectos', 'avanzarGate')
@@ -262,9 +264,8 @@ export function PaginaKanban() {
             <Boton onClick={() => setConfirmacion(null)}>Cancelar</Boton>
             <Boton
               variante={confirmacion?.tipo === 'avance' ? 'primario' : 'peligro'}
-              cargando={guardando}
               disabled={confirmacion?.tipo === 'retroceso' && !motivo.trim()}
-              onClick={() => void confirmar()}
+              onClick={confirmar}
             >
               Confirmar
             </Boton>

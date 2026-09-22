@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -23,6 +23,7 @@ import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { usarTema } from '@/app/tema'
 import { useCatalogos } from '@/hooks/useCatalogos'
+import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { useDespliegue } from '@/hooks/useDespliegue'
 import { BarraFiltros } from './BarraFiltros'
 import { leerPaleta, type ModoColor } from './coloresMapa'
@@ -30,6 +31,30 @@ import { leerPaleta, type ModoColor } from './coloresMapa'
 /** Centro y zoom iniciales: Chile continental completo. */
 const CENTRO: [number, number] = [-35.5, -71.3]
 const ZOOM = 5
+
+/**
+ * Aviso cuando las imágenes del mapa no cargan (sin señal, o red corporativa que
+ * bloquea el proveedor de teselas). Sin esto el mapa queda en blanco y parece
+ * roto, cuando en realidad los sitios están bien ubicados.
+ */
+function DetectorDeTeselas({ onFallar }: { onFallar: () => void }) {
+  const mapa = useMap()
+
+  useEffect(() => {
+    let fallidas = 0
+    const alFallar = () => {
+      fallidas += 1
+      // Una tesela suelta falla siempre; varias seguidas es que no hay acceso.
+      if (fallidas === 6) onFallar()
+    }
+    mapa.eachLayer((capa) => capa.on('tileerror', alFallar))
+    return () => {
+      mapa.eachLayer((capa) => capa.off('tileerror', alFallar))
+    }
+  }, [mapa, onFallar])
+
+  return null
+}
 
 function CapaSeguimientos({
   datos,
@@ -104,7 +129,10 @@ export default function PaginaMapa() {
   const { visibles, cargando, error, hoy } = useDespliegue()
   const { nombrePrograma, nombreProveedor } = useCatalogos()
   const [modo, setModo] = useState<ModoColor>('gate')
+  useTituloPagina('Mapa')
   const [elegido, setElegido] = useState<SitioProyecto | null>(null)
+  const [sinTeselas, setSinTeselas] = useState(false)
+  const marcarSinTeselas = useCallback(() => setSinTeselas(true), [])
 
   const conCoordenadas = useMemo(
     () => visibles.filter((sp) => sp.lat !== 0 || sp.lon !== 0),
@@ -168,7 +196,18 @@ export default function PaginaMapa() {
             maxZoom={19}
           />
           <CapaSeguimientos datos={conCoordenadas} modo={modo} hoy={hoy} onElegir={setElegido} />
+          <DetectorDeTeselas onFallar={marcarSinTeselas} />
         </MapContainer>
+
+        {sinTeselas && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-[500] flex justify-center px-3">
+            <p className="pointer-events-auto max-w-md rounded-lg bg-[var(--riesgo-bg)] px-3 py-2 text-xs text-[var(--riesgo-fg)] shadow-[var(--sombra-flotante)]">
+              No se pudieron cargar las imágenes del mapa (sin señal, o la red bloquea
+              OpenStreetMap). Los sitios siguen ubicados en sus coordenadas reales y el resto de la
+              pantalla funciona igual.
+            </p>
+          </div>
+        )}
 
         {/* Leyenda */}
         <div className="pointer-events-none absolute bottom-3 left-3 z-[500] max-w-[calc(100%-1.5rem)]">

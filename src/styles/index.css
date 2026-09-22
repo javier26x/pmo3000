@@ -24,8 +24,10 @@
     'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
 
+  --radius-sm: var(--radio-sm);
   --radius-DEFAULT: var(--radio);
   --radius-lg: var(--radio-lg);
+  --radius-xl: var(--radio-xl);
 
   --text-xs: 0.6875rem; /* 11px - etiquetas y metadatos */
   --text-sm: 0.75rem; /* 12px - tablas y controles */
@@ -33,6 +35,10 @@
   --text-md: 0.875rem; /* 14px - titulos de seccion */
   --text-lg: 1rem;
   --text-xl: 1.25rem;
+
+  --ease-salida: var(--curva-salida);
+  --ease-suave: var(--curva);
+  --ease-resorte: var(--curva-resorte);
 }
 
 @layer base {
@@ -45,6 +51,8 @@
   html {
     -webkit-text-size-adjust: 100%;
     font-variant-numeric: tabular-nums;
+    /* Sin rebote elastico: la app ocupa el alto exacto de la ventana. */
+    overscroll-behavior: none;
   }
 
   body {
@@ -55,13 +63,20 @@
     font-size: var(--text-base);
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Foco siempre visible: requisito de accesibilidad, no decoracion. */
+  /* Foco siempre visible: requisito de accesibilidad, no decoracion.
+     Anillo doble (color + halo) para que se vea sobre cualquier superficie. */
   :focus-visible {
     outline: 2px solid var(--acento);
     outline-offset: 2px;
-    border-radius: 3px;
+    border-radius: var(--radio-sm);
+  }
+
+  /* El foco por clic no dibuja anillo, el foco por teclado si. */
+  :focus:not(:focus-visible) {
+    outline: none;
   }
 
   ::selection {
@@ -75,7 +90,7 @@
   h4 {
     margin: 0;
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.011em;
   }
 
   a {
@@ -95,18 +110,6 @@
     color: inherit;
   }
 
-  /* Respeta a quien pidio menos movimiento en su sistema. */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
-
   /* Barras de desplazamiento discretas, acordes al tema. */
   * {
     scrollbar-width: thin;
@@ -123,6 +126,36 @@
     border: 3px solid transparent;
     border-radius: 8px;
     background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--texto-3);
+    background-clip: content-box;
+  }
+
+  /* Respeta a quien pidio menos movimiento en su sistema: se apaga todo el
+     lenguaje de movimiento de una vez, no animacion por animacion. */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --ms-instante: 0.01ms;
+      --ms-rapido: 0.01ms;
+      --ms-normal: 0.01ms;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
   }
 }
 
@@ -181,5 +214,107 @@
   /* Contenedor con desplazamiento que no arrastra la pagina completa. */
   .panel-scroll {
     overscroll-behavior: contain;
+  }
+
+  /* Fila de tabla bajo el cursor de teclado. */
+  .fila-cursor {
+    background: var(--acento-suave);
+    box-shadow: inset 2px 0 0 0 var(--acento);
+  }
+
+  /* Tecla en pantalla: mismo aspecto en ayuda, paleta y botones. */
+  .tecla {
+    display: inline-flex;
+    min-width: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radio-sm);
+    background: var(--superficie-3);
+    padding: 0 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.4rem;
+    color: var(--texto-2);
+  }
+}
+
+@layer utilities {
+  /* Entrada de capas flotantes: dialogos, menus, avisos. */
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+      transform: translateY(4px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes deslizar-desde-abajo {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes brillo {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  .anim-aparecer {
+    animation: aparecer var(--ms-normal) var(--curva-resorte);
+  }
+
+  .anim-subir {
+    animation: deslizar-desde-abajo var(--ms-normal) var(--curva-resorte);
+  }
+
+  /* Esqueleto con barrido: comunica "cargando" sin robar atencion. */
+  .esqueleto {
+    background:
+      linear-gradient(
+          90deg,
+          transparent 20%,
+          color-mix(in oklab, var(--superficie) 70%, transparent) 50%,
+          transparent 80%
+        )
+        0 0 / 200% 100%,
+      var(--superficie-3);
+    animation: brillo 1.6s var(--curva) infinite;
+  }
+}
+
+/* Transicion entre pantallas: solo el area de contenido, nunca la barra ni el
+   panel lateral, que deben sentirse fijos. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(contenido) {
+    animation: salir-contenido var(--ms-rapido) var(--curva-salida) forwards;
+  }
+
+  ::view-transition-new(contenido) {
+    animation: entrar-contenido var(--ms-normal) var(--curva) forwards;
+  }
+
+  @keyframes salir-contenido {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes entrar-contenido {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
   }
 }

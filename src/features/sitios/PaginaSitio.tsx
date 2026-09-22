@@ -26,6 +26,7 @@ import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useActor, useSesion } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useSuscripcion } from '@/hooks/useSuscripcion'
+import { useTituloPagina } from '@/hooks/useTituloPagina'
 
 const SIN_SEGUIMIENTOS: SitioProyecto[] = []
 
@@ -35,7 +36,6 @@ export function PaginaSitio() {
   const { puedeHacer } = useSesion()
   const { nombrePrograma, nombreProyecto, nombreProveedor } = useCatalogos()
   const [carpeta, setCarpeta] = useState<string | null>(null)
-  const [guardando, setGuardando] = useState(false)
 
   const suscribirSitio = useCallback(
     (cb: (s: Sitio | null) => void, onError: (e: Error) => void) => {
@@ -61,6 +61,7 @@ export function PaginaSitio() {
   const participaciones = useSuscripcion(sitioId ? suscribirSeguimientos : null, SIN_SEGUIMIENTOS)
 
   const hoy = hoyEnChile()
+  useTituloPagina(sitio ? `${sitio.id} · ${sitio.nombre}` : 'Sitio')
   const valorCarpeta = carpeta ?? sitio?.carpetaUrl ?? ''
   const carpetaCambiada = sitio ? valorCarpeta !== (sitio.carpetaUrl ?? '') : false
 
@@ -222,18 +223,14 @@ export function PaginaSitio() {
                 <Boton
                   variante="primario"
                   tamano="sm"
-                  cargando={guardando}
                   disabled={!carpetaCambiada || !puedeHacer('sitios', 'editar')}
                   icono={<Save aria-hidden className="size-3.5" />}
                   onClick={() => {
-                    setGuardando(true)
-                    void actualizarCarpeta(sitio, valorCarpeta.trim() || null, actor)
-                      .then(() => {
-                        avisar.ok('Carpeta actualizada')
-                        setCarpeta(null)
-                      })
-                      .catch((e) => avisar.error(mensajeDeError(e)))
-                      .finally(() => setGuardando(false))
+                    actualizarCarpeta(sitio, valorCarpeta.trim() || null, actor).catch((e) =>
+                      avisar.error(mensajeDeError(e)),
+                    )
+                    avisar.ok('Carpeta actualizada')
+                    setCarpeta(null)
                   }}
                 >
                   Guardar

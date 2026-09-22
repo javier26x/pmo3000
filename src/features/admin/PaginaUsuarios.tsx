@@ -22,6 +22,7 @@ import { NOMBRES_ROL, ROLES, type Rol } from '@/domain/tipos/comunes'
 import { esquemaUsuarioEditable, type Usuario } from '@/domain/tipos/usuario'
 import { useActor } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
+import { useTituloPagina } from '@/hooks/useTituloPagina'
 
 const TONO_ROL: Record<Rol, 'acento' | 'info' | 'neutro' | 'riesgo'> = {
   admin: 'acento',
@@ -36,13 +37,13 @@ export function PaginaUsuarios() {
   const { usuarios, celulas, proveedores, nombreCelula, nombreProveedor, cargando } = useCatalogos()
 
   const [editando, setEditando] = useState<Usuario | null>(null)
+  useTituloPagina('Usuarios y roles')
   const [nombre, setNombre] = useState('')
   const [rol, setRol] = useState<Rol>('lector')
   const [celulaId, setCelulaId] = useState('')
   const [proveedorId, setProveedorId] = useState('')
   const [activo, setActivo] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [guardando, setGuardando] = useState(false)
 
   const abrir = (usuario: Usuario) => {
     setEditando(usuario)
@@ -54,7 +55,7 @@ export function PaginaUsuarios() {
     setError(null)
   }
 
-  const guardar = async () => {
+  const guardar = () => {
     if (!editando) return
     const candidato = {
       nombre: nombre.trim(),
@@ -71,16 +72,11 @@ export function PaginaUsuarios() {
       return
     }
 
-    setGuardando(true)
-    try {
-      await actualizarUsuario(editando, validado.data, actor)
-      avisar.ok(`Perfil de ${candidato.nombre} actualizado`)
-      setEditando(null)
-    } catch (e) {
-      setError(mensajeDeError(e))
-    } finally {
-      setGuardando(false)
-    }
+    // Igual que en el resto de la app: el cambio ya se aplicó en la caché local,
+    // así que no se espera al servidor para cerrar el diálogo.
+    actualizarUsuario(editando, validado.data, actor).catch((e) => avisar.error(mensajeDeError(e)))
+    avisar.ok(`Perfil de ${candidato.nombre} actualizado`)
+    setEditando(null)
   }
 
   const seEditaASiMismo = editando?.id === actor.uid
@@ -172,7 +168,7 @@ export function PaginaUsuarios() {
         pie={
           <>
             <Boton onClick={() => setEditando(null)}>Cancelar</Boton>
-            <Boton variante="primario" cargando={guardando} onClick={() => void guardar()}>
+            <Boton variante="primario" onClick={guardar}>
               Guardar cambios
             </Boton>
           </>

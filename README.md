@@ -210,11 +210,80 @@ Documentación de detalle en [`docs/`](docs/):
 - [`docs/reglas-seguridad.md`](docs/reglas-seguridad.md) — qué garantizan las reglas y qué no.
 - [`docs/importacion-excel.md`](docs/importacion-excel.md) — formato de la planilla y cómo funciona el importador.
 - [`docs/power-automate-carpetas.md`](docs/power-automate-carpetas.md) — carpetas de SharePoint sin Graph API (Fase 2).
-- [`docs/decisiones/`](docs/decisiones/) — decisiones de diseño con su porqué.
+- [`docs/decisiones/`](docs/decisiones/) — decisiones de diseño con su porqué:
+  [sitio y participación](docs/decisiones/0001-sitio-y-participacion.md) ·
+  [gates embebidos](docs/decisiones/0002-gates-embebidos.md) ·
+  [fechas como día civil](docs/decisiones/0003-fechas-como-dia-civil.md) ·
+  [filtros en la URL](docs/decisiones/0004-filtros-en-la-url.md).
 
 ---
 
-## 5. Límites conocidos de la Fase 1
+## 5. Cómo se usa (y por qué está diseñada así)
+
+Es una herramienta de trabajo diario, no un panel de consulta. El diseño asume a
+alguien que entra varias veces al día, revisa cientos de sitios y necesita llegar
+rápido a uno concreto.
+
+### Sin soltar el teclado
+
+| Atajo                                       | Qué hace                                                        |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| `Ctrl/⌘ K`                                  | Paleta de comandos: buscar un sitio o ejecutar cualquier acción |
+| `/`                                         | Buscar en la vista actual                                       |
+| `G` luego `S` / `M` / `K` / `I` / `A` / `U` | Ir a Sitios, Mapa, Kanban, Importar, Auditoría, Usuarios        |
+| `J` / `K` o `↑` `↓`                         | Recorrer las filas de la tabla                                  |
+| `Enter`                                     | Abrir la ficha de la fila marcada                               |
+| `T`                                         | Alternar modo claro y oscuro                                    |
+| `D`                                         | Cambiar la densidad de las tablas                               |
+| `?`                                         | Ver esta lista dentro de la app                                 |
+
+Los atajos nunca se activan mientras se escribe en un campo.
+
+### Los filtros están en la URL
+
+El recorte que armas queda en la barra de direcciones
+(`/sitios?prog=prog-plan200&gate=FC&atr=1`). Eso significa que:
+
+- **Compartes una vista pegando el enlace.** «Mira los atrasados del Plan 200» es
+  un link, no una instrucción.
+- **Recargar no pierde el filtrado**, y el botón Atrás deshace el último filtro.
+- **Saltar entre tabla, mapa y kanban conserva el recorte**: son tres miradas de
+  lo mismo.
+
+Además, cualquier combinación se guarda con nombre desde el menú **Vistas**
+(queda en tu navegador, no en Firestore: es una preferencia personal).
+
+### El embudo del despliegue
+
+Arriba de la tabla hay una barra proporcional con los sitios parados en cada
+gate, y una franja roja dentro de cada tramo con la parte que está atrasada.
+Responde de un vistazo la pregunta que abre toda reunión de PMO: dónde se está
+atascando esto. Cada tramo filtra la vista al pulsarlo, y sigue mostrando la
+distribución completa aunque haya un gate seleccionado.
+
+### En terreno
+
+- **Funciona sin señal.** Firestore guarda una caché persistente en el
+  dispositivo: se sigue consultando y editando sin conexión, y los cambios suben
+  solos al volver la señal. La barra superior avisa cuando estás sin conexión o
+  sincronizando.
+- **La tabla se vuelve tarjetas** bajo 768 px, y la ficha con su checklist es la
+  pantalla pensada para el celular.
+- Si el mapa no puede cargar sus imágenes (sin señal, o una red que bloquea
+  OpenStreetMap), lo dice en vez de quedarse en blanco.
+
+### Carga
+
+El documento de seguimiento pesa 4,85 kB y el 86 % de eso es el checklist de los
+gates, que la tabla no muestra. Mientras eso no cambie (ver
+[ADR 0002](docs/decisiones/0002-gates-embebidos.md)), la app pide la consulta en
+dos tandas: 150 documentos para pintar rápido y 1.500 por detrás. Medido contra
+el emulador, el primer pintado pasó de 8,5 s a 4,3 s, y el embudo avisa
+«cargando el resto…» para que nadie tome un conteo parcial por el total.
+
+---
+
+## 6. Límites conocidos de la Fase 1
 
 Están acá y no escondidos en el código, porque cambian cómo hay que operar la app.
 
@@ -278,7 +347,7 @@ muestra además la fecha ya formateada, para que no haya ambigüedad.
 
 ---
 
-## 6. Recorrido de aceptación
+## 7. Recorrido de aceptación
 
 Lo que conviene probar después del seed:
 
@@ -305,10 +374,15 @@ Lo que conviene probar después del seed:
    documento de `auditoria` desde la app: las reglas lo rechazan.
 9. **Terreno.** Abre la ficha de un sitio en un celular (o con el viewport
    angosto) y recórrela solo con el teclado: el foco siempre es visible.
+10. **Sin conexión.** Con la app abierta, corta la red (o detén el emulador): la
+    barra superior avisa «Sin conexión», puedes seguir navegando lo ya cargado y
+    marcar entregables; al volver la señal, los cambios suben solos.
+11. **Enlace compartible.** Filtra por programa y atrasados, copia la URL, ábrela
+    en otra pestaña: llega con el mismo recorte.
 
 ---
 
-## 7. Decisiones de stack que conviene conocer
+## 8. Decisiones de stack que conviene conocer
 
 **Fechas.** Las fechas de negocio (plan/real de cada gate) se guardan como texto
 `AAAA-MM-DD`, no como `Timestamp`. Un timestamp UTC se corre un día al mostrarlo
@@ -332,7 +406,7 @@ una lectura por evaluación; en la Fase 3 pasa a _custom claims_.
 
 ---
 
-## 8. Qué viene
+## 9. Qué viene
 
 **Fase 2** — Gantt en SVG propio (línea base congelable, plan vs real, desviación
 en días, dependencias, hitos, ruta crítica) · RAID log con escalamientos
