@@ -19,7 +19,7 @@ const conPlan = (id: string, plan: string | null, extra = {}) => {
   return {
     ...base,
     fechaPlanGateActual: plan,
-    gates: { ...base.gates, TCSR: { ...base.gates.TCSR!, fechaPlan: plan } },
+    gates: { ...base.gates, TSSR: { ...base.gates.TSSR!, fechaPlan: plan } },
   }
 }
 
@@ -86,7 +86,7 @@ describe('filtrarSeguimientos', () => {
       filtrarSeguimientos(conGates, { ...FILTROS_VISTA_VACIOS, gateActual: 'FC' }, HOY),
     ).toHaveLength(1)
     expect(
-      filtrarSeguimientos(conGates, { ...FILTROS_VISTA_VACIOS, gateActual: 'TCSR' }, HOY),
+      filtrarSeguimientos(conGates, { ...FILTROS_VISTA_VACIOS, gateActual: 'TSSR' }, HOY),
     ).toHaveLength(1)
   })
 
@@ -170,7 +170,7 @@ describe('resumenes', () => {
     expect(r.atrasados).toBe(2)
     expect(r.bloqueados).toBe(1)
     expect(r.cerrados).toBe(1)
-    expect(r.porGate.TCSR).toBe(2)
+    expect(r.porGate.TSSR).toBe(2)
     expect(r.porGate.CERRADO).toBe(1)
   })
 
@@ -180,7 +180,7 @@ describe('resumenes', () => {
       sitioProyecto({ id: 'B', sitioId: 'B', gateActual: 'FC' }),
     ]
     const grupos = agruparPorGate(lista)
-    expect(grupos.get('TCSR')).toHaveLength(1)
+    expect(grupos.get('TSSR')).toHaveLength(1)
     expect(grupos.get('FC')).toHaveLength(1)
   })
 

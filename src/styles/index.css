@@ -161,10 +161,10 @@
 
 @layer components {
   /* Colores por gate, resueltos desde los tokens. */
-  .gate-TCSR {
-    --gate-bg: var(--g-tcsr-bg);
-    --gate-fg: var(--g-tcsr-fg);
-    --gate-punto: var(--g-tcsr-punto);
+  .gate-TSSR {
+    --gate-bg: var(--g-tssr-bg);
+    --gate-fg: var(--g-tssr-fg);
+    --gate-punto: var(--g-tssr-punto);
   }
   .gate-FC {
     --gate-bg: var(--g-fc-bg);

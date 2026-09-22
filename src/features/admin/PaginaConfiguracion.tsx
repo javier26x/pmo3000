@@ -78,7 +78,7 @@ export function PaginaConfiguracion() {
           <Seccion
             icono={<ListChecks aria-hidden className="size-4" />}
             titulo="Plantilla de gates"
-            descripcion="Define la secuencia TCSR → FC → RFI → Implementación → D+1 → D+7 → SSV y el checklist exigible en cada uno."
+            descripcion="Define la secuencia TSSR → FC → RFI → Implementación → D+1 → D+7 → SSV y el checklist exigible en cada uno."
             accion={
               <Boton
                 variante={plantillaEstandar ? 'secundario' : 'primario'}

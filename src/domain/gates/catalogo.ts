@@ -4,7 +4,7 @@
  * en Firestore; los nombres visibles pueden cambiar sin migrar datos.
  */
 
-export const CODIGOS_GATE = ['TCSR', 'FC', 'RFI', 'IMP', 'D1', 'D7', 'SSV'] as const
+export const CODIGOS_GATE = ['TSSR', 'FC', 'RFI', 'IMP', 'D1', 'D7', 'SSV'] as const
 export type CodigoGate = (typeof CODIGOS_GATE)[number]
 
 /** Estado terminal: el sitio completo el ultimo gate y salio del flujo. */
@@ -12,7 +12,7 @@ export const CERRADO = 'CERRADO'
 export type GateActual = CodigoGate | typeof CERRADO
 
 export const NOMBRES_GATE: Record<CodigoGate, string> = {
-  TCSR: 'TCSR',
+  TSSR: 'TSSR',
   FC: 'FC',
   RFI: 'RFI',
   IMP: 'Implementacion',
@@ -22,25 +22,13 @@ export const NOMBRES_GATE: Record<CodigoGate, string> = {
 }
 
 export const DESCRIPCIONES_GATE: Record<CodigoGate, string> = {
-  TCSR: 'Technical Site Survey Report: levantamiento tecnico del sitio aprobado.',
+  TSSR: 'Technical Site Survey Report: levantamiento tecnico del sitio aprobado.',
   FC: 'Fin de construccion: obra civil y energia terminadas.',
   RFI: 'Ready For Installation: sitio disponible para instalar equipamiento.',
   IMP: 'Implementacion: instalacion e integracion del equipamiento.',
   D1: 'Verificacion a un dia de la puesta en servicio.',
   D7: 'Verificacion a siete dias de la puesta en servicio.',
   SSV: 'Single Site Verification: aceptacion final del sitio.',
-}
-
-/** Token de color por gate. Se resuelve en styles/tokens.css para claro y oscuro. */
-export const COLOR_GATE: Record<GateActual, string> = {
-  TCSR: 'gate-tcsr',
-  FC: 'gate-fc',
-  RFI: 'gate-rfi',
-  IMP: 'gate-imp',
-  D1: 'gate-d1',
-  D7: 'gate-d7',
-  SSV: 'gate-ssv',
-  CERRADO: 'gate-cerrado',
 }
 
 export function esCodigoGate(valor: unknown): valor is CodigoGate {

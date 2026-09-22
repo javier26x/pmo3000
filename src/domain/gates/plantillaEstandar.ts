@@ -11,16 +11,16 @@ function item(id: string, texto: string, obligatorio = true, requiereEvidencia =
 
 export const GATES_ESTANDAR: GatePlantilla[] = [
   {
-    codigo: 'TCSR',
-    nombre: 'TCSR',
+    codigo: 'TSSR',
+    nombre: 'TSSR',
     orden: 0,
     slaDias: 15,
     checklist: [
-      item('tcsr-informe', 'Informe de survey tecnico firmado', true, true),
-      item('tcsr-fotos', 'Set fotografico del sitio (4 orientaciones)', true, true),
-      item('tcsr-coordenadas', 'Coordenadas validadas en terreno'),
-      item('tcsr-factibilidad', 'Factibilidad electrica confirmada'),
-      item('tcsr-croquis', 'Croquis de emplazamiento', false, false),
+      item('tssr-informe', 'Informe de survey tecnico firmado', true, true),
+      item('tssr-fotos', 'Set fotografico del sitio (4 orientaciones)', true, true),
+      item('tssr-coordenadas', 'Coordenadas validadas en terreno'),
+      item('tssr-factibilidad', 'Factibilidad electrica confirmada'),
+      item('tssr-croquis', 'Croquis de emplazamiento', false, false),
     ],
   },
   {
@@ -102,7 +102,7 @@ export const ID_PLANTILLA_ESTANDAR = 'estandar-despliegue'
 export const PLANTILLA_ESTANDAR: GateTemplate = {
   id: ID_PLANTILLA_ESTANDAR,
   nombre: 'Despliegue estandar',
-  descripcion: 'Secuencia TCSR - FC - RFI - Implementacion - D+1 - D+7 - SSV.',
+  descripcion: 'Secuencia TSSR - FC - RFI - Implementacion - D+1 - D+7 - SSV.',
   version: 1,
   activo: true,
   gates: GATES_ESTANDAR,

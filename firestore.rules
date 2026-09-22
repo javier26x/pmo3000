@@ -231,7 +231,7 @@ service cloud.firestore {
     // ------------------------------------------------------- sitioProyectos
 
     function ordenGate(g) {
-      return g == 'TCSR' ? 0
+      return g == 'TSSR' ? 0
         : g == 'FC' ? 1
         : g == 'RFI' ? 2
         : g == 'IMP' ? 3

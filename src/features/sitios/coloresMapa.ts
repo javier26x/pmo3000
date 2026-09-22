@@ -4,7 +4,7 @@ import { SEMAFOROS, type Semaforo } from '@/domain/gates/atraso'
 export type ModoColor = 'gate' | 'semaforo'
 
 const VARIABLE_GATE: Record<GateActual, string> = {
-  TCSR: '--g-tcsr-punto',
+  TSSR: '--g-tssr-punto',
   FC: '--g-fc-punto',
   RFI: '--g-rfi-punto',
   IMP: '--g-imp-punto',

@@ -98,7 +98,7 @@ El id es compuesto, así que también es idempotente. Aquí viven los gates.
 **Desnormalizado desde el maestro** (para que la tabla y el mapa no necesiten
 join): `sitioNombre`, `region`, `comuna`, `lat`, `lon`.
 
-**Estado:** `gateActual` (`TCSR`…`SSV` \| `CERRADO`), `estadoGate`
+**Estado:** `gateActual` (`TSSR`…`SSV` \| `CERRADO`), `estadoGate`
 (`no_iniciado` \| `en_curso` \| `bloqueado` \| `completado`), `bloqueado`,
 `motivoBloqueo`, `prioridad`.
 
@@ -111,7 +111,7 @@ recalcule nada.
 
 ```jsonc
 "gates": {
-  "TCSR": {
+  "TSSR": {
     "orden": 0,
     "estado": "en_curso",
     "fechaPlan": "2026-03-01",
@@ -120,7 +120,7 @@ recalcule nada.
     "responsableUid": "…",
     "proveedorId": "…",
     "checklist": {
-      "tcsr-informe": {
+      "tssr-informe": {
         "ok": true,
         "obs": "",
         "evidenciaUrl": "https://…",
@@ -152,12 +152,12 @@ parte del historial.
   "activo": true,
   "gates": [
     {
-      "codigo": "TCSR",
-      "nombre": "TCSR",
+      "codigo": "TSSR",
+      "nombre": "TSSR",
       "orden": 0,
       "slaDias": 15,
       "checklist": [
-        { "id": "tcsr-informe", "texto": "…", "obligatorio": true, "requiereEvidencia": true },
+        { "id": "tssr-informe", "texto": "…", "obligatorio": true, "requiereEvidencia": true },
       ],
     },
   ],

@@ -223,7 +223,7 @@ export function PaginaSeguimiento() {
                 {sp.bloqueado ? 'Desbloquear' : 'Bloquear'}
               </Boton>
             )}
-            {puedeHacer('sitioProyectos', 'retrocederGate') && sp.gateActual !== 'TCSR' && (
+            {puedeHacer('sitioProyectos', 'retrocederGate') && sp.gateActual !== 'TSSR' && (
               <Boton
                 icono={<ArrowLeft aria-hidden className="size-4" />}
                 onClick={() => {

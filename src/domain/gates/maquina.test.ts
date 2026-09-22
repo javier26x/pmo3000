@@ -24,8 +24,8 @@ describe('crearGatesDesdePlantilla', () => {
       responsableUid: 'uid-1',
       proveedorId: 'prov-alfa',
     })
-    expect(r.gateActual).toBe('TCSR')
-    expect(r.gates.TCSR?.estado).toBe('en_curso')
+    expect(r.gateActual).toBe('TSSR')
+    expect(r.gates.TSSR?.estado).toBe('en_curso')
     expect(r.gates.FC?.estado).toBe('no_iniciado')
     expect(Object.keys(r.gates)).toHaveLength(7)
   })
@@ -36,7 +36,7 @@ describe('crearGatesDesdePlantilla', () => {
       responsableUid: null,
       proveedorId: null,
     })
-    expect(r.gates.TCSR?.fechaPlan).toBe('2026-01-16') // +15
+    expect(r.gates.TSSR?.fechaPlan).toBe('2026-01-16') // +15
     expect(r.gates.FC?.fechaPlan).toBe('2026-03-02') // +45
     expect(r.fechaPlanGateActual).toBe('2026-01-16')
   })
@@ -47,7 +47,7 @@ describe('crearGatesDesdePlantilla', () => {
       responsableUid: null,
       proveedorId: null,
     })
-    expect(r.gates.TCSR?.fechaPlan).toBeNull()
+    expect(r.gates.TSSR?.fechaPlan).toBeNull()
     expect(r.fechaPlanGateActual).toBeNull()
   })
 
@@ -57,9 +57,9 @@ describe('crearGatesDesdePlantilla', () => {
       responsableUid: null,
       proveedorId: null,
     })
-    const definicion = gateDePlantilla(plantilla, 'TCSR')!
-    expect(Object.keys(r.gates.TCSR!.checklist)).toHaveLength(definicion.checklist.length)
-    expect(Object.values(r.gates.TCSR!.checklist).every((i) => !i.ok)).toBe(true)
+    const definicion = gateDePlantilla(plantilla, 'TSSR')!
+    expect(Object.keys(r.gates.TSSR!.checklist)).toHaveLength(definicion.checklist.length)
+    expect(Object.values(r.gates.TSSR!.checklist).every((i) => !i.ok)).toBe(true)
   })
 })
 
@@ -72,7 +72,7 @@ describe('evaluarAvance', () => {
   })
 
   it('permite el avance con el checklist obligatorio cumplido', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     const r = evaluarAvance(sp, plantilla, actor('analista'))
     expect(r.permitido).toBe(true)
     expect(r.destino).toBe('FC')
@@ -80,21 +80,21 @@ describe('evaluarAvance', () => {
 
   it('no exige los entregables opcionales', () => {
     const sp = sitioProyecto()
-    const definicion = gateDePlantilla(plantilla, 'TCSR')!
+    const definicion = gateDePlantilla(plantilla, 'TSSR')!
     const opcional = definicion.checklist.find((i) => !i.obligatorio)!
-    expect(itemsFaltantes(sp.gates.TCSR, definicion).some((i) => i.id === opcional.id)).toBe(false)
+    expect(itemsFaltantes(sp.gates.TSSR, definicion).some((i) => i.id === opcional.id)).toBe(false)
   })
 
   it('exige evidencia cuando el entregable la pide', () => {
     const sp = sitioProyecto()
-    const definicion = gateDePlantilla(plantilla, 'TCSR')!
+    const definicion = gateDePlantilla(plantilla, 'TSSR')!
     const conEvidencia = definicion.checklist.find((i) => i.requiereEvidencia)!
-    const gate = sp.gates.TCSR!
+    const gate = sp.gates.TSSR!
     const marcadoSinEvidencia = {
       ...sp,
       gates: {
         ...sp.gates,
-        TCSR: {
+        TSSR: {
           ...gate,
           checklist: {
             ...gate.checklist,
@@ -104,7 +104,7 @@ describe('evaluarAvance', () => {
       },
     }
     expect(
-      itemsFaltantes(marcadoSinEvidencia.gates.TCSR, definicion).some(
+      itemsFaltantes(marcadoSinEvidencia.gates.TSSR, definicion).some(
         (i) => i.id === conEvidencia.id,
       ),
     ).toBe(true)
@@ -113,7 +113,7 @@ describe('evaluarAvance', () => {
   it('rechaza el avance de un sitio bloqueado', () => {
     const sp = cumplirChecklist(
       sitioProyecto({ bloqueado: true, motivoBloqueo: 'Falta permiso municipal' }),
-      'TCSR',
+      'TSSR',
     )
     const r = evaluarAvance(sp, plantilla, actor('analista'))
     expect(r.permitido).toBe(false)
@@ -121,7 +121,7 @@ describe('evaluarAvance', () => {
   })
 
   it('no deja avanzar a un contratista ni a un lector', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     expect(evaluarAvance(sp, plantilla, actor('contratista')).permitido).toBe(false)
     expect(evaluarAvance(sp, plantilla, actor('lector')).permitido).toBe(false)
   })
@@ -129,46 +129,46 @@ describe('evaluarAvance', () => {
 
 describe('planAvanzarGate', () => {
   it('cierra el gate actual y abre el siguiente', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     const r = planAvanzarGate(sp, plantilla, ctx('analista'), { fechaReal: '2026-01-20' })
     expect(r.ok).toBe(true)
     if (!r.ok) return
 
-    expect(r.valor.campos['gates.TCSR.estado']).toBe('completado')
-    expect(r.valor.campos['gates.TCSR.fechaReal']).toBe('2026-01-20')
+    expect(r.valor.campos['gates.TSSR.estado']).toBe('completado')
+    expect(r.valor.campos['gates.TSSR.fechaReal']).toBe('2026-01-20')
     expect(r.valor.campos.gateActual).toBe('FC')
     expect(r.valor.campos['gates.FC.estado']).toBe('en_curso')
     expect(r.valor.campos.fechaPlanGateActual).toBe(sp.gates.FC?.fechaPlan)
   })
 
   it('deja rastro de auditoria del cambio de gate', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     const r = planAvanzarGate(sp, plantilla, ctx('analista'), { fechaReal: '2026-01-20' })
     if (!r.ok) throw new Error('deberia permitir el avance')
 
     const evento = r.valor.eventos.find((e) => e.accion === 'cambio_gate')
     expect(evento).toBeDefined()
-    expect(evento?.valorAnterior).toBe('TCSR')
+    expect(evento?.valorAnterior).toBe('TSSR')
     expect(evento?.valorNuevo).toBe('FC')
     expect(evento?.entidadId).toBe(sp.id)
     expect(evento?.sitioId).toBe(sp.sitioId)
   })
 
   it('rechaza una fecha real en el futuro', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     const r = planAvanzarGate(sp, plantilla, ctx('analista'), { fechaReal: '2026-12-01' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.motivo).toContain('futuro')
   })
 
   it('rechaza una fecha real anterior al cierre del gate previo', () => {
-    let sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    let sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     sp = {
       ...sp,
       gateActual: 'FC',
       gates: {
         ...sp.gates,
-        TCSR: { ...sp.gates.TCSR!, estado: 'completado', fechaReal: '2026-01-20' },
+        TSSR: { ...sp.gates.TSSR!, estado: 'completado', fechaReal: '2026-01-20' },
         FC: { ...sp.gates.FC!, estado: 'en_curso' },
       },
     }
@@ -192,7 +192,7 @@ describe('planAvanzarGate', () => {
 
 describe('evaluarMovimiento (kanban)', () => {
   it('acepta mover al gate siguiente si el checklist esta cumplido', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     expect(evaluarMovimiento(sp, plantilla, actor('analista'), 'FC')).toMatchObject({
       permitido: true,
       tipo: 'avance',
@@ -200,7 +200,7 @@ describe('evaluarMovimiento (kanban)', () => {
   })
 
   it('rechaza saltarse gates', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     const r = evaluarMovimiento(sp, plantilla, actor('analista'), 'SSV')
     expect(r.permitido).toBe(false)
     expect(r.motivo).toContain('secuenciales')
@@ -208,14 +208,14 @@ describe('evaluarMovimiento (kanban)', () => {
 
   it('permite retroceder solo a jefe y admin', () => {
     const sp = sitioProyecto({ gateActual: 'FC' })
-    expect(evaluarMovimiento(sp, plantilla, actor('jefe_celula'), 'TCSR').permitido).toBe(true)
-    expect(evaluarMovimiento(sp, plantilla, actor('admin'), 'TCSR').permitido).toBe(true)
-    expect(evaluarMovimiento(sp, plantilla, actor('analista'), 'TCSR').permitido).toBe(false)
+    expect(evaluarMovimiento(sp, plantilla, actor('jefe_celula'), 'TSSR').permitido).toBe(true)
+    expect(evaluarMovimiento(sp, plantilla, actor('admin'), 'TSSR').permitido).toBe(true)
+    expect(evaluarMovimiento(sp, plantilla, actor('analista'), 'TSSR').permitido).toBe(false)
   })
 
   it('rechaza mover al mismo gate', () => {
     const sp = sitioProyecto()
-    expect(evaluarMovimiento(sp, plantilla, actor('admin'), 'TCSR').permitido).toBe(false)
+    expect(evaluarMovimiento(sp, plantilla, actor('admin'), 'TSSR').permitido).toBe(false)
   })
 })
 
@@ -230,8 +230,8 @@ describe('planRetrocederGate', () => {
     const r = planRetrocederGate(sp, plantilla, ctx('admin'), 'Acta rechazada por calidad')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.valor.campos.gateActual).toBe('TCSR')
-    expect(r.valor.campos['gates.TCSR.fechaReal']).toBeNull()
+    expect(r.valor.campos.gateActual).toBe('TSSR')
+    expect(r.valor.campos['gates.TSSR.fechaReal']).toBeNull()
     expect(r.valor.campos['gates.FC.estado']).toBe('no_iniciado')
     expect(r.valor.eventos[0]?.accion).toBe('retroceso_gate')
     expect(r.valor.eventos[0]?.detalle).toBe('Acta rechazada por calidad')
@@ -242,8 +242,8 @@ describe('planMarcarChecklist', () => {
   it('el contratista puede marcar entregables de sus sitios', () => {
     const sp = sitioProyecto({ proveedorId: 'prov-alfa' })
     const r = planMarcarChecklist(sp, plantilla, ctx('contratista'), {
-      codigo: 'TCSR',
-      itemId: 'tcsr-coordenadas',
+      codigo: 'TSSR',
+      itemId: 'tssr-coordenadas',
       ok: true,
     })
     expect(r.ok).toBe(true)
@@ -252,8 +252,8 @@ describe('planMarcarChecklist', () => {
   it('el contratista no puede marcar entregables de otra empresa', () => {
     const sp = sitioProyecto({ proveedorId: 'prov-beta' })
     const r = planMarcarChecklist(sp, plantilla, ctx('contratista'), {
-      codigo: 'TCSR',
-      itemId: 'tcsr-coordenadas',
+      codigo: 'TSSR',
+      itemId: 'tssr-coordenadas',
       ok: true,
     })
     expect(r.ok).toBe(false)
@@ -262,8 +262,8 @@ describe('planMarcarChecklist', () => {
 
   it('el lector no puede marcar nada', () => {
     const r = planMarcarChecklist(sitioProyecto(), plantilla, ctx('lector'), {
-      codigo: 'TCSR',
-      itemId: 'tcsr-coordenadas',
+      codigo: 'TSSR',
+      itemId: 'tssr-coordenadas',
       ok: true,
     })
     expect(r.ok).toBe(false)
@@ -271,8 +271,8 @@ describe('planMarcarChecklist', () => {
 
   it('exige evidencia cuando el entregable la pide', () => {
     const r = planMarcarChecklist(sitioProyecto(), plantilla, ctx('analista'), {
-      codigo: 'TCSR',
-      itemId: 'tcsr-informe',
+      codigo: 'TSSR',
+      itemId: 'tssr-informe',
       ok: true,
     })
     expect(r.ok).toBe(false)
@@ -291,14 +291,14 @@ describe('planMarcarChecklist', () => {
 
   it('registra quien marco el entregable', () => {
     const r = planMarcarChecklist(sitioProyecto(), plantilla, ctx('analista'), {
-      codigo: 'TCSR',
-      itemId: 'tcsr-coordenadas',
+      codigo: 'TSSR',
+      itemId: 'tssr-coordenadas',
       ok: true,
       obs: 'Validado con GPS diferencial',
     })
     if (!r.ok) throw new Error(r.motivo)
-    expect(r.valor.campos['gates.TCSR.checklist.tcsr-coordenadas.por']).toBe('uid-analista')
-    expect(r.valor.campos['gates.TCSR.checklist.tcsr-coordenadas.en']).toEqual(AHORA)
+    expect(r.valor.campos['gates.TSSR.checklist.tssr-coordenadas.por']).toBe('uid-analista')
+    expect(r.valor.campos['gates.TSSR.checklist.tssr-coordenadas.en']).toEqual(AHORA)
     expect(r.valor.eventos[0]?.detalle).toBe('Validado con GPS diferencial')
   })
 })
@@ -330,7 +330,7 @@ describe('porcentajeAvance', () => {
   })
 
   it('da credito parcial por el checklist del gate en curso', () => {
-    const sp = cumplirChecklist(sitioProyecto(), 'TCSR')
+    const sp = cumplirChecklist(sitioProyecto(), 'TSSR')
     // 0 gates cerrados de 7, pero el checklist del actual esta completo: 1/7.
     expect(porcentajeAvance(sp, plantilla)).toBe(14)
   })

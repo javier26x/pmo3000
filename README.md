@@ -8,7 +8,7 @@ La unidad de trabajo es el **sitio dentro de un proyecto**, y el negocio está e
 la secuencia de gates:
 
 ```
-TCSR → FC → RFI → Implementación → D+1 → D+7 → SSV → Cerrado
+TSSR → FC → RFI → Implementación → D+1 → D+7 → SSV → Cerrado
 ```
 
 Un sitio no pasa al siguiente gate sin cumplir los entregables obligatorios del
@@ -242,7 +242,7 @@ La base parte vacía: el seed es solo para emuladores y nunca escribe en la nube
 desde **Configuración**, que solo ve un administrador, en este orden:
 
 1. **Plantilla de gates** → botón _Crear la plantilla estándar_. Deja lista la
-   secuencia TCSR → FC → RFI → Implementación → D+1 → D+7 → SSV con sus 29
+   secuencia TSSR → FC → RFI → Implementación → D+1 → D+7 → SSV con sus 29
    entregables. Sin ella ningún sitio puede entrar en seguimiento.
 2. **Portafolio** → ej. «Portafolio Despliegue 2026».
 3. **Programas** → ej. «Plan 200 sitios nuevos». Ojo: el nombre que pongas aquí

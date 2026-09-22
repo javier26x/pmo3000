@@ -75,7 +75,7 @@ app y la carpeta documental se leen igual:
 ```
 /<Programa>/<ID_Sitio> - <Nombre>/
 ├─ 00 General/                  Ficha del sitio, contactos, permisos generales
-├─ 01 TCSR/                     Informe de survey, set fotográfico, croquis
+├─ 01 TSSR/                     Informe de survey, set fotográfico, croquis
 ├─ 02 FC/                       Acta de obra civil, medición de tierra, energía
 ├─ 03 RFI/                      Permiso municipal, accesos, cálculo estructural
 ├─ 04 Implementacion/           Configuración, VSWR, fotos de instalación
@@ -147,7 +147,7 @@ Y una más con el nombre de la carpeta:
 Después, para las subcarpetas, usa **Aplicar a cada uno** sobre un arreglo:
 
 ```
-createArray('00 General','01 TCSR','02 FC','03 RFI','04 Implementacion','05 D+1','06 D+7','07 SSV','99 Cierre')
+createArray('00 General','01 TSSR','02 FC','03 RFI','04 Implementacion','05 D+1','06 D+7','07 SSV','99 Cierre')
 ```
 
 y dentro, otro **Crear nueva carpeta** con la ruta:

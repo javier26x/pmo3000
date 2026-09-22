@@ -53,14 +53,14 @@ function avance(desde: string, hacia: string): Record<string, unknown> {
 
 describe('secuencia de gates', () => {
   it('permite avanzar al gate inmediatamente siguiente', async () => {
-    await assertSucceeds(como(entorno, PERFILES.analista!).doc(RUTA).update(avance('TCSR', 'FC')))
+    await assertSucceeds(como(entorno, PERFILES.analista!).doc(RUTA).update(avance('TSSR', 'FC')))
   })
 
   it('rechaza saltarse gates', async () => {
     const db = como(entorno, PERFILES.analista!)
-    await assertFails(db.doc(RUTA).update(avance('TCSR', 'RFI')))
-    await assertFails(db.doc(RUTA).update(avance('TCSR', 'SSV')))
-    await assertFails(db.doc(RUTA).update(avance('TCSR', 'CERRADO')))
+    await assertFails(db.doc(RUTA).update(avance('TSSR', 'RFI')))
+    await assertFails(db.doc(RUTA).update(avance('TSSR', 'SSV')))
+    await assertFails(db.doc(RUTA).update(avance('TSSR', 'CERRADO')))
   })
 
   it('rechaza un gate inexistente', async () => {
@@ -74,16 +74,16 @@ describe('secuencia de gates', () => {
     // Sin marcar completado.
     await assertFails(db.doc(RUTA).update({ gateActual: 'FC' }))
     // Completado pero sin fecha real: el cierre no es real.
-    await assertFails(db.doc(RUTA).update({ gateActual: 'FC', 'gates.TCSR.estado': 'completado' }))
+    await assertFails(db.doc(RUTA).update({ gateActual: 'FC', 'gates.TSSR.estado': 'completado' }))
   })
 
   it('solo admin y jefe pueden retroceder un gate', async () => {
     await ponerEnGate('FC')
-    await assertFails(como(entorno, PERFILES.analista!).doc(RUTA).update({ gateActual: 'TCSR' }))
-    await assertSucceeds(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'TCSR' }))
+    await assertFails(como(entorno, PERFILES.analista!).doc(RUTA).update({ gateActual: 'TSSR' }))
+    await assertSucceeds(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'TSSR' }))
 
     await ponerEnGate('FC')
-    await assertSucceeds(como(entorno, PERFILES.admin!).doc(RUTA).update({ gateActual: 'TCSR' }))
+    await assertSucceeds(como(entorno, PERFILES.admin!).doc(RUTA).update({ gateActual: 'TSSR' }))
   })
 
   it('permite cerrar el sitio desde el ultimo gate', async () => {
@@ -147,8 +147,8 @@ describe('que puede escribir el contratista', () => {
   it('puede marcar el checklist de su gate en curso', async () => {
     await assertSucceeds(
       como(entorno, PERFILES.contratista!).doc(RUTA).update({
-        'gates.TCSR.checklist.tcsr-coordenadas.ok': true,
-        'gates.TCSR.checklist.tcsr-coordenadas.por': PERFILES.contratista!.uid,
+        'gates.TSSR.checklist.tssr-coordenadas.ok': true,
+        'gates.TSSR.checklist.tssr-coordenadas.por': PERFILES.contratista!.uid,
         actualizadoEn: new Date(),
         actualizadoPor: PERFILES.contratista!.uid,
       }),
@@ -159,17 +159,17 @@ describe('que puede escribir el contratista', () => {
     await assertSucceeds(
       como(entorno, PERFILES.contratista!)
         .doc(RUTA)
-        .update({ 'gates.TCSR.fechaReal': '2026-03-04' }),
+        .update({ 'gates.TSSR.fechaReal': '2026-03-04' }),
     )
   })
 
   it('no puede avanzar el gate: eso lo aprueba la PMO', async () => {
-    await assertFails(como(entorno, PERFILES.contratista!).doc(RUTA).update(avance('TCSR', 'FC')))
+    await assertFails(como(entorno, PERFILES.contratista!).doc(RUTA).update(avance('TSSR', 'FC')))
   })
 
   it('no puede declarar completado el gate en curso', async () => {
     await assertFails(
-      como(entorno, PERFILES.contratista!).doc(RUTA).update({ 'gates.TCSR.estado': 'completado' }),
+      como(entorno, PERFILES.contratista!).doc(RUTA).update({ 'gates.TSSR.estado': 'completado' }),
     )
   })
 
@@ -177,7 +177,7 @@ describe('que puede escribir el contratista', () => {
     await assertFails(
       como(entorno, PERFILES.contratista!)
         .doc(RUTA)
-        .update({ 'gates.TCSR.fechaPlan': '2026-12-31' }),
+        .update({ 'gates.TSSR.fechaPlan': '2026-12-31' }),
     )
   })
 
@@ -212,7 +212,7 @@ describe('comentarios de la ficha', () => {
     texto: 'Se coordino visita con el propietario.',
     uid,
     nombre: 'Persona',
-    gateCodigo: 'TCSR',
+    gateCodigo: 'TSSR',
     ts: marcaServidor(),
   })
 

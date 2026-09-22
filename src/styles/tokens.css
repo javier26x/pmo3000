@@ -50,9 +50,9 @@
   --info-fg: #1d4ed8;
 
   /* --- gates: par fondo/texto con contraste AA verificado ---------------- */
-  --g-tcsr-bg: #e2e8f0;
-  --g-tcsr-fg: #1e293b;
-  --g-tcsr-punto: #64748b;
+  --g-tssr-bg: #e2e8f0;
+  --g-tssr-fg: #1e293b;
+  --g-tssr-punto: #64748b;
   --g-fc-bg: #fef3c7;
   --g-fc-fg: #92400e;
   --g-fc-punto: #f59e0b;
@@ -145,9 +145,9 @@
   --info-bg: #13223d;
   --info-fg: #93c5fd;
 
-  --g-tcsr-bg: #232935;
-  --g-tcsr-fg: #cbd5e1;
-  --g-tcsr-punto: #94a3b8;
+  --g-tssr-bg: #232935;
+  --g-tssr-fg: #cbd5e1;
+  --g-tssr-punto: #94a3b8;
   --g-fc-bg: #33270c;
   --g-fc-fg: #fcd34d;
   --g-fc-punto: #fbbf24;
