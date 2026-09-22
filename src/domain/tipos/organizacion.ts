@@ -76,6 +76,16 @@ export const esquemaProyecto = z
     fechaInicio: zFechaISONula,
     fechaFin: zFechaISONula,
     estado: z.enum(ESTADOS_PROGRAMA),
+    /**
+     * Que filas del tracker son de este proyecto: los planes de la columna
+     * "Proyecto" y si solo las vigentes (ver domain/tracker/plan.ts). null: sin
+     * filtro, entra todo el archivo. Lo fija un jefe o admin al importar y se
+     * reutiliza en cada re-importacion.
+     */
+    filtroTracker: z
+      .object({ planes: z.array(z.string()), soloVigentes: z.boolean() })
+      .nullable()
+      .default(null),
   })
   .extend(esquemaSellos.shape)
 export type Proyecto = z.infer<typeof esquemaProyecto>

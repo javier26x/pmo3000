@@ -2,6 +2,14 @@ import { useMemo, useState } from 'react'
 import { FileSpreadsheet, Layers, Upload } from 'lucide-react'
 import { leerHojaCruda, EXTENSIONES_ACEPTADAS, type ArchivoCrudo } from '@/data/archivos'
 import { guardarPlantillaTracker, ejecutarImportacionTracker } from '@/data/repos/tracker'
+import { guardarFiltroTracker } from '@/data/repos/catalogos'
+import {
+  filaEnPlan,
+  filtraAlgo,
+  resumirPlanes,
+  SIN_FILTRO_PLAN,
+  type FiltroPlan,
+} from '@/domain/tracker/plan'
 import { inferirPlantilla, type PlantillaInferida } from '@/domain/tracker/inferencia'
 import { construirPlantilla, convertirFila, indexarColumnas } from '@/domain/tracker/aplicacion'
 import { coercionar, type TipoCampo } from '@/domain/tracker/campos'
@@ -11,7 +19,7 @@ import { estaEnAlcance, tieneAlcance } from '@/domain/permisos/alcance'
 import { puedeCorregirComoAdmin } from '@/domain/gates/maquina'
 import { crearId } from '@/domain/tipos/identificadores'
 import { mensajeDeError, usarAvisos } from '@/app/avisos'
-import { useActor } from '@/hooks/useSesion'
+import { useActor, useSesion } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { usarPausaDespliegue } from '@/app/despliegue'
 import {
@@ -28,6 +36,7 @@ import {
 import { RevisionPlantillaInferida } from './RevisionPlantilla'
 import { PanelCalidadArchivo } from './CalidadArchivo'
 import { EliminarSeguimientosProyecto } from './EliminarSeguimientosProyecto'
+import { FiltroPlanTracker } from './FiltroPlan'
 
 type Paso = 'archivo' | 'revisar' | 'importando' | 'listo'
 
@@ -40,12 +49,17 @@ interface Resumen {
   fueraDeOrden: number
   noVigentes: number
   enHold: number
+  fueraDelPlan: number
+  salieronDelPlan: number
   problemas: [string, number][]
 }
 
 export default function PaginaImportarTracker() {
   const actor = useActor()
   const esAdmin = puedeCorregirComoAdmin(actor)
+  const { puedeHacer } = useSesion()
+  // El filtro del plan vive en el proyecto: lo cambia quien puede editarlo.
+  const editaFiltro = puedeHacer('proyectos', 'editar')
   const { programas, proyectos, portafolios, proveedores } = useCatalogos()
   const mostrar = usarAvisos((e) => e.mostrar)
   const pausar = usarPausaDespliegue((e) => e.pausar)
@@ -63,6 +77,7 @@ export default function PaginaImportarTracker() {
   const [nombrePlantilla, setNombrePlantilla] = useState('')
   const [proyectoId, setProyectoId] = useState('')
   const [proveedorId, setProveedorId] = useState('')
+  const [filtro, setFiltro] = useState<FiltroPlan>(SIN_FILTRO_PLAN)
 
   // Un usuario acotado solo puede importar a proyectos de su alcance: las reglas
   // rechazarian cualquier otro. No se le ofrecen.
@@ -119,11 +134,30 @@ export default function PaginaImportarTracker() {
 
   // Se recalcula al cambiar la propuesta: pasar una etapa a paralela cambia en
   // que etapa queda cada sitio y, con eso, cuanto coincide con el Excel.
-  const calidad = useMemo(() => {
-    if (propuesta === null || filasDatos.length === 0) return null
-    const indiceCalidad = indexarColumnas(propuesta)
-    return resumirCalidad(filasDatos.map((f) => convertirFila(f, propuesta, indiceCalidad)))
+  const convertidas = useMemo(() => {
+    if (propuesta === null || filasDatos.length === 0) return []
+    const indiceFilas = indexarColumnas(propuesta)
+    return filasDatos.map((f) => convertirFila(f, propuesta, indiceFilas))
   }, [propuesta, filasDatos])
+
+  // Los planes solo se ofrecen si el tracker trae la columna "Proyecto".
+  const hayColumnaPlan = propuesta?.condicion.fase !== undefined
+  const planes = useMemo(() => resumirPlanes(convertidas), [convertidas])
+  const delPlan = useMemo(
+    () => convertidas.filter((f) => f.sitio.id !== '' && filaEnPlan(f, filtro)),
+    [convertidas, filtro],
+  )
+  // La calidad se mide sobre lo que se va a importar, no sobre otros planes.
+  const calidad = useMemo(
+    () => (delPlan.length === 0 ? null : resumirCalidad(delPlan)),
+    [delPlan],
+  )
+
+  const elegirProyecto = (id: string) => {
+    setProyectoId(id)
+    const elegido = proyectosElegibles.find((p) => p.id === id)
+    setFiltro(elegido?.filtroTracker ?? SIN_FILTRO_PLAN)
+  }
 
   const cargar = async (f: File, hoja?: string) => {
     setLeyendo(true)
@@ -160,6 +194,18 @@ export default function PaginaImportarTracker() {
     pausar()
 
     try {
+      // El filtro queda en el proyecto antes de escribir nada: la proxima
+      // re-importacion arranca con el.
+      const filtroFinal = hayColumnaPlan && filtraAlgo(filtro) ? filtro : null
+      const guardado = proyecto.filtroTracker
+      if (
+        editaFiltro &&
+        hayColumnaPlan &&
+        JSON.stringify(guardado) !== JSON.stringify(filtroFinal)
+      ) {
+        await guardarFiltroTracker(proyecto, filtroFinal, actor)
+      }
+
       const plantilla = construirPlantilla(propuesta, {
         id: crearId(nombrePlantilla, 'tracker'),
         nombre: nombrePlantilla,
@@ -181,6 +227,7 @@ export default function PaginaImportarTracker() {
           plantillaId: plantilla.id,
           plantillaVersion: 1,
           prioridad: 'media',
+          filtro: filtroFinal,
         },
         actor,
         {},
@@ -201,6 +248,8 @@ export default function PaginaImportarTracker() {
         fueraDeOrden: r.fueraDeOrden,
         noVigentes: r.noVigentes,
         enHold: r.enHold,
+        fueraDelPlan: r.fueraDelPlan,
+        salieronDelPlan: r.salieronDelPlan,
         problemas: [...r.problemas].sort((a, b) => b[1] - a[1]),
       })
       setPaso('listo')
@@ -323,7 +372,7 @@ export default function PaginaImportarTracker() {
                     <Selector
                       id="proy"
                       value={proyectoId}
-                      onChange={(e) => setProyectoId(e.target.value)}
+                      onChange={(e) => elegirProyecto(e.target.value)}
                     >
                       <option value="">Elige un proyecto…</option>
                       {proyectosElegibles.map((p) => (
@@ -349,6 +398,20 @@ export default function PaginaImportarTracker() {
                   </Campo>
                 </div>
 
+                {proyecto !== null && hayColumnaPlan && (
+                  <div className="mt-3">
+                    <FiltroPlanTracker
+                      planes={planes.planes}
+                      sinPlan={planes.sinPlan}
+                      filtro={filtro}
+                      onCambiar={setFiltro}
+                      editable={editaFiltro}
+                      seImportan={delPlan.length}
+                      totalFilas={filasDatos.length}
+                    />
+                  </div>
+                )}
+
                 {!esAdmin && (
                   <Aviso tono="info" className="mt-3">
                     Las plantillas las crea un administrador. Si ya existe una plantilla con este
@@ -365,7 +428,7 @@ export default function PaginaImportarTracker() {
                     disabled={proyectoId === '' || nombrePlantilla.trim() === ''}
                     onClick={() => void importar()}
                   >
-                    Importar {filasDatos.length} sitios
+                    Importar {delPlan.length} sitios
                   </Boton>
                   <Boton variante="secundario" onClick={() => setPaso('archivo')}>
                     Usar otro archivo
@@ -394,6 +457,15 @@ export default function PaginaImportarTracker() {
                 {resumen.sitios} sitios guardados
                 {resumen.omitidas > 0 && `, ${resumen.omitidas} filas omitidas por no traer ID`}.
               </Aviso>
+
+              {(resumen.fueraDelPlan > 0 || resumen.salieronDelPlan > 0) && (
+                <Aviso tono="info" titulo="Filtro del plan">
+                  {resumen.fueraDelPlan > 0 &&
+                    `${resumen.fueraDelPlan} filas de otros planes (o no vigentes) no se importaron. `}
+                  {resumen.salieronDelPlan > 0 &&
+                    `${resumen.salieronDelPlan} sitios que ya estaban en el proyecto ya no cumplen el filtro: se actualizaron como no vigentes.`}
+                </Aviso>
+              )}
 
               {resumen.plantillaReutilizada && (
                 <Aviso tono="info" titulo="Se usó la plantilla existente">

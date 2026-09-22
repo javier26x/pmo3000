@@ -14,7 +14,8 @@
 import { doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { COLECCIONES, db } from '../firebase'
 import { agregarEventos } from '../auditoria'
-import { seguimientosExistentes } from './sitioProyectos'
+import { idsSeguimientosDeProyecto } from './sitioProyectos'
+import { filaEnPlan, type FiltroPlan } from '@/domain/tracker/plan'
 import { pasosDeGates, type TipoEtapa } from '@/domain/gates/catalogo'
 import { idSitioProyecto } from '@/domain/tipos/sitioProyecto'
 import {
@@ -52,6 +53,8 @@ export interface DestinoTracker {
   plantillaId: string
   plantillaVersion: number
   prioridad: Prioridad
+  /** Que filas del archivo son de este proyecto. null: todas. */
+  filtro: FiltroPlan | null
 }
 
 export interface ResultadoTracker {
@@ -64,6 +67,10 @@ export interface ResultadoTracker {
   noVigentes: number
   /** Sitios que el tracker marca On Hold (se escriben bloqueados). */
   enHold: number
+  /** Filas de otros planes (o no vigentes) que no se importaron. */
+  fueraDelPlan: number
+  /** Sitios que ya estaban en el proyecto y ya no cumplen el filtro: quedan no vigentes. */
+  salieronDelPlan: number
   /** Columna -> cuantas celdas no se pudieron convertir. */
   problemas: Map<string, number>
   error: string | null
@@ -157,6 +164,8 @@ export async function ejecutarImportacionTracker(
     fueraDeOrden: 0,
     noVigentes: 0,
     enHold: 0,
+    fueraDelPlan: 0,
+    salieronDelPlan: 0,
     problemas: new Map(),
     error: null,
   }
@@ -192,31 +201,42 @@ export async function ejecutarImportacionTracker(
     const convertidas: FilaTracker[] = filas.map((cruda) =>
       convertirFila(cruda, propuesta, indice, homologacion),
     )
-    const existentes = await seguimientosExistentes([
-      ...new Set(
-        convertidas
-          .filter((f) => f.sitio.id !== '')
-          .map((f) => idSitioProyecto(destino.proyectoId, f.sitio.id)),
-      ),
-    ])
+    // Los seguimientos que el proyecto ya tiene: a esos no se les pisa lo que se
+    // decide en la app, y siguen recibiendo lo que diga el tracker aunque ya no
+    // cumplan el filtro del plan (ver abajo). Una consulta por proyecto lee solo
+    // sus documentos, no uno por cada fila del archivo.
+    const existentes = await idsSeguimientosDeProyecto(actor, destino.proyectoId)
 
     for (const [i, fila] of convertidas.entries()) {
-
-      for (const p of fila.problemas) {
-        const columna = p.split(':')[0] ?? p
-        resultado.problemas.set(columna, (resultado.problemas.get(columna) ?? 0) + 1)
-      }
-
       // Sin ID no hay nada que guardar: el id del sitio es la llave del maestro.
       if (fila.sitio.id === '') {
         resultado.filasOmitidas++
         continue
       }
+
+      // El tracker trae todos los planes, vigentes o no; el proyecto es uno de
+      // ellos. Una fila que no es del plan no se importa... salvo que su sitio
+      // ya este en el proyecto: entonces salio del plan (paso a On Hold, a No
+      // Vigente o a otro plan) y se actualiza como no vigente. Si se la saltara,
+      // el sitio quedaria congelado en la app como si siguiera en curso.
+      const idSeguimiento = idSitioProyecto(destino.proyectoId, fila.sitio.id)
+      const existe = existentes.has(idSeguimiento)
+      const enPlan = filaEnPlan(fila, destino.filtro)
+      if (!enPlan && !existe) {
+        resultado.fueraDelPlan++
+        continue
+      }
+      if (!enPlan) resultado.salieronDelPlan++
+
+      for (const p of fila.problemas) {
+        const columna = p.split(':')[0] ?? p
+        resultado.problemas.set(columna, (resultado.problemas.get(columna) ?? 0) + 1)
+      }
       if (avanceFueraDeOrden(fila).length > 0) resultado.fueraDeOrden++
 
       // Vigencia y On Hold vienen del tracker (columna Vigencia y la fase). Sin
       // esas columnas el sitio queda vigente y sin bloquear, como siempre.
-      const vigente = fila.condicion?.vigente ?? true
+      const vigente = enPlan && (fila.condicion?.vigente ?? true)
       const bloqueado = fila.condicion?.bloqueado ?? false
       if (!vigente) resultado.noVigentes++
       if (bloqueado) resultado.enHold++
@@ -257,12 +277,11 @@ export async function ejecutarImportacionTracker(
       })
       const actual = gates[fila.etapaActual]
 
-      const idSeguimiento = idSitioProyecto(destino.proyectoId, fila.sitio.id)
       // El tracker manda en el avance (etapas, vigencia, bloqueo), pero lo que se
       // decide en la app —celula, responsable, proveedor, prioridad— y el sello
       // de creacion solo se escriben la primera vez: reimportar no debe deshacer
       // una correccion ni una asignacion hecha despues.
-      const existe = existentes.has(idSeguimiento)
+      //
       // La secuencia congelada (`pasos`) solo la cambia el admin: en un
       // seguimiento que ya existe, quien no es admin la deja como esta (las
       // reglas rechazarian el lote completo si la tocara).

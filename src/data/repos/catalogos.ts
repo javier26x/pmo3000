@@ -295,6 +295,26 @@ export const guardarProyecto = (
   )
 
 /**
+ * Guarda que filas del tracker son de un proyecto (planes y vigencia). Queda en
+ * la auditoria como cualquier cambio del proyecto.
+ */
+export const guardarFiltroTracker = (
+  proyecto: Proyecto,
+  filtro: Proyecto['filtroTracker'],
+  actor: Actor,
+) =>
+  guardarCatalogo(
+    COLECCIONES.proyectos,
+    'proyecto',
+    proyecto.id,
+    { filtroTracker: filtro },
+    proyecto.nombre,
+    actor,
+    false,
+    proyecto,
+  )
+
+/**
  * Crea o actualiza una plantilla de gates.
  *
  * Sin al menos una plantilla, ningún sitio puede entrar en seguimiento: es el

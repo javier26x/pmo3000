@@ -135,7 +135,17 @@ export function normalizarProyecto(id: string, d: DocumentData): Proyecto {
     fechaInicio: fechaISO(d.fechaInicio),
     fechaFin: fechaISO(d.fechaFin),
     estado: enumerado(d.estado, ESTADOS_PROGRAMA, 'en_curso'),
+    filtroTracker: normalizarFiltroTracker(d.filtroTracker),
     ...sellos(d),
+  }
+}
+
+function normalizarFiltroTracker(valor: unknown): Proyecto['filtroTracker'] {
+  const d = objeto(valor)
+  if (!Array.isArray(d.planes)) return null
+  return {
+    planes: d.planes.filter((p): p is string => typeof p === 'string' && p !== ''),
+    soloVigentes: booleano(d.soloVigentes, true),
   }
 }
 

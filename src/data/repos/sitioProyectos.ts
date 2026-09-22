@@ -347,6 +347,21 @@ export async function completarPasos(
 }
 
 /**
+ * Ids de los seguimientos de un proyecto (los que el actor puede ver, que son
+ * los unicos que puede escribir). Lee los documentos del proyecto: el SDK web no
+ * trae solo ids.
+ */
+export async function idsSeguimientosDeProyecto(
+  actor: Actor,
+  proyectoId: string,
+): Promise<Set<string>> {
+  const consulta = consultaVisible(actor, { proyectoId })
+  if (!consulta) return new Set()
+  const snap = await getDocs(consulta)
+  return new Set(snap.docs.map((d) => d.id))
+}
+
+/**
  * Cuales de esos seguimientos ya existen. Lee de a uno (en tandas paralelas):
  * las reglas permiten leer un id inexistente, y una consulta por id no
  * demostraria el alcance. Quien llama debe pasar solo ids dentro de su alcance.

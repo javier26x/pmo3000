@@ -76,6 +76,16 @@ portafolios → programas → proyectos → sitioProyectos → (sitios)
 `programaId`, `portafolioId`, `nombre`, `descripcion`, `celulaId`,
 `proveedorId`, `responsableUid`, `fechaInicio`, `fechaFin`, `estado`.
 
+**`filtroTracker`** — `{ planes: string[], soloVigentes: boolean } | null`. Qué
+filas de un tracker son de este proyecto: el tracker trae todos los planes
+(Fase 1, 5G, Plan 2025-2026…) vigentes o no, y el proyecto es uno de ellos. Las
+claves de `planes` son el plan de la columna «Proyecto» sin la condición del
+sitio ni mayúsculas (`"fase 2 - on hold rf"` → `"fase 2"`; ver
+`domain/tracker/plan.ts`). Lo fija un jefe o admin al importar y se reutiliza en
+cada re-importación. Una fila que no lo cumple no se importa, salvo que su
+sitio ya esté en el proyecto: entonces se actualiza como no vigente (salió del
+plan) en vez de quedar congelado. `null`: entra el archivo completo.
+
 ---
 
 ## Sitios: maestro y participación
@@ -143,6 +153,13 @@ recalcule nada.
   }
 }
 ```
+
+**`pasos`** — `{ [etapa]: siguiente | null } | null`. La secuencia congelada
+que validan las reglas: cada etapa secuencial apunta a la que le sigue (`null`
+en la última); las paralelas no están. Solo el admin la escribe, así que nadie
+puede saltarse etapas alterando el enlace `siguiente` de los gates. `null` en
+los documentos anteriores al campo, hasta correr «Proteger secuencias» en
+Configuración (ver `reglas-seguridad.md`).
 
 **Plantilla:** `gateTemplateId`, `gateTemplateVersion`. La plantilla se _instancia_
 (se copia) al crear el seguimiento, así cambiarla después no reescribe el
