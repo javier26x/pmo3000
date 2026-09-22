@@ -1,9 +1,9 @@
 /**
- * Punto unico de entrada de autenticacion para la UI.
+ * Punto único de entrada de autenticación para la interfaz.
  *
- * Existe para que agregar Microsoft (Entra ID) en Fase 3 sea agregar un metodo
- * aqui y un boton en la pantalla de login, sin tocar nada mas. La UI no importa
- * firebase/* directamente (hay una regla de ESLint que lo impide).
+ * Existe para que agregar un proveedor más (Microsoft / Entra ID, en Fase 3) sea
+ * agregar un método aquí y un botón en el login, sin tocar nada más. La interfaz
+ * no importa `firebase/*` directamente: hay una regla de ESLint que lo impide.
  */
 export {
   AJUSTES_AUTENTICACION as AJUSTES_UI,
@@ -14,8 +14,11 @@ export {
   enviarEnlaceIngreso,
   hayEnlaceEnUrl,
   ingresarComoUsuarioDemo,
+  ingresarConGoogle,
+  POLITICA,
+  puedeEntrar,
   usuariosDemo,
-  validarCorreoCorporativo,
+  validarAcceso,
   type MetodoIngreso,
   type UsuarioDemo,
 } from '@/data/autenticacion'

@@ -19,7 +19,7 @@ npm run test:rules:conectado   # usando el emulador que ya tienes levantado
 Toda lectura y escritura exige, sin excepción:
 
 1. sesión autenticada;
-2. correo que termine en `@claro.cl` (`^[^@]+@claro[.]cl$`);
+2. correo que termine en `@clarovtr.cl` (`^[^@]+@clarovtr[.]cl$`);
 3. correo **verificado** (`email_verified`);
 4. perfil creado en `usuarios/{uid}`;
 5. perfil con `activo == true`.
@@ -29,7 +29,7 @@ El punto 3 merece una nota: el ingreso por enlace de correo de Firebase deja
 verificados. Si algún día se habilita el ingreso por contraseña, hay que crear
 esos usuarios verificados o la regla los dejará afuera.
 
-El sufijo no basta: `persona@noclaro.cl` y `persona@claro.cl.evil.com` quedan
+El sufijo no basta: `persona@noclarovtr.cl` y `persona@clarovtr.cl.evil.com` quedan
 fuera (hay tests para ambos).
 
 ---

@@ -28,13 +28,36 @@ service cloud.firestore {
       return request.auth.token.email;
     }
 
-    // Solo correos corporativos, y con el correo verificado. El enlace por
-    // correo de Firebase deja email_verified en true; el seed crea los usuarios
-    // de prueba igual de verificados.
+    /**
+     * Correos externos autorizados, que además entran como administradores.
+     *
+     * Existe para resolver el arranque: alguien tiene que poder administrar la
+     * instalación antes de que exista el primer administrador, y ese alguien
+     * puede no tener cuenta corporativa.
+     *
+     * Esta lista es la que manda. Su espejo en el cliente es la variable
+     * VITE_CORREOS_ADMIN; agregar un correo allá sin agregarlo aquí no autoriza
+     * a nadie (entra y no puede leer nada).
+     */
+    function correosAdministradores() {
+      return ['javier.neo@gmail.com'];
+    }
+
+    function esCorreoCorporativo() {
+      return correo() is string && correo().matches('^[^@]+@clarovtr[.]cl$');
+    }
+
+    function esAdministradorInicial() {
+      return correo() is string && correo() in correosAdministradores();
+    }
+
+    // Entra quien tenga correo corporativo o esté en la lista, y siempre con el
+    // correo verificado. El enlace por correo y el ingreso con Google dejan
+    // email_verified en true; el seed crea los usuarios de prueba igual de
+    // verificados.
     function dominioValido() {
       return autenticado()
-        && correo() is string
-        && correo().matches('^[^@]+@claro[.]cl$')
+        && (esCorreoCorporativo() || esAdministradorInicial())
         && request.auth.token.email_verified == true;
     }
 
@@ -115,12 +138,15 @@ service cloud.firestore {
       allow get: if autenticado() && request.auth.uid == uid;
       allow get, list: if esInterno();
 
-      // Alta en el primer ingreso: entra como lector y nunca como algo mas.
-      // Promover a otro rol es tarea exclusiva de un administrador.
+      // Alta en el primer ingreso: entra como lector y nunca como algo más.
+      // La única excepción son los correos de correosAdministradores(), que se
+      // crean como admin: sin eso, una instalación nueva no tendría a nadie que
+      // pudiera promover al primero.
       allow create: if dominioValido()
         && request.auth.uid == uid
         && request.resource.data.email == correo()
-        && request.resource.data.rol == 'lector'
+        && (request.resource.data.rol == 'lector'
+            || (esAdministradorInicial() && request.resource.data.rol == 'admin'))
         && request.resource.data.activo == true
         && request.resource.data.proveedorId == null;
 

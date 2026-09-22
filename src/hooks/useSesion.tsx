@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { observarSesion } from '@/data/autenticacion'
+import { observarSesion, rolInicialDe } from '@/data/autenticacion'
 import { asegurarPerfil, observarUsuario } from '@/data/repos/usuarios'
 import { mensajeDeError } from '@/app/avisos'
 import type { Usuario } from '@/domain/tipos/usuario'
@@ -49,12 +49,14 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
         return
       }
 
-      // El perfil se crea en el primer ingreso con rol 'lector'; promoverlo es
-      // tarea de un administrador (y las reglas de Firestore lo exigen asi).
+      // El perfil se crea en el primer ingreso: 'lector', salvo los correos de
+      // la lista de administradores externos. Las reglas validan lo mismo.
+      const correo = usuario.email ?? ''
       asegurarPerfil({
         uid: usuario.uid,
-        email: usuario.email ?? '',
-        nombre: usuario.displayName ?? usuario.email ?? '',
+        email: correo,
+        nombre: usuario.displayName ?? correo,
+        rolInicial: rolInicialDe(correo),
       }).catch((e) => setError(mensajeDeError(e)))
     })
   }, [])

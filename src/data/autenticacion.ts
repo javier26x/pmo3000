@@ -1,46 +1,72 @@
 /**
- * Autenticacion.
+ * Autenticación.
  *
- * Fase 1: enlace por correo (passwordless), restringido a @claro.cl. El metodo
- * esta detras de `iniciarSesion(metodo, ...)` justamente para que agregar
- * Microsoft (Entra ID) en Fase 3 sea un caso mas y no una reescritura.
+ * Tres formas de entrar, todas contra la misma política de acceso:
+ *
+ * - **Enlace por correo** (sin contraseña): el camino del equipo con cuenta
+ *   corporativa @clarovtr.cl.
+ * - **Google**: para las cuentas autorizadas de la lista y para quien tenga su
+ *   correo corporativo en Google Workspace.
+ * - **Contraseña**: solo contra los emuladores, como atajo de desarrollo.
+ *
+ * Todo pasa por `validarAcceso()`, y lo mismo se valida en firestore.rules. Si
+ * alguien entra con un método nuevo y su correo no está autorizado, se le cierra
+ * la sesión de inmediato: quedar autenticado pero sin poder leer nada es el peor
+ * de los estados, porque parece un error de la aplicación.
  */
 import {
+  GoogleAuthProvider,
   isSignInWithEmailLink,
   onAuthStateChanged,
   sendSignInLinkToEmail,
   signInWithEmailAndPassword,
   signInWithEmailLink,
+  signInWithPopup,
   signOut,
   type User,
 } from 'firebase/auth'
 import { AJUSTES, auth } from './firebase'
 import {
-  esDominioPermitido,
-  mensajeDominioInvalido,
+  esAccesoPermitido,
+  mensajeAccesoDenegado,
   normalizarEmail,
+  rolInicial,
+  type PoliticaAcceso,
 } from '@/domain/permisos/dominio'
+import type { Rol } from '@/domain/tipos/comunes'
 
 const CLAVE_CORREO = 'pmo3000.correoPendiente'
 
-export type MetodoIngreso = 'enlace_correo' | 'password_dev'
+export type MetodoIngreso = 'enlace_correo' | 'google' | 'password_dev'
+
+export const POLITICA: PoliticaAcceso = {
+  dominio: AJUSTES.dominioPermitido,
+  correosAdmin: AJUSTES.correosAdmin,
+}
+
+/** Lo único del entorno que necesita la interfaz. */
+export const AJUSTES_AUTENTICACION = {
+  usarEmuladores: AJUSTES.usarEmuladores,
+  dominioPermitido: AJUSTES.dominioPermitido,
+  correosAdmin: AJUSTES.correosAdmin,
+} as const
 
 export function dominioPermitido(): string {
   return AJUSTES.dominioPermitido
 }
 
-/**
- * Lo unico del entorno que la UI necesita saber. Se expone desde aqui para que
- * ninguna pantalla tenga que importar la configuracion de Firebase.
- */
-export const AJUSTES_AUTENTICACION = {
-  usarEmuladores: AJUSTES.usarEmuladores,
-  dominioPermitido: AJUSTES.dominioPermitido,
-} as const
+export function puedeEntrar(email: string): boolean {
+  return esAccesoPermitido(email, POLITICA)
+}
 
-export function validarCorreoCorporativo(email: string): void {
-  if (!esDominioPermitido(email, AJUSTES.dominioPermitido)) {
-    throw new Error(mensajeDominioInvalido(AJUSTES.dominioPermitido))
+/** Rol con el que se crea el perfil en el primer ingreso. */
+export function rolInicialDe(email: string): Rol {
+  return rolInicial(email, POLITICA)
+}
+
+export function validarAcceso(email: string): void {
+  if (!puedeEntrar(email)) {
+    throw new Error(mensajeAccesoDenegado(POLITICA))
   }
 }
 
@@ -48,10 +74,11 @@ export function observarSesion(cb: (usuario: User | null) => void): () => void {
   return onAuthStateChanged(auth, cb)
 }
 
-/** Envia el enlace de ingreso. El correo queda guardado para completar el flujo. */
+// --- Enlace por correo -----------------------------------------------------
+
 export async function enviarEnlaceIngreso(email: string): Promise<void> {
   const correo = normalizarEmail(email)
-  validarCorreoCorporativo(correo)
+  validarAcceso(correo)
 
   await sendSignInLinkToEmail(auth, correo, {
     url: `${window.location.origin}/login`,
@@ -61,7 +88,7 @@ export async function enviarEnlaceIngreso(email: string): Promise<void> {
   try {
     window.localStorage.setItem(CLAVE_CORREO, correo)
   } catch {
-    // Modo privado sin localStorage: se le pedira el correo de nuevo al volver.
+    // Modo privado sin localStorage: se le pedirá el correo de nuevo al volver.
   }
 }
 
@@ -77,13 +104,12 @@ export function hayEnlaceEnUrl(): boolean {
   return isSignInWithEmailLink(auth, window.location.href)
 }
 
-/** Completa el ingreso cuando el usuario vuelve desde el enlace del correo. */
 export async function completarIngresoConEnlace(emailProporcionado?: string): Promise<User> {
   const correo = normalizarEmail(emailProporcionado ?? correoPendiente() ?? '')
   if (!correo) {
     throw new Error('Necesitamos tu correo para completar el ingreso desde este dispositivo')
   }
-  validarCorreoCorporativo(correo)
+  validarAcceso(correo)
 
   const credencial = await signInWithEmailLink(auth, correo, window.location.href)
   try {
@@ -94,16 +120,36 @@ export async function completarIngresoConEnlace(emailProporcionado?: string): Pr
   return credencial.user
 }
 
+// --- Google ----------------------------------------------------------------
+
 /**
- * Atajo de desarrollo: ingresa con correo y contrasena contra el emulador.
- * Existe para no pasar por la bandeja de correo en cada prueba y se rechaza
- * cuando la app no esta apuntando a los emuladores.
+ * Ingreso con Google. A diferencia del enlace por correo, aquí el correo se
+ * conoce recién después de autenticar, así que si no está autorizado hay que
+ * deshacer la sesión antes de devolver el error.
  */
+export async function ingresarConGoogle(): Promise<User> {
+  const proveedor = new GoogleAuthProvider()
+  // Fuerza el selector de cuenta: mucha gente tiene varias sesiones de Google
+  // abiertas y entrar con la equivocada es el error más común.
+  proveedor.setCustomParameters({ prompt: 'select_account' })
+
+  const credencial = await signInWithPopup(auth, proveedor)
+  const correo = credencial.user.email ?? ''
+
+  if (!puedeEntrar(correo)) {
+    await signOut(auth)
+    throw new Error(`La cuenta ${correo} no está autorizada. ${mensajeAccesoDenegado(POLITICA)}`)
+  }
+  return credencial.user
+}
+
+// --- Atajo de desarrollo ---------------------------------------------------
+
 export async function ingresarComoUsuarioDemo(email: string, password: string): Promise<User> {
   if (!AJUSTES.usarEmuladores) {
     throw new Error('El ingreso directo solo existe con los emuladores')
   }
-  validarCorreoCorporativo(email)
+  validarAcceso(email)
   const credencial = await signInWithEmailAndPassword(auth, normalizarEmail(email), password)
   return credencial.user
 }

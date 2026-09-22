@@ -10,7 +10,7 @@ export const plantilla: GateTemplate = PLANTILLA_ESTANDAR
 export function actor(rol: Rol, extra: Partial<Actor> = {}): Actor {
   return {
     uid: `uid-${rol}`,
-    email: `${rol}@claro.cl`,
+    email: `${rol}@clarovtr.cl`,
     nombre: `Usuario ${rol}`,
     rol,
     celulaId: 'celula-1',

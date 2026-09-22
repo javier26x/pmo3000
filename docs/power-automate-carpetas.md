@@ -61,7 +61,7 @@ ID sitio:  RM-0421
 Nombre:    Cerro Azul 43
 Comuna:    Maipú
 Región:    Metropolitana de Santiago
-Solicitado por: Nombre Apellido (nombre.apellido@claro.cl)
+Solicitado por: Nombre Apellido (nombre.apellido@clarovtr.cl)
 Fecha: 21-09-2026
 
 No modifiques el asunto: el flujo de Power Automate lo usa para crear la carpeta.
@@ -100,7 +100,7 @@ Solo conectores estándar: Outlook 365 y SharePoint. No requiere licencia premiu
 - _Filtro de asunto_: `CREAR_CARPETA`
 - _Solo con datos adjuntos_: No
 
-> Recomendación: usa un buzón compartido (ej. `pmo.carpetas@claro.cl`) y pon ese
+> Recomendación: usa un buzón compartido (ej. `pmo.carpetas@clarovtr.cl`) y pon ese
 > buzón como destinatario del `mailto:`. Así el flujo no depende de la cuenta
 > personal de nadie.
 

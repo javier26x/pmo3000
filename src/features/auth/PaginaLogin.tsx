@@ -9,11 +9,15 @@ import {
   enviarEnlaceIngreso,
   hayEnlaceEnUrl,
   ingresarComoUsuarioDemo,
+  ingresarConGoogle,
+  POLITICA,
+  puedeEntrar,
   usuariosDemo,
   type UsuarioDemo,
 } from '@/features/auth/servicio'
+import { LogoGoogle } from './LogoGoogle'
 import { Aviso, Boton, Campo, Entrada, Insignia, Cargando } from '@/components/ui'
-import { esDominioPermitido } from '@/domain/permisos/dominio'
+
 import { NOMBRES_ROL, type Rol } from '@/domain/tipos/comunes'
 import { mensajeDeError } from '@/app/avisos'
 import { useSesion } from '@/hooks/useSesion'
@@ -45,6 +49,7 @@ export function PaginaLogin() {
   const [estado, setEstado] = useState<Estado>(inicial.estado)
   const [error, setError] = useState<string | null>(inicial.error)
   const [demos, setDemos] = useState<UsuarioDemo[]>([])
+  const [entrandoConGoogle, setEntrandoConGoogle] = useState(false)
 
   useEffect(() => {
     if (inicial.estado !== 'completando') return
@@ -67,7 +72,25 @@ export function PaginaLogin() {
   }
 
   const dominio = dominioPermitido()
-  const correoValido = esDominioPermitido(correo, dominio)
+  const correoValido = puedeEntrar(correo)
+
+  const entrarConGoogle = () => {
+    setError(null)
+    setEntrandoConGoogle(true)
+    ingresarConGoogle()
+      .catch((e) => {
+        const texto = mensajeDeError(e)
+        // Cancelar el popup no es un error que valga la pena mostrar.
+        if (!/popup-closed-by-user|cancelled-popup-request/.test(texto)) {
+          setError(
+            /popup-blocked/.test(texto)
+              ? 'El navegador bloqueó la ventana de Google. Permítela e inténtalo de nuevo.'
+              : texto,
+          )
+        }
+      })
+      .finally(() => setEntrandoConGoogle(false))
+  }
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -131,44 +154,62 @@ export function PaginaLogin() {
               </Boton>
             </div>
           ) : (
-            <form onSubmit={enviar} className="flex flex-col gap-3">
-              <Campo
-                etiqueta="Correo corporativo"
-                htmlFor="correo"
-                obligatorio
-                ayuda={`Solo se permite el acceso con correos @${dominio}`}
-                {...(error ? { error } : {})}
-              >
-                <Entrada
-                  id="correo"
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  placeholder={`nombre.apellido@${dominio}`}
-                  value={correo}
-                  onChange={(e) => setCorreo(e.target.value)}
-                  aria-invalid={correo !== '' && !correoValido}
-                  required
-                />
-              </Campo>
-
+            <div className="flex flex-col gap-3">
               <Boton
-                type="submit"
-                variante="primario"
-                disabled={!correoValido}
-                cargando={estado === 'enviando'}
-                icono={<Mail aria-hidden className="size-4" />}
+                variante="secundario"
+                cargando={entrandoConGoogle}
+                onClick={entrarConGoogle}
+                icono={<LogoGoogle className="size-4" />}
                 className="w-full"
               >
-                Enviarme el enlace de ingreso
+                Continuar con Google
               </Boton>
+
+              <div className="flex items-center gap-2 text-xs text-texto-3">
+                <span className="h-px flex-1 bg-borde" />o con tu correo
+                <span className="h-px flex-1 bg-borde" />
+              </div>
+
+              <form onSubmit={enviar} className="flex flex-col gap-3">
+                <Campo
+                  etiqueta="Correo corporativo"
+                  htmlFor="correo"
+                  obligatorio
+                  ayuda={`Correo @${dominio}`}
+                  {...(error ? { error } : {})}
+                >
+                  <Entrada
+                    id="correo"
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder={`nombre.apellido@${dominio}`}
+                    value={correo}
+                    onChange={(e) => setCorreo(e.target.value)}
+                    aria-invalid={correo !== '' && !correoValido}
+                    required
+                  />
+                </Campo>
+
+                <Boton
+                  type="submit"
+                  variante="primario"
+                  disabled={!correoValido}
+                  cargando={estado === 'enviando'}
+                  icono={<Mail aria-hidden className="size-4" />}
+                  className="w-full"
+                >
+                  Enviarme el enlace de ingreso
+                </Boton>
+              </form>
 
               <p className="flex items-start gap-1.5 text-xs text-texto-3">
                 <ShieldCheck aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-                Sin contrasenas: el acceso se confirma por correo. El dominio se valida tambien en
-                las reglas del servidor.
+                Solo entran los correos <strong>@{dominio}</strong>
+                {POLITICA.correosAdmin.length > 0 && ' y las cuentas autorizadas'}. Se valida
+                también en las reglas del servidor, no solo aquí.
               </p>
-            </form>
+            </div>
           )}
         </div>
 

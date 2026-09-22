@@ -216,7 +216,7 @@ async function crearCatalogos(): Promise<void> {
   })
 
   batch.set(db.collection('config').doc('app'), {
-    dominioPermitido: 'claro.cl',
+    dominioPermitido: 'clarovtr.cl',
     asuntoCarpeta: 'CREAR_CARPETA | {programa} | {sitioId} | {nombre}',
     umbralSobrecargaTareas: 8,
     ...sellos('2026-01-02', 'demo-admin'),
@@ -609,7 +609,7 @@ async function main(): Promise<void> {
   console.log('  datos-ejemplo/sitios-ejemplo.csv y .xlsx (4.500 filas)')
 
   console.log(`\nListo en ${((Date.now() - inicio) / 1000).toFixed(1)} s.`)
-  console.log(`Entra con cualquier correo demo.*@claro.cl y la contrasena ${PASSWORD_DEMO},`)
+  console.log(`Entra con cualquier correo demo.*@clarovtr.cl y la contrasena ${PASSWORD_DEMO},`)
   console.log('o usa el boton "Entrar como" del login.\n')
   process.exit(0)
 }

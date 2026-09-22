@@ -5,6 +5,7 @@
  */
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth'
+import { listaDeCorreos } from '@/domain/permisos/dominio'
 import {
   connectFirestoreEmulator,
   getFirestore,
@@ -24,7 +25,11 @@ export const AJUSTES = {
   // subida de evidencias de Fase 2 los necesita y así no hay que volver acá.
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? '',
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '',
-  dominioPermitido: (import.meta.env.VITE_DOMINIO_PERMITIDO ?? 'claro.cl').toLowerCase(),
+  dominioPermitido: (import.meta.env.VITE_DOMINIO_PERMITIDO ?? 'clarovtr.cl').toLowerCase(),
+  // Correos externos autorizados que además entran como administradores.
+  // La misma lista tiene que estar en firestore.rules: ver el comentario de
+  // src/domain/permisos/dominio.ts.
+  correosAdmin: listaDeCorreos(import.meta.env.VITE_CORREOS_ADMIN),
   puertoAuth: 9099,
   puertoFirestore: 8080,
 } as const

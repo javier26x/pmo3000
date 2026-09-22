@@ -48,13 +48,13 @@ Abre <http://localhost:5173>. En el login aparece el bloque **«Atajo de
 desarrollo — entrar como»** con los 13 usuarios ficticios: un clic y entras. La
 contraseña de todos es `demo1234` y solo existen en el emulador.
 
-| Para entrar como | Correo                           | Rol                          |
-| ---------------- | -------------------------------- | ---------------------------- |
-| Administrador    | `demo.admin@claro.cl`            | admin                        |
-| Jefe de célula   | `demo.jefe.rf@claro.cl`          | jefe_celula                  |
-| Analista         | `demo.analista1@claro.cl`        | analista                     |
-| Contratista      | `demo.contratista.alfa@claro.cl` | contratista (Proveedor Alfa) |
-| Lector           | `demo.lector@claro.cl`           | lector                       |
+| Para entrar como | Correo                              | Rol                          |
+| ---------------- | ----------------------------------- | ---------------------------- |
+| Administrador    | `demo.admin@clarovtr.cl`            | admin                        |
+| Jefe de célula   | `demo.jefe.rf@clarovtr.cl`          | jefe_celula                  |
+| Analista         | `demo.analista1@clarovtr.cl`        | analista                     |
+| Contratista      | `demo.contratista.alfa@clarovtr.cl` | contratista (Proveedor Alfa) |
+| Lector           | `demo.lector@clarovtr.cl`           | lector                       |
 
 Todo junto en una sola terminal:
 
@@ -132,7 +132,7 @@ VITE_FIREBASE_AUTH_DOMAIN=pmoclr.firebaseapp.com
 VITE_FIREBASE_APP_ID=1:311927873870:web:9f01dafcd4307ee7593e1f
 VITE_FIREBASE_STORAGE_BUCKET=pmoclr.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=311927873870
-VITE_DOMINIO_PERMITIDO=claro.cl
+VITE_DOMINIO_PERMITIDO=clarovtr.cl
 EOF
 ```
 
@@ -204,7 +204,7 @@ Toda persona que entra por primera vez queda con rol **lector** — así lo exig
 las reglas, para que nadie se autoasigne permisos. El primer admin se promueve a
 mano, una sola vez:
 
-1. Entra a la app con tu correo `@claro.cl`. Te llega el enlace de ingreso y, al
+1. Entra a la app con tu correo `@clarovtr.cl`. Te llega el enlace de ingreso y, al
    abrirlo, se crea tu perfil como lector.
 2. Consola de Firebase → **Firestore → colección `usuarios`** → busca tu
    documento (el id es tu UID) y cambia `rol` de `lector` a `admin`.
@@ -414,7 +414,7 @@ muestra además la fecha ya formateada, para que no haya ambigüedad.
 
 Lo que conviene probar después del seed:
 
-1. **Dominio.** En el login, escribe un correo que no sea `@claro.cl`: el botón
+1. **Dominio.** En el login, escribe un correo que no sea `@clarovtr.cl`: el botón
    queda deshabilitado. La misma regla está en el servidor (`firestore.rules`).
 2. **Importación.** _Importar_ → arrastra `datos-ejemplo/sitios-ejemplo.xlsx` →
    el mapeo de columnas se autodetecta → _Validar_ → revisa la vista previa
@@ -430,7 +430,7 @@ Lo que conviene probar después del seed:
 6. **Kanban.** Arrastra una tarjeta dos columnas más allá: se rechaza con
    «No se puede saltar 2 gates». Arrástrala una sola columna: pide la fecha real
    y avanza.
-7. **Contratista.** Entra como `demo.contratista.alfa@claro.cl`: solo ve sitios
+7. **Contratista.** Entra como `demo.contratista.alfa@clarovtr.cl`: solo ve sitios
    de Proveedor Alfa, no tiene _Importar_ ni _Auditoría_ en el menú, y puede
    marcar entregables pero no avanzar el gate.
 8. **Auditoría inalterable.** En la consola del emulador, intenta editar un

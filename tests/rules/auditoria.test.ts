@@ -4,7 +4,16 @@ import {
   assertSucceeds,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { PERFILES, como, crearEntorno, eventoDePrueba, marcaServidor, sembrarBase } from './ayudas'
+import {
+  CORREO_ADMIN_EXTERNO,
+  PERFILES,
+  como,
+  comoAdminExterno,
+  crearEntorno,
+  eventoDePrueba,
+  marcaServidor,
+  sembrarBase,
+} from './ayudas'
 
 let entorno: RulesTestEnvironment
 
@@ -65,7 +74,7 @@ describe('auditoria: append-only', () => {
         .collection('auditoria')
         .add({
           ...eventoDePrueba(PERFILES.analista!),
-          email: 'otro@claro.cl',
+          email: 'otro@clarovtr.cl',
           ts: marcaServidor(),
         }),
     )
@@ -102,12 +111,12 @@ describe('auditoria: append-only', () => {
 describe('usuarios y escalamiento de privilegios', () => {
   it('un usuario nuevo se da de alta solo como lector', async () => {
     const db = entorno
-      .authenticatedContext('u-nuevo', { email: 'nuevo@claro.cl', email_verified: true })
+      .authenticatedContext('u-nuevo', { email: 'nuevo@clarovtr.cl', email_verified: true })
       .firestore()
 
     await assertFails(
       db.doc('usuarios/u-nuevo').set({
-        email: 'nuevo@claro.cl',
+        email: 'nuevo@clarovtr.cl',
         nombre: 'Nuevo',
         rol: 'admin',
         celulaId: null,
@@ -119,7 +128,7 @@ describe('usuarios y escalamiento de privilegios', () => {
 
     await assertSucceeds(
       db.doc('usuarios/u-nuevo').set({
-        email: 'nuevo@claro.cl',
+        email: 'nuevo@clarovtr.cl',
         nombre: 'Nuevo',
         rol: 'lector',
         celulaId: null,
@@ -132,13 +141,63 @@ describe('usuarios y escalamiento de privilegios', () => {
 
   it('no se puede crear el perfil de otra persona', async () => {
     const db = entorno
-      .authenticatedContext('u-nuevo', { email: 'nuevo@claro.cl', email_verified: true })
+      .authenticatedContext('u-nuevo', { email: 'nuevo@clarovtr.cl', email_verified: true })
       .firestore()
     await assertFails(
       db.doc('usuarios/u-ajeno').set({
-        email: 'nuevo@claro.cl',
+        email: 'nuevo@clarovtr.cl',
         nombre: 'Ajeno',
         rol: 'lector',
+        celulaId: null,
+        proveedorId: null,
+        activo: true,
+        ultimoAcceso: null,
+      }),
+    )
+  })
+
+  it('un correo externo autorizado se crea como admin', async () => {
+    // Es la excepción que permite arrancar: sin ella, una instalación nueva no
+    // tendría a nadie capaz de promover al primer administrador.
+    await assertSucceeds(
+      comoAdminExterno(entorno).doc('usuarios/u-admin-externo').set({
+        email: CORREO_ADMIN_EXTERNO,
+        nombre: 'Administrador inicial',
+        rol: 'admin',
+        celulaId: null,
+        proveedorId: null,
+        activo: true,
+        ultimoAcceso: null,
+      }),
+    )
+  })
+
+  it('un correo externo NO autorizado no entra ni como lector', async () => {
+    const db = entorno
+      .authenticatedContext('u-intruso', { email: 'otro@gmail.com', email_verified: true })
+      .firestore()
+    await assertFails(
+      db.doc('usuarios/u-intruso').set({
+        email: 'otro@gmail.com',
+        nombre: 'Intruso',
+        rol: 'lector',
+        celulaId: null,
+        proveedorId: null,
+        activo: true,
+        ultimoAcceso: null,
+      }),
+    )
+  })
+
+  it('un correo corporativo no puede crearse como admin', async () => {
+    const db = entorno
+      .authenticatedContext('u-nuevo2', { email: 'nuevo2@clarovtr.cl', email_verified: true })
+      .firestore()
+    await assertFails(
+      db.doc('usuarios/u-nuevo2').set({
+        email: 'nuevo2@clarovtr.cl',
+        nombre: 'Nuevo',
+        rol: 'admin',
         celulaId: null,
         proveedorId: null,
         activo: true,

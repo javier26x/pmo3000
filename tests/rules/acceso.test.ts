@@ -39,7 +39,7 @@ describe('puerta de entrada', () => {
 
   it('rechaza a un usuario corporativo sin perfil creado', async () => {
     const db = entorno
-      .authenticatedContext('u-sin-perfil', { email: 'nuevo@claro.cl', email_verified: true })
+      .authenticatedContext('u-sin-perfil', { email: 'nuevo@clarovtr.cl', email_verified: true })
       .firestore()
     await assertFails(db.doc('sitios/SITIO-1').get())
   })
@@ -54,7 +54,7 @@ describe('puerta de entrada', () => {
 
   it('no permite que un dominio parecido pase el filtro', async () => {
     const db = entorno
-      .authenticatedContext('u-falso', { email: 'persona@noclaro.cl', email_verified: true })
+      .authenticatedContext('u-falso', { email: 'persona@noclarovtr.cl', email_verified: true })
       .firestore()
     await assertFails(db.doc('sitios/SITIO-1').get())
   })

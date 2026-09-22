@@ -44,49 +44,49 @@ export interface PerfilPrueba {
 export const PERFILES: Record<string, PerfilPrueba> = {
   admin: {
     uid: 'u-admin',
-    email: 'admin@claro.cl',
+    email: 'admin@clarovtr.cl',
     rol: 'admin',
     celulaId: null,
     proveedorId: null,
   },
   jefe: {
     uid: 'u-jefe',
-    email: 'jefe@claro.cl',
+    email: 'jefe@clarovtr.cl',
     rol: 'jefe_celula',
     celulaId: 'cel-1',
     proveedorId: null,
   },
   analista: {
     uid: 'u-analista',
-    email: 'analista@claro.cl',
+    email: 'analista@clarovtr.cl',
     rol: 'analista',
     celulaId: 'cel-1',
     proveedorId: null,
   },
   contratista: {
     uid: 'u-contra',
-    email: 'contra@claro.cl',
+    email: 'contra@clarovtr.cl',
     rol: 'contratista',
     celulaId: null,
     proveedorId: 'prov-alfa',
   },
   contratistaBeta: {
     uid: 'u-contra-b',
-    email: 'contrab@claro.cl',
+    email: 'contrab@clarovtr.cl',
     rol: 'contratista',
     celulaId: null,
     proveedorId: 'prov-beta',
   },
   lector: {
     uid: 'u-lector',
-    email: 'lector@claro.cl',
+    email: 'lector@clarovtr.cl',
     rol: 'lector',
     celulaId: null,
     proveedorId: null,
   },
   inactivo: {
     uid: 'u-inactivo',
-    email: 'inactivo@claro.cl',
+    email: 'inactivo@clarovtr.cl',
     rol: 'analista',
     celulaId: null,
     proveedorId: null,
@@ -108,10 +108,22 @@ export function comoExterno(entorno: RulesTestEnvironment) {
     .firestore()
 }
 
+/**
+ * Correo externo que SÍ está en correosAdministradores() de firestore.rules.
+ * Es la excepción que resuelve el arranque de una instalación nueva.
+ */
+export const CORREO_ADMIN_EXTERNO = 'javier.neo@gmail.com'
+
+export function comoAdminExterno(entorno: RulesTestEnvironment, uid = 'u-admin-externo') {
+  return entorno
+    .authenticatedContext(uid, { email: CORREO_ADMIN_EXTERNO, email_verified: true })
+    .firestore()
+}
+
 /** Contexto corporativo pero sin correo verificado. */
 export function comoNoVerificado(entorno: RulesTestEnvironment) {
   return entorno
-    .authenticatedContext('u-noverif', { email: 'nuevo@claro.cl', email_verified: false })
+    .authenticatedContext('u-noverif', { email: 'nuevo@clarovtr.cl', email_verified: false })
     .firestore()
 }
 

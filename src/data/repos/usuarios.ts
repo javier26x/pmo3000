@@ -16,7 +16,7 @@ import { crearConvertidor } from '../convertidores'
 import { normalizarUsuario } from '../normalizadores'
 import { agregarEventos } from '../auditoria'
 import type { Usuario, UsuarioEditable } from '@/domain/tipos/usuario'
-import type { Actor } from '@/domain/tipos/comunes'
+import type { Actor, Rol } from '@/domain/tipos/comunes'
 
 const convertidor = crearConvertidor(normalizarUsuario)
 
@@ -57,14 +57,22 @@ export function observarUsuarios(
 }
 
 /**
- * Alta del perfil en el primer ingreso. El rol NO se decide aqui: entra como
- * 'lector' y un administrador lo promueve. Las reglas impiden que el propio
- * usuario se cambie el rol.
+ * Alta del perfil en el primer ingreso.
+ *
+ * El rol entra como 'lector' salvo que el correo esté en la lista de
+ * administradores externos (ver src/domain/permisos/dominio.ts), que existe para
+ * resolver el arranque: alguien tiene que poder administrar la instalación antes
+ * de que exista el primer administrador.
+ *
+ * Las reglas de Firestore validan exactamente lo mismo, así que esto no es una
+ * puerta: un correo fuera de esa lista que intente crearse como admin es
+ * rechazado por el servidor.
  */
 export async function asegurarPerfil(datos: {
   uid: string
   email: string
   nombre: string
+  rolInicial: Rol
 }): Promise<void> {
   const ref = doc(db, COLECCIONES.usuarios, datos.uid)
   const snap = await getDoc(ref)
@@ -73,7 +81,7 @@ export async function asegurarPerfil(datos: {
     await setDoc(ref, {
       email: datos.email.toLowerCase(),
       nombre: datos.nombre || datos.email,
-      rol: 'lector',
+      rol: datos.rolInicial,
       celulaId: null,
       proveedorId: null,
       activo: true,

@@ -2,7 +2,7 @@
  * Datos de ejemplo ANONIMIZADOS.
  *
  * Nada aqui corresponde a un sitio, una persona ni un proveedor real: los
- * nombres de persona son "Letra Demo" con correo demo.*@claro.cl, los
+ * nombres de persona son "Letra Demo" con correo demo.*@clarovtr.cl, los
  * proveedores son letras del alfabeto griego y los sitios se generan por
  * combinacion de palabras dentro de cajas de coordenadas de Chile.
  */
@@ -53,7 +53,7 @@ export const PROVEEDORES_DEMO = [
 export const PERSONAS_DEMO: PersonaDemo[] = [
   {
     uid: 'demo-admin',
-    email: 'demo.admin@claro.cl',
+    email: 'demo.admin@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Ada Demo',
     rol: 'admin',
@@ -62,7 +62,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-jefe-1',
-    email: 'demo.jefe.ingenieria@claro.cl',
+    email: 'demo.jefe.ingenieria@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Bruno Demo',
     rol: 'jefe_celula',
@@ -71,7 +71,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-jefe-2',
-    email: 'demo.jefe.obra@claro.cl',
+    email: 'demo.jefe.obra@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Carla Demo',
     rol: 'jefe_celula',
@@ -80,7 +80,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-jefe-3',
-    email: 'demo.jefe.rf@claro.cl',
+    email: 'demo.jefe.rf@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Diego Demo',
     rol: 'jefe_celula',
@@ -89,7 +89,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-jefe-4',
-    email: 'demo.jefe.transmision@claro.cl',
+    email: 'demo.jefe.transmision@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Elena Demo',
     rol: 'jefe_celula',
@@ -98,7 +98,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-jefe-5',
-    email: 'demo.jefe.permisos@claro.cl',
+    email: 'demo.jefe.permisos@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Felipe Demo',
     rol: 'jefe_celula',
@@ -107,7 +107,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-jefe-6',
-    email: 'demo.jefe.calidad@claro.cl',
+    email: 'demo.jefe.calidad@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Gabriela Demo',
     rol: 'jefe_celula',
@@ -116,7 +116,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-analista-1',
-    email: 'demo.analista1@claro.cl',
+    email: 'demo.analista1@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Hugo Demo',
     rol: 'analista',
@@ -125,7 +125,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-analista-2',
-    email: 'demo.analista2@claro.cl',
+    email: 'demo.analista2@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Ines Demo',
     rol: 'analista',
@@ -134,7 +134,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-analista-3',
-    email: 'demo.analista3@claro.cl',
+    email: 'demo.analista3@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Javier Demo',
     rol: 'analista',
@@ -143,7 +143,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-analista-4',
-    email: 'demo.analista4@claro.cl',
+    email: 'demo.analista4@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Karla Demo',
     rol: 'analista',
@@ -152,7 +152,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-contratista',
-    email: 'demo.contratista.alfa@claro.cl',
+    email: 'demo.contratista.alfa@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Luis Demo',
     rol: 'contratista',
@@ -161,7 +161,7 @@ export const PERSONAS_DEMO: PersonaDemo[] = [
   },
   {
     uid: 'demo-lector',
-    email: 'demo.lector@claro.cl',
+    email: 'demo.lector@clarovtr.cl',
     password: PASSWORD_DEMO,
     nombre: 'Marta Demo',
     rol: 'lector',
