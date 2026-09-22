@@ -4,6 +4,7 @@ import { leerHojaCruda, EXTENSIONES_ACEPTADAS, type ArchivoCrudo } from '@/data/
 import { guardarPlantillaTracker, ejecutarImportacionTracker } from '@/data/repos/tracker'
 import { inferirPlantilla, type PlantillaInferida } from '@/domain/tracker/inferencia'
 import { construirPlantilla, indexarColumnas } from '@/domain/tracker/aplicacion'
+import { coercionar, type TipoCampo } from '@/domain/tracker/campos'
 import { crearId } from '@/domain/tipos/identificadores'
 import { mensajeDeError, usarAvisos } from '@/app/avisos'
 import { useActor } from '@/hooks/useSesion'
@@ -60,6 +61,31 @@ export default function PaginaImportarTracker() {
       .slice(propuesta.filaEncabezado + 1)
       .filter((f) => f.some((c) => c !== null && String(c).trim() !== ''))
   }, [crudo, propuesta])
+
+  /**
+   * Cambia el tipo propuesto para una columna.
+   *
+   * Existe porque el aviso de la propia pantalla dice "revisa el tipo o
+   * importalas como texto", y sin esto esa instruccion no se podia cumplir. El
+   * conteo de celdas que no calzan se recalcula en el momento: asi se ve si el
+   * cambio resolvio el problema antes de escribir nada.
+   */
+  const cambiarTipo = (indiceColumna: number, tipo: TipoCampo) => {
+    if (crudo === null || propuesta === null) return
+    const valores = filasDatos.map((f) => f[indiceColumna] ?? null)
+    const noConvertibles = valores.filter(
+      (v) => v !== null && String(v).trim() !== '' && !coercionar(tipo, v).ok,
+    ).length
+
+    setPropuesta({
+      ...propuesta,
+      columnas: propuesta.columnas.map((c) =>
+        c.indice === indiceColumna
+          ? { ...c, campo: { ...c.campo, tipo, opciones: [] }, noConvertibles }
+          : c,
+      ),
+    })
+  }
 
   const cargar = async (f: File, hoja?: string) => {
     setLeyendo(true)
@@ -216,7 +242,11 @@ export default function PaginaImportarTracker() {
                 </span>
               </div>
 
-              <RevisionPlantillaInferida propuesta={propuesta} indice={indice} />
+              <RevisionPlantillaInferida
+                propuesta={propuesta}
+                indice={indice}
+                onCambiarTipo={cambiarTipo}
+              />
 
               <div className="rounded-lg border border-borde bg-superficie p-3">
                 <h3 className="mb-3 flex items-center gap-2 text-md">

@@ -520,16 +520,10 @@ export function inferirPlantilla(
     })
   })
 
-  const conProblemas = columnas.filter((c) => c.noConvertibles > 0)
-  if (conProblemas.length > 0) {
-    avisos.push(
-      `${conProblemas.length} columna(s) tienen celdas que no calzan con el tipo propuesto ` +
-        `(${conProblemas
-          .slice(0, 3)
-          .map((c) => c.encabezado)
-          .join(', ')}…). Revisa el tipo o impórtalas como texto.`,
-    )
-  }
+  // El aviso sobre celdas que no calzan con su tipo NO se agrega aqui a
+  // proposito: el tipo se puede corregir en la pantalla de revision, y un aviso
+  // congelado al momento de inferir seguiria nombrando una columna ya
+  // arreglada. Se deriva de `columnas` donde se muestra.
 
   return { filaEncabezado, etapas, columnas, identidad, avisos }
 }
