@@ -54,7 +54,8 @@ export function Encabezado({
               : 'none'
       }
       className={cn(
-        'sticky top-0 z-10 border-b border-borde bg-superficie-2 px-2 py-1.5',
+        // Aqui el vidrio gana algo real: las filas pasan por debajo al desplazar.
+        'vidrio-sutil sticky top-0 z-10 border-b border-borde px-2 py-1.5',
         'text-xs font-semibold text-texto-2 whitespace-nowrap',
         alineaciones[alineacion],
         className,

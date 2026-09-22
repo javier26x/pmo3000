@@ -33,7 +33,10 @@ export function Notificaciones() {
             role={aviso.tono === 'error' ? 'alert' : 'status'}
             className={cn(
               'anim-subir pointer-events-auto flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm',
-              'shadow-[var(--sombra-flotante)]',
+              // Fondo opaco a proposito: el par fondo/texto del semaforo es lo que
+              // hace legible un aviso, y translucirlo lo pondria en riesgo. Del
+              // material toma el filo y el alzado, para pertenecer a la familia.
+              'vidrio-alzado',
               ESTILOS[aviso.tono],
             )}
           >

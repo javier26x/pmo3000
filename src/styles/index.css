@@ -79,6 +79,23 @@
     outline: none;
   }
 
+  /* El velo de un <dialog> nativo solo se puede alcanzar desde CSS: ::backdrop
+     no es un elemento al que se le pueda poner una clase. Desenfoca la app en
+     vez de taparla, que es lo que mantiene el contexto de lo que hay detras. */
+  dialog::backdrop {
+    background: var(--vidrio-velo);
+    -webkit-backdrop-filter: blur(4px) saturate(120%);
+    backdrop-filter: blur(4px) saturate(120%);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    dialog::backdrop {
+      background: rgb(0 0 0 / 0.5);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
   ::selection {
     background: var(--acento-suave);
     color: var(--texto);
@@ -209,6 +226,111 @@
 
   .punto-gate {
     background: var(--gate-punto);
+  }
+
+  /* ---- vidrio: el material de las capas flotantes -----------------------
+     Ver el bloque --vidrio-* de tokens.css. Tres densidades segun cuanto tiene
+     que competir la capa con lo que hay detras:
+       .vidrio        menus y popovers
+       .vidrio-denso  dialogos y paleta, donde se lee y se escribe
+       .vidrio-sutil  cabecera pegajosa de tabla, que acompana al contenido */
+  .vidrio,
+  .vidrio-denso,
+  .vidrio-sutil,
+  .vidrio-mapa {
+    -webkit-backdrop-filter: blur(var(--vidrio-blur)) saturate(var(--vidrio-saturacion));
+    backdrop-filter: blur(var(--vidrio-blur)) saturate(var(--vidrio-saturacion));
+    border-color: var(--vidrio-borde);
+    box-shadow: var(--vidrio-filo);
+  }
+
+  .vidrio {
+    background: var(--vidrio);
+  }
+
+  .vidrio-denso {
+    background: var(--vidrio-denso);
+  }
+
+  /* Para lo que flota sobre el mapa. Ver el comentario de --vidrio-mapa. */
+  .vidrio-mapa {
+    background: var(--vidrio-mapa);
+  }
+
+  /* Acompana al contenido en vez de flotar sobre el: menos desenfoque, sin filo
+     inferior, y conserva su borde normal para no dibujar dos lineas. */
+  .vidrio-sutil {
+    --vidrio-blur: 12px;
+    background: var(--vidrio-sutil);
+    border-color: var(--borde);
+    box-shadow: none;
+  }
+
+  /* Las capas que ademas se levantan del plano suman la sombra. Va despues para
+     que su box-shadow reemplace el filo solo, no al reves. */
+  .vidrio-alzado {
+    box-shadow: var(--vidrio-filo), var(--sombra-flotante);
+  }
+
+  /* Velo detras de un dialogo o de la paleta. */
+  .vidrio-velo {
+    background: var(--vidrio-velo);
+    -webkit-backdrop-filter: blur(4px) saturate(120%);
+    backdrop-filter: blur(4px) saturate(120%);
+  }
+
+  /* El vidrio es un realce, nunca la condicion para poder leer. Si el navegador
+     no lo soporta, o la persona pidio menos transparencia, o esta en modo de
+     contraste forzado, el material se vuelve una superficie opaca normal. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .vidrio,
+    .vidrio-denso,
+    .vidrio-mapa {
+      background: var(--superficie);
+      border-color: var(--borde);
+    }
+    .vidrio-sutil {
+      background: var(--superficie-2);
+    }
+    .vidrio-velo {
+      background: rgb(0 0 0 / 0.45);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .vidrio,
+    .vidrio-denso,
+    .vidrio-sutil,
+    .vidrio-mapa,
+    .vidrio-velo {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .vidrio,
+    .vidrio-denso,
+    .vidrio-mapa {
+      background: var(--superficie);
+      border-color: var(--borde);
+    }
+    .vidrio-sutil {
+      background: var(--superficie-2);
+    }
+    .vidrio-velo {
+      background: rgb(0 0 0 / 0.5);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .vidrio,
+    .vidrio-denso,
+    .vidrio-sutil,
+    .vidrio-mapa {
+      background: Canvas;
+      border-color: CanvasText;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      box-shadow: none;
+    }
   }
 
   /* Contenedor con desplazamiento que no arrastra la pagina completa. */

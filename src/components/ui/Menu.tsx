@@ -122,8 +122,8 @@ export function PanelMenu({
         visibility: izquierda === null ? 'hidden' : 'visible',
       }}
       className={cn(
-        'anim-aparecer panel-scroll max-h-[70vh] overflow-y-auto rounded-lg border border-borde',
-        'bg-superficie p-1 shadow-[var(--sombra-flotante)]',
+        'anim-aparecer panel-scroll max-h-[70vh] overflow-y-auto rounded-lg border',
+        'vidrio vidrio-alzado p-1',
         ancho,
       )}
     >

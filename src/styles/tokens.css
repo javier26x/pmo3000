@@ -93,6 +93,35 @@
     0 10px 30px -8px rgb(16 16 20 / 0.16), 0 4px 10px -4px rgb(16 16 20 / 0.1),
     0 0 0 1px rgb(16 16 20 / 0.04);
 
+  /* --- vidrio (liquid glass) ---------------------------------------------
+     Material translucido para las capas que FLOTAN sobre contenido: dialogos,
+     paleta de comandos, menus, avisos, la cabecera pegajosa de la tabla y los
+     controles sobre el mapa. No se usa en las superficies de fondo ni en las
+     filas: un backdrop-filter por fila arruinaria el desplazamiento de 4.500
+     sitios, que es justo lo que esta app tiene que hacer bien.
+
+     La saturacion es lo que hace que lea como vidrio y no como niebla: el
+     desenfoque apaga el color de lo que pasa por detras y saturate() lo
+     devuelve. La opacidad se mantiene alta a proposito: el texto tiene que
+     cumplir AA sobre cualquier cosa que pase por debajo, y un vidrio bonito
+     que obliga a entrecerrar los ojos no sirve para trabajar. */
+  --vidrio-blur: 20px;
+  --vidrio-saturacion: 180%;
+  --vidrio: rgb(255 255 255 / 0.72);
+  --vidrio-denso: rgb(255 255 255 / 0.88);
+  --vidrio-sutil: rgb(245 245 247 / 0.8);
+  --vidrio-borde: rgb(255 255 255 / 0.65);
+  /* Sobre el mapa el sustrato es desconocido: puede ser un tile casi blanco o
+     casi negro. El material tiene que cargar el contraste el solo, asi que sube
+     a 0.94 y el texto queda en AA contra cualquier fondo. Sigue siendo vidrio
+     (el desenfoque y la saturacion se mantienen), pero deja de ser una ventana. */
+  --vidrio-mapa: rgb(255 255 255 / 0.94);
+  /* Filo especular: luz arriba, sombra abajo. Es lo que le da grosor al
+     material; sin esto el panel se ve como un recorte plano. */
+  --vidrio-filo: inset 0 1px 0 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 0 rgb(16 16 20 / 0.05);
+  /* Velo detras de un dialogo: desenfoca la app en vez de taparla. */
+  --vidrio-velo: rgb(24 24 27 / 0.3);
+
   /* --- movimiento --------------------------------------------------------
      Curvas y tiempos unicos: mismo lenguaje en toda la app. Se anulan enteros
      bajo prefers-reduced-motion (ver index.css). */
@@ -169,6 +198,17 @@
   --g-cerrado-bg: #26262c;
   --g-cerrado-fg: #a1a1aa;
   --g-cerrado-punto: #71717a;
+
+  /* En oscuro el vidrio no aclara: oscurece y deja pasar el color. El filo
+     superior baja a un 8% porque un borde blanco marcado sobre fondo negro se
+     ve como un subrayado, no como luz. */
+  --vidrio: rgb(26 26 31 / 0.72);
+  --vidrio-denso: rgb(20 20 25 / 0.9);
+  --vidrio-sutil: rgb(26 26 31 / 0.82);
+  --vidrio-borde: rgb(255 255 255 / 0.1);
+  --vidrio-mapa: rgb(20 20 25 / 0.94);
+  --vidrio-filo: inset 0 1px 0 0 rgb(255 255 255 / 0.08), inset 0 -1px 0 0 rgb(0 0 0 / 0.35);
+  --vidrio-velo: rgb(0 0 0 / 0.55);
 
   --sombra-1: 0 1px 2px rgb(0 0 0 / 0.4);
   --sombra: 0 1px 2px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);

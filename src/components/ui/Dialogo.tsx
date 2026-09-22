@@ -61,8 +61,8 @@ export function Dialogo({
       ref={ref}
       aria-labelledby="titulo-dialogo"
       className={cn(
-        'm-auto w-[calc(100vw-1.5rem)] rounded-lg border border-borde bg-superficie p-0 text-texto',
-        'shadow-[var(--sombra-flotante)] backdrop:bg-black/45',
+        'm-auto w-[calc(100vw-1.5rem)] rounded-lg border p-0 text-texto',
+        'vidrio-denso vidrio-alzado',
         anchos[ancho],
       )}
       onClick={(e) => {

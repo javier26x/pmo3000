@@ -349,6 +349,28 @@ Responde de un vistazo la pregunta que abre toda reunión de PMO: dónde se est�
 atascando esto. Cada tramo filtra la vista al pulsarlo, y sigue mostrando la
 distribución completa aunque haya un gate seleccionado.
 
+### El vidrio
+
+Las capas que flotan sobre contenido —la paleta de comandos, los diálogos, los
+menús, la cabecera pegajosa de la tabla, los controles sobre el mapa— están hechas
+de un material translúcido con desenfoque y saturación. No es decoración: al
+desenfocar en vez de tapar, el diálogo deja ver la fila que estabas mirando y la
+cabecera deja ver que las filas siguen corriendo por debajo. Se conserva el
+contexto en lugar de sustituirlo.
+
+Tres cosas lo mantienen honesto:
+
+- **No va en las filas.** Un `backdrop-filter` por fila arruinaría el
+  desplazamiento de 4.500 sitios, que es lo que esta app tiene que hacer bien.
+- **El texto cumple AA sobre cualquier sustrato.** Sobre el mapa el fondo es
+  desconocido (un tile puede ser casi blanco o casi negro), así que ahí el
+  material es más denso: con la opacidad del resto, el texto secundario en modo
+  oscuro sobre tiles claros caía a 2,81:1. Medido, no supuesto.
+- **Se apaga solo.** Si el navegador no soporta `backdrop-filter`, si la persona
+  activó _reducir transparencia_ en su sistema, o si está en modo de contraste
+  forzado, el material se vuelve una superficie opaca normal. El vidrio es un
+  realce, nunca la condición para poder leer.
+
 ### En terreno
 
 - **Funciona sin señal.** Firestore guarda una caché persistente en el

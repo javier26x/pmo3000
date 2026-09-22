@@ -177,7 +177,7 @@ export default function PaginaMapa() {
         )}
         {cargando && conCoordenadas.length === 0 && (
           <div className="absolute inset-x-0 top-0 z-[500] flex justify-center p-2">
-            <span className="rounded bg-superficie px-3 py-1 text-xs shadow-[var(--sombra)]">
+            <span className="vidrio-mapa vidrio-alzado rounded border px-3 py-1 text-xs">
               Cargando sitios…
             </span>
           </div>
@@ -211,7 +211,7 @@ export default function PaginaMapa() {
 
         {/* Leyenda */}
         <div className="pointer-events-none absolute bottom-3 left-3 z-[500] max-w-[calc(100%-1.5rem)]">
-          <div className="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-borde bg-superficie/95 px-2.5 py-1.5 text-xs shadow-[var(--sombra)] backdrop-blur">
+          <div className="vidrio-mapa vidrio-alzado pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-1 rounded border px-2.5 py-1.5 text-xs">
             {modo === 'gate'
               ? [...CODIGOS_GATE, CERRADO].map((g) => (
                   <span key={g} className={cn(`gate-${g}`, 'flex items-center gap-1')}>
@@ -245,7 +245,7 @@ export default function PaginaMapa() {
         {elegido && (
           <aside
             aria-label={`Detalle de ${elegido.sitioId}`}
-            className="absolute inset-x-3 top-3 z-[500] rounded-lg border border-borde bg-superficie p-3 shadow-[var(--sombra-flotante)] sm:right-3 sm:left-auto sm:w-80"
+            className="vidrio-mapa vidrio-alzado absolute inset-x-3 top-3 z-[500] rounded-lg border p-3 sm:right-3 sm:left-auto sm:w-80"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">

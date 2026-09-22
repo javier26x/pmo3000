@@ -65,7 +65,7 @@ export function Layout() {
       </a>
 
       {/* Barra superior */}
-      <header className="flex h-[var(--alto-barra)] shrink-0 items-center gap-2 border-b border-borde bg-superficie px-3">
+      <header className="vidrio flex h-[var(--alto-barra)] shrink-0 items-center gap-2 border-b border-borde px-3">
         <Boton
           variante="fantasma"
           tamano="sm"
@@ -195,8 +195,11 @@ export function Layout() {
         <nav
           aria-label="Navegación principal"
           className={cn(
-            'w-[var(--ancho-panel)] shrink-0 border-r border-borde bg-superficie p-2',
-            'max-md:fixed max-md:inset-y-0 max-md:top-[var(--alto-barra)] max-md:z-40 max-md:shadow-[var(--sombra-flotante)]',
+            'vidrio w-[var(--ancho-panel)] shrink-0 border-r border-borde p-2',
+            // En movil el panel se abre ENCIMA del contenido: ahi el vidrio deja ver
+            // que hay debajo, que es lo que evita la sensacion de cambiar de pantalla.
+            'max-md:fixed max-md:inset-y-0 max-md:top-[var(--alto-barra)] max-md:z-40',
+            'max-md:shadow-[var(--vidrio-filo),var(--sombra-flotante)]',
             panelAbierto ? 'max-md:block' : 'max-md:hidden',
           )}
         >

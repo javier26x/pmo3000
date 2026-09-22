@@ -304,7 +304,7 @@ export function PaletaComandos({ onCerrar }: { onCerrar: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[10vh] backdrop-blur-[2px]"
+      className="vidrio-velo fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10vh]"
       onClick={onCerrar}
       role="presentation"
     >
@@ -313,7 +313,7 @@ export function PaletaComandos({ onCerrar }: { onCerrar: () => void }) {
         aria-label="Paleta de comandos"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="anim-aparecer w-full max-w-xl overflow-hidden rounded-xl border border-borde bg-superficie shadow-[var(--sombra-flotante)]"
+        className="anim-aparecer vidrio-denso vidrio-alzado w-full max-w-xl overflow-hidden rounded-xl border"
       >
         <div className="flex items-center gap-2 border-b border-borde px-3">
           <Search aria-hidden className="size-4 shrink-0 text-texto-3" />
@@ -388,7 +388,7 @@ export function PaletaComandos({ onCerrar }: { onCerrar: () => void }) {
           ))}
         </ul>
 
-        <div className="flex items-center gap-3 border-t border-borde bg-superficie-2 px-3 py-1.5 text-[11px] text-texto-3">
+        <div className="flex items-center gap-3 border-t border-borde bg-[var(--vidrio-sutil)] px-3 py-1.5 text-[11px] text-texto-3">
           <span className="flex items-center gap-1">
             <kbd className="tecla">↑</kbd>
             <kbd className="tecla">↓</kbd> moverse
