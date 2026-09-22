@@ -26,7 +26,7 @@ import { useCatalogos } from '@/hooks/useCatalogos'
 import { useDespliegue } from '@/hooks/useDespliegue'
 import { useFiltros } from '@/hooks/useFiltros'
 import { useSesion } from '@/hooks/useSesion'
-import { CODIGOS_GATE, nombreGate } from '@/domain/gates/catalogo'
+import { nombreGate } from '@/domain/gates/catalogo'
 import { NOMBRES_PRIORIDAD, PRIORIDADES } from '@/domain/tipos/comunes'
 import type { FiltrosSeguimiento, FiltrosVista } from '@/domain/vistas/filtrado'
 
@@ -50,6 +50,7 @@ interface FiltroBooleano {
 export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
   const { perfil } = useSesion()
   const { programas, proyectos, proveedores, celulas } = useCatalogos()
+  const { etapas } = useCatalogos()
   const { regiones, comunas } = useDespliegue()
   const { servidor, vista, consulta, fijarServidor, fijarVista, limpiar, aplicarConsulta } =
     useFiltros()
@@ -99,7 +100,7 @@ export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
         clave: 'gate',
         etiqueta: 'Gate',
         opciones: [
-          ...CODIGOS_GATE.map((g) => ({ valor: g, texto: nombreGate(g) })),
+          ...etapas.map((e) => ({ valor: e.codigo, texto: nombreGate(e.codigo, etapas) })),
           { valor: 'CERRADO', texto: 'Cerrado' },
         ],
         activo: vista.gateActual,
@@ -144,6 +145,7 @@ export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
       },
     ].filter((d) => !d.soloInterno || !esContratista)
   }, [
+    etapas,
     programas,
     proyectos,
     proveedores,

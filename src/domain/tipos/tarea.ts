@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { CODIGOS_GATE } from '@/domain/gates/catalogo'
 import { ESTADOS_TAREA, PRIORIDADES } from './comunes'
 import { esquemaSellos, zFechaISONula } from './base'
 
@@ -28,7 +27,7 @@ export const esquemaTarea = z
     sitioProyectoId: z.string().nullable(),
     proyectoId: z.string().nullable(),
     programaId: z.string().nullable(),
-    gateCodigo: z.enum(CODIGOS_GATE).nullable(),
+    gateCodigo: z.string().nullable(),
 
     prioridad: z.enum(PRIORIDADES),
     fechaInicio: zFechaISONula,

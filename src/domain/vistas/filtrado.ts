@@ -8,7 +8,7 @@
  */
 import { hoyEnChile, type FechaISO } from '@/domain/fechas'
 import { diasAtraso } from '@/domain/gates/atraso'
-import { esGateActual, ordenGate, type GateActual } from '@/domain/gates/catalogo'
+import { CERRADO, type GateActual } from '@/domain/gates/catalogo'
 import type { Prioridad } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import type { Sitio } from '@/domain/tipos/sitio'
@@ -157,6 +157,12 @@ function faltaDato(sp: SitioProyecto, campo: CampoOrden, hoy: FechaISO): boolean
   return false
 }
 
+/** Posicion de la etapa actual dentro de la secuencia del propio sitio. */
+function ordenDeSitio(sp: SitioProyecto): number {
+  if (sp.gateActual === CERRADO) return Number.MAX_SAFE_INTEGER
+  return sp.gates[sp.gateActual]?.orden ?? Number.MAX_SAFE_INTEGER - 1
+}
+
 function comparar(a: SitioProyecto, b: SitioProyecto, campo: CampoOrden, hoy: FechaISO): number {
   switch (campo) {
     case 'sitio':
@@ -166,7 +172,9 @@ function comparar(a: SitioProyecto, b: SitioProyecto, campo: CampoOrden, hoy: Fe
     case 'region':
       return a.region.localeCompare(b.region, 'es') || a.comuna.localeCompare(b.comuna, 'es')
     case 'gate':
-      return ordenGate(a.gateActual) - ordenGate(b.gateActual)
+      // Cada documento lleva el orden de sus propias etapas, asi que una lista
+      // que mezcla programas con procesos distintos igual ordena bien.
+      return ordenDeSitio(a) - ordenDeSitio(b)
     case 'plan':
       return (a.fechaPlanGateActual ?? '').localeCompare(b.fechaPlanGateActual ?? '')
     case 'atraso':
@@ -195,9 +203,16 @@ export function ordenarSeguimientos(
 }
 
 /** Valores distintos de un campo, ordenados, para poblar los selectores. */
-/** Valida un gate que viene de fuera (URL, vista guardada, selector). */
+/**
+ * Valida un gate que viene de fuera (URL, vista guardada, selector).
+ *
+ * Ya no hay lista cerrada contra la cual validar: los codigos los define cada
+ * plantilla. Un codigo que no exista simplemente no calza con ningun sitio, que
+ * es el comportamiento correcto para un filtro.
+ */
 export function gateDesdeTexto(valor: string | null): GateActual | null {
-  return valor && esGateActual(valor) ? valor : null
+  const limpio = valor?.trim() ?? ''
+  return limpio === '' ? null : limpio
 }
 
 export function valoresDistintos<T>(lista: readonly T[], extraer: (item: T) => string): string[] {

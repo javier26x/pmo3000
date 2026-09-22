@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 import { cn } from '@/components/ui'
-import { CERRADO, CODIGOS_GATE, nombreGate, type GateActual } from '@/domain/gates/catalogo'
+import { CERRADO, nombreGate, type GateActual } from '@/domain/gates/catalogo'
 import { estaAtrasado } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useDespliegue } from '@/hooks/useDespliegue'
 import { useFiltros } from '@/hooks/useFiltros'
+import { useCatalogos } from '@/hooks/useCatalogos'
 
 interface Tramo {
   gate: GateActual
@@ -24,6 +25,7 @@ interface Tramo {
 export function EmbudoGates() {
   const { sinFiltroGate, hoy, truncado, tope, seguimientos, completando } = useDespliegue()
   const { vista, fijarVista } = useFiltros()
+  const { etapas } = useCatalogos()
 
   const { tramos, total, atrasados, bloqueados } = useMemo(() => {
     const porGate = new Map<GateActual, SitioProyecto[]>()
@@ -33,7 +35,7 @@ export function EmbudoGates() {
       else porGate.set(sp.gateActual, [sp])
     }
 
-    const orden: GateActual[] = [...CODIGOS_GATE, CERRADO]
+    const orden: GateActual[] = [...etapas.map((e) => e.codigo), CERRADO]
     const tramos: Tramo[] = orden.map((gate) => {
       const lista = porGate.get(gate) ?? []
       return {
@@ -49,7 +51,7 @@ export function EmbudoGates() {
       atrasados: sinFiltroGate.filter((sp) => estaAtrasado(sp, hoy)).length,
       bloqueados: sinFiltroGate.filter((sp) => sp.bloqueado).length,
     }
-  }, [sinFiltroGate, hoy])
+  }, [sinFiltroGate, hoy, etapas])
 
   const conSitios = tramos.filter((t) => t.total > 0)
   const numero = (n: number) => n.toLocaleString('es-CL')

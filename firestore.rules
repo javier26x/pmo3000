@@ -230,16 +230,21 @@ service cloud.firestore {
 
     // ------------------------------------------------------- sitioProyectos
 
-    function ordenGate(g) {
-      return g == 'TSSR' ? 0
-        : g == 'FC' ? 1
-        : g == 'RFI' ? 2
-        : g == 'IMP' ? 3
-        : g == 'D1' ? 4
-        : g == 'D7' ? 5
-        : g == 'SSV' ? 6
-        : g == 'CERRADO' ? 7
-        : -1;
+    /**
+     * Posicion de una etapa dentro de la secuencia DEL PROPIO DOCUMENTO.
+     *
+     * Antes esta funcion listaba las siete etapas del despliegue estandar. Ya no
+     * puede: las etapas las define la plantilla de cada programa, y dos trackers
+     * reales de la misma PMO tienen procesos distintos. Cada gate del documento
+     * lleva su `orden` embebido justamente para esto, asi que la secuencia se lee
+     * del dato y la regla vale para cualquier proceso sin un get() extra.
+     *
+     * CERRADO va despues de todo. Un codigo que el documento no tenga devuelve
+     * -1, que no calza con ninguna comparacion y por lo tanto deniega.
+     */
+    function ordenEn(gates, g) {
+      return g == 'CERRADO' ? 9999
+        : (g in gates ? gates[g].orden : -1);
     }
 
     match /sitioProyectos/{spId} {
@@ -249,18 +254,46 @@ service cloud.firestore {
 
       // El gate solo se mueve al inmediatamente siguiente. Retroceder esta
       // reservado a admin y jefe de celula.
+      // La secuencia se lee del propio documento. Se usa el mapa de gates que
+      // queda DESPUES del cambio, porque es el que tiene que ser coherente.
+      function gates() { return request.resource.data.gates; }
       function gateSecuencial() {
         return destino() == origen()
-          || (ordenGate(destino()) == ordenGate(origen()) + 1)
-          || (ordenGate(destino()) == ordenGate(origen()) - 1
-              && (esAdmin() || esJefe()));
+          || esSiguiente()
+          || (esAnterior() && (esAdmin() || esJefe()));
+      }
+
+      /**
+       * Cada gate guarda el codigo del que le sigue (campo `siguiente`, null en
+       * el ultimo). Sin ese enlace no habria forma de exigir "la etapa
+       * inmediatamente siguiente": las reglas no recorren mapas, asi que lo
+       * unico expresable seria "hacia adelante", y un salto de la primera etapa
+       * a la ultima pasaria. Con el enlace la comprobacion es exacta y de una
+       * sola lectura, para cualquier plantilla.
+       */
+      function esSiguiente() {
+        return origen() != 'CERRADO'
+          && origen() in gates()
+          && (gates()[origen()].siguiente == null
+                ? destino() == 'CERRADO'
+                : destino() == gates()[origen()].siguiente);
+      }
+
+      // Retroceder es el movimiento inverso: el destino es el gate cuyo
+      // `siguiente` es el origen (o el ultimo, si se vuelve desde CERRADO).
+      function esAnterior() {
+        return destino() != 'CERRADO'
+          && destino() in gates()
+          && (origen() == 'CERRADO'
+                ? gates()[destino()].siguiente == null
+                : gates()[destino()].siguiente == origen());
       }
 
       // Al avanzar, el gate que se deja atras queda cerrado de verdad: estado
       // completado y con fecha real. Sin esto se podria "avanzar" sin cerrar.
       function cierreConsistente() {
         return destino() == origen()
-          || ordenGate(destino()) < ordenGate(origen())
+          || esAnterior()
           || (request.resource.data.gates[origen()].estado == 'completado'
               && request.resource.data.gates[origen()].fechaReal != null);
       }
@@ -287,7 +320,8 @@ service cloud.firestore {
         && request.resource.data.sitioId is string
         && request.resource.data.proyectoId is string
         && request.resource.data.programaId is string
-        && ordenGate(request.resource.data.gateActual) >= 0;
+        && request.resource.data.gateActual is string
+        && ordenEn(request.resource.data.gates, request.resource.data.gateActual) >= 0;
 
       allow update: if puedeGestionar()
         && noCambia('sitioId')

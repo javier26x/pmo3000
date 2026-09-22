@@ -261,3 +261,102 @@ describe('comentarios de la ficha', () => {
     )
   })
 })
+
+/**
+ * La secuencia no esta cableada en las reglas: sale del enlace `siguiente` que
+ * cada gate lleva en el propio documento. Estas pruebas usan un proceso que no
+ * existe en la plantilla estandar —el de los trackers reales de la PMO— para
+ * comprobar que las reglas valen para cualquier plantilla y no solo para la que
+ * venia codificada.
+ */
+describe('secuencia con una plantilla propia', () => {
+  const ETAPAS = ['TSS', 'INGENIERIA', 'AS_BUILT', 'ON_AIR']
+
+  function gatesPropios(gateActual: string): Record<string, unknown> {
+    const gates: Record<string, unknown> = {}
+    ETAPAS.forEach((codigo, i) => {
+      gates[codigo] = {
+        orden: i * 10, // A proposito no correlativo: los ordenes los pone la plantilla.
+        nombre: codigo,
+        color: 'azul',
+        siguiente: ETAPAS[i + 1] ?? null,
+        estado: codigo === gateActual ? 'en_curso' : 'no_iniciado',
+        fechaPlan: '2026-03-01',
+        fechaReal: null,
+        fechaBaseline: null,
+        responsableUid: 'u-analista',
+        proveedorId: 'prov-alfa',
+        checklist: {},
+        revisiones: {},
+        completadoEn: null,
+        completadoPor: null,
+      }
+    })
+    return gates
+  }
+
+  async function ponerEn(gateActual: string): Promise<void> {
+    await entorno.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .doc(RUTA)
+        .set(seguimientoDePrueba({ gateActual, gates: gatesPropios(gateActual) }))
+    })
+  }
+
+  it('avanza a la etapa siguiente de SU proceso', async () => {
+    await ponerEn('TSS')
+    await assertSucceeds(
+      como(entorno, PERFILES.analista!).doc(RUTA).update(avance('TSS', 'INGENIERIA')),
+    )
+  })
+
+  it('no deja saltarse una etapa aunque el orden no sea correlativo', async () => {
+    // Es el caso que el enlace `siguiente` existe para cubrir: con ordenes 0, 10,
+    // 20 y 30, una regla de "hacia adelante" dejaria pasar este salto.
+    await ponerEn('TSS')
+    await assertFails(como(entorno, PERFILES.analista!).doc(RUTA).update(avance('TSS', 'AS_BUILT')))
+    await assertFails(como(entorno, PERFILES.analista!).doc(RUTA).update(avance('TSS', 'ON_AIR')))
+  })
+
+  it('no deja avanzar a una etapa que la plantilla no tiene', async () => {
+    await ponerEn('TSS')
+    await assertFails(como(entorno, PERFILES.analista!).doc(RUTA).update(avance('TSS', 'RFI')))
+  })
+
+  it('desde la ultima etapa se cierra', async () => {
+    await ponerEn('ON_AIR')
+    await assertSucceeds(
+      como(entorno, PERFILES.analista!).doc(RUTA).update(avance('ON_AIR', 'CERRADO')),
+    )
+  })
+
+  it('pero no se cierra desde una etapa que no es la ultima', async () => {
+    await ponerEn('AS_BUILT')
+    await assertFails(
+      como(entorno, PERFILES.analista!).doc(RUTA).update(avance('AS_BUILT', 'CERRADO')),
+    )
+  })
+
+  it('retroceder sigue siendo de admin y jefe, tambien aca', async () => {
+    await ponerEn('AS_BUILT')
+    await assertFails(
+      como(entorno, PERFILES.analista!).doc(RUTA).update({ gateActual: 'INGENIERIA' }),
+    )
+    await assertSucceeds(
+      como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'INGENIERIA' }),
+    )
+  })
+
+  it('y retroceder tampoco puede saltarse etapas', async () => {
+    await ponerEn('ON_AIR')
+    await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'TSS' }))
+  })
+
+  it('desde CERRADO se vuelve a la ultima etapa, no a cualquiera', async () => {
+    await ponerEn('CERRADO')
+    await assertSucceeds(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'ON_AIR' }))
+    await ponerEn('CERRADO')
+    await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'TSS' }))
+  })
+})

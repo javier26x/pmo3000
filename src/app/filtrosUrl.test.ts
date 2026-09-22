@@ -64,11 +64,19 @@ describe('codificacion de filtros en la URL', () => {
   })
 
   it('ignora valores invalidos en vez de romperse', () => {
-    const p = new URLSearchParams('gate=INVENTADO&pri=urgentisima&ord=loquesea:arriba')
+    const p = new URLSearchParams('pri=urgentisima&ord=loquesea:arriba')
     const estado = desdeParametros(p)
-    expect(estado.vista.gateActual).toBeNull()
     expect(estado.vista.prioridad).toBeNull()
     expect(estado.orden).toEqual(ORDEN_POR_DEFECTO)
+  })
+
+  it('acepta cualquier codigo de etapa, porque los define cada plantilla', () => {
+    // Antes habia una lista cerrada de siete gates contra la cual validar. Ya no:
+    // un tracker define sus propias etapas, y la app no las conoce hasta cargar
+    // la plantilla. Un codigo que no exista simplemente no calza con ningun
+    // sitio, que es el comportamiento correcto para un filtro.
+    const estado = desdeParametros(new URLSearchParams('gate=As%20Built'))
+    expect(estado.vista.gateActual).toBe('As Built')
   })
 
   it('trata los vacios y los espacios como ausencia de filtro', () => {

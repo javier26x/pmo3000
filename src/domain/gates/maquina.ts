@@ -12,7 +12,12 @@
 import { diasEntre, hoyEnChile, sumarDias, type FechaISO } from '@/domain/fechas'
 import type { Actor } from '@/domain/tipos/comunes'
 import type { GatePlantilla, GateTemplate, ItemPlantilla } from '@/domain/tipos/gate'
-import type { GateSitio, ItemChecklist, SitioProyecto } from '@/domain/tipos/sitioProyecto'
+import type {
+  GateSitio,
+  ItemChecklist,
+  RevisionSitio,
+  SitioProyecto,
+} from '@/domain/tipos/sitioProyecto'
 import type { EventoAuditoriaNuevo } from '@/domain/tipos/auditoria'
 import { puede } from '@/domain/permisos/matriz'
 import {
@@ -20,6 +25,7 @@ import {
   gateAnterior,
   ordenGate,
   siguienteGate,
+  secuenciaDeGates,
   type CodigoGate,
   type GateActual,
 } from './catalogo'
@@ -71,7 +77,7 @@ export function crearGatesDesdePlantilla(
   const gates: Partial<Record<CodigoGate, GateSitio>> = {}
 
   let acumulado = opciones.fechaInicio
-  for (const g of ordenados) {
+  for (const [i, g] of ordenados.entries()) {
     const fechaPlan = acumulado ? sumarDias(acumulado, g.slaDias) : null
     if (fechaPlan) acumulado = fechaPlan
 
@@ -80,8 +86,19 @@ export function crearGatesDesdePlantilla(
       checklist[item.id] = { ok: false, obs: '', evidenciaUrl: '', por: null, en: null }
     }
 
+    const revisiones: Record<string, RevisionSitio> = {}
+    for (const r of g.revisiones) {
+      revisiones[r.id] = { estado: '', comentario: '', fecha: null, por: null, en: null }
+    }
+
     gates[g.codigo] = {
       orden: g.orden,
+      // Nombre y color se copian de la plantilla igual que el checklist: el
+      // documento tiene que poder dibujarse sin resolver a que plantilla
+      // pertenece. Ver el comentario de esquemaGateSitio.
+      nombre: g.nombre,
+      color: g.color,
+      siguiente: ordenados[i + 1]?.codigo ?? null,
       estado: 'no_iniciado',
       fechaPlan,
       fechaReal: null,
@@ -89,6 +106,7 @@ export function crearGatesDesdePlantilla(
       responsableUid: opciones.responsableUid,
       proveedorId: opciones.proveedorId,
       checklist,
+      revisiones,
       completadoEn: null,
       completadoPor: null,
     }
@@ -164,7 +182,7 @@ export function porcentajeAvance(sp: SitioProyecto, plantilla: GateTemplate): nu
   if (codigos.length === 0) return 0
   if (sp.gateActual === CERRADO) return 100
 
-  const cerrados = ordenGate(sp.gateActual)
+  const cerrados = ordenGate(sp.gateActual, secuenciaDeGates(sp.gates))
   const actual = progresoChecklist(gateActualDe(sp), gateDePlantilla(plantilla, sp.gateActual))
   const parcial = actual.total === 0 ? 0 : actual.completados / actual.total
 
@@ -212,7 +230,7 @@ export function evaluarAvance(
     }
   }
 
-  const destino = siguienteGate(sp.gateActual)
+  const destino = siguienteGate(sp.gateActual, secuenciaDeGates(sp.gates))
   const faltantes = itemsFaltantes(sp.gates[sp.gateActual], gatePlantilla)
   if (faltantes.length > 0) {
     return {
@@ -240,12 +258,12 @@ export function evaluarMovimiento(
     return { permitido: false, motivo: 'El sitio ya esta en ese gate', tipo: 'ninguno' }
   }
 
-  if (destino === siguienteGate(sp.gateActual)) {
+  if (destino === siguienteGate(sp.gateActual, secuenciaDeGates(sp.gates))) {
     const evaluacion = evaluarAvance(sp, plantilla, actor)
     return { permitido: evaluacion.permitido, motivo: evaluacion.motivo, tipo: 'avance' }
   }
 
-  if (destino === gateAnterior(sp.gateActual)) {
+  if (destino === gateAnterior(sp.gateActual, secuenciaDeGates(sp.gates))) {
     if (!puede(actor.rol, 'sitioProyectos', 'retrocederGate')) {
       return {
         permitido: false,
@@ -256,7 +274,8 @@ export function evaluarMovimiento(
     return { permitido: true, motivo: null, tipo: 'retroceso' }
   }
 
-  const salto = Math.abs(ordenGate(destino) - ordenGate(sp.gateActual))
+  const secuencia = secuenciaDeGates(sp.gates)
+  const salto = Math.abs(ordenGate(destino, secuencia) - ordenGate(sp.gateActual, secuencia))
   return {
     permitido: false,
     motivo: `No se puede saltar ${salto} gates: los gates son secuenciales`,
@@ -305,7 +324,7 @@ export function planAvanzarGate(
     return { ok: false, motivo: 'La fecha real de cierre no puede estar en el futuro' }
   }
 
-  const anterior = gateAnterior(codigoActual)
+  const anterior = gateAnterior(codigoActual, secuenciaDeGates(sp.gates))
   if (anterior && anterior !== CERRADO) {
     const fechaAnterior = sp.gates[anterior]?.fechaReal
     if (fechaAnterior && diasEntre(fechaAnterior, opciones.fechaReal) < 0) {
@@ -375,7 +394,7 @@ export function planRetrocederGate(
     return { ok: false, motivo: 'Un retroceso de gate exige un motivo' }
   }
 
-  const destino = gateAnterior(sp.gateActual)
+  const destino = gateAnterior(sp.gateActual, secuenciaDeGates(sp.gates))
   if (!destino || destino === CERRADO) {
     return { ok: false, motivo: 'El sitio ya esta en el primer gate' }
   }
@@ -441,7 +460,8 @@ export function planMarcarChecklist(
   if (!gatePlantilla || !item) {
     return { ok: false, motivo: 'El entregable no existe en la plantilla de este gate' }
   }
-  if (ordenGate(opciones.codigo) > ordenGate(sp.gateActual)) {
+  const sec = secuenciaDeGates(sp.gates)
+  if (ordenGate(opciones.codigo, sec) > ordenGate(sp.gateActual, sec)) {
     return { ok: false, motivo: 'No se puede marcar el checklist de un gate futuro' }
   }
 

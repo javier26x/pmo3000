@@ -27,7 +27,7 @@ import {
   type SitioDemo,
 } from './generadores/datos'
 import { PLANTILLA_ESTANDAR } from '../src/domain/gates/plantillaEstandar'
-import { CODIGOS_GATE, type CodigoGate } from '../src/domain/gates/catalogo'
+import { CODIGOS_ESTANDAR as CODIGOS_GATE, type CodigoGate } from '../src/domain/gates/catalogo'
 import { hoyEnChile, sumarDias, type FechaISO } from '../src/domain/fechas'
 import { idSitioProyecto } from '../src/domain/tipos/sitioProyecto'
 import { ESTADOS_TAREA } from '../src/domain/tipos/comunes'

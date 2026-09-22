@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CERRADO, CODIGOS_GATE, type CodigoGate } from '@/domain/gates/catalogo'
+import { COLORES_GATE, type CodigoGate } from '@/domain/gates/catalogo'
 import { ESTADOS_GATE, PRIORIDADES } from './comunes'
 import { esquemaSellos, zFechaISONula } from './base'
 
@@ -12,8 +12,34 @@ export const esquemaItemChecklist = z.object({
 })
 export type ItemChecklist = z.infer<typeof esquemaItemChecklist>
 
+/** Lo que deja una disciplina al revisar una etapa. */
+export const esquemaRevisionSitio = z.object({
+  /** El texto tal como lo escribio el negocio. La clasificacion se calcula. */
+  estado: z.string(),
+  comentario: z.string(),
+  fecha: zFechaISONula,
+  por: z.string().nullable(),
+  en: z.date().nullable(),
+})
+export type RevisionSitio = z.infer<typeof esquemaRevisionSitio>
+
 export const esquemaGateSitio = z.object({
   orden: z.number().int().min(0),
+  /**
+   * Nombre y color viajan con el gate, no se buscan en la plantilla. Es la misma
+   * decision que sitioNombre y region: la tabla, el mapa y el kanban dibujan
+   * 1.500 documentos sin tener que resolver a que plantilla pertenece cada uno.
+   */
+  nombre: z.string().default(''),
+  color: z.enum(COLORES_GATE).default('gris'),
+  /**
+   * Codigo de la etapa que sigue, o null si es la ultima (despues viene
+   * CERRADO). Se guarda porque las reglas de Firestore no pueden recorrer un
+   * mapa: sin este enlace, "avanzar a la siguiente" solo se podria expresar
+   * como "avanzar hacia adelante", y un salto de la primera etapa a la ultima
+   * pasaria la validacion del servidor.
+   */
+  siguiente: z.string().nullable().default(null),
   estado: z.enum(ESTADOS_GATE),
   fechaPlan: zFechaISONula,
   fechaReal: zFechaISONula,
@@ -22,6 +48,7 @@ export const esquemaGateSitio = z.object({
   responsableUid: z.string().nullable(),
   proveedorId: z.string().nullable(),
   checklist: z.record(z.string(), esquemaItemChecklist),
+  revisiones: z.record(z.string(), esquemaRevisionSitio).default({}),
   completadoEn: z.date().nullable(),
   completadoPor: z.string().nullable(),
 })
@@ -47,7 +74,8 @@ const esquemaSitioProyectoBase = z
     lat: z.number(),
     lon: z.number(),
 
-    gateActual: z.union([z.enum(CODIGOS_GATE), z.literal(CERRADO)]),
+    /** Codigo de la plantilla, o CERRADO. No es un enum: lo define el tracker. */
+    gateActual: z.string().min(1),
     estadoGate: z.enum(ESTADOS_GATE),
     bloqueado: z.boolean(),
     motivoBloqueo: z.string().nullable(),
@@ -61,6 +89,15 @@ const esquemaSitioProyectoBase = z
     fechaPlanGateActual: zFechaISONula,
 
     gates: z.record(z.string(), esquemaGateSitio),
+
+    /**
+     * Valores de los campos declarados en la plantilla, por id de campo. Aca
+     * vive todo lo que el tracker tiene y la app no codifica: "Concurso 5G",
+     * "Responsable Gabinete", "Prioridad RF" y las otras ciento treinta.
+     */
+    valores: z
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+      .default({}),
 
     gateTemplateId: z.string().min(1),
     gateTemplateVersion: z.number().int().min(1),

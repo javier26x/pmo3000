@@ -9,6 +9,7 @@ import {
 } from '@/data/repos/catalogos'
 import { observarUsuarios } from '@/data/repos/usuarios'
 import { mensajeDeError } from '@/app/avisos'
+import type { EtapaCatalogo } from '@/domain/gates/catalogo'
 import type {
   Celula,
   GateTemplate,
@@ -29,6 +30,8 @@ interface ValorCatalogos {
   programas: Programa[]
   proyectos: Proyecto[]
   plantillas: GateTemplate[]
+  /** Etapas de todas las plantillas activas, en orden. Ver domain/gates/catalogo.ts. */
+  etapas: EtapaCatalogo[]
   usuarios: Usuario[]
   nombreCelula: (id: string | null) => string
   nombreProveedor: (id: string | null) => string
@@ -116,6 +119,30 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
     const usuariosPorId = new Map(usuarios.map((u) => [u.id, u.nombre]))
     const plantillasPorId = new Map(plantillas.map((p) => [p.id, p]))
 
+    // Las vistas que cruzan programas (embudo, kanban, filtros, leyenda del
+    // mapa) necesitan la lista de etapas, y cada programa puede tener su propia
+    // plantilla. Se unen por codigo: si dos plantillas usan el mismo codigo, se
+    // respeta la posicion mas temprana, que es la que ordena la columna.
+    const porCodigo = new Map<string, EtapaCatalogo>()
+    for (const plantilla of plantillas) {
+      if (!plantilla.activo) continue
+      for (const g of plantilla.gates) {
+        const previa = porCodigo.get(g.codigo)
+        if (previa === undefined || g.orden < previa.orden) {
+          porCodigo.set(g.codigo, {
+            codigo: g.codigo,
+            nombre: g.nombre,
+            descripcion: g.descripcion,
+            color: g.color,
+            orden: g.orden,
+          })
+        }
+      }
+    }
+    const etapas = [...porCodigo.values()].sort(
+      (a, b) => a.orden - b.orden || a.codigo.localeCompare(b.codigo),
+    )
+
     const resolver = (mapa: Map<string, string>) => (id: string | null) =>
       id ? (mapa.get(id) ?? id) : '—'
 
@@ -128,6 +155,7 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
       programas,
       proyectos,
       plantillas,
+      etapas,
       usuarios,
       nombreCelula: resolver(celulasPorId),
       nombreProveedor: resolver(proveedoresPorId),
@@ -156,4 +184,15 @@ export function useCatalogos(): ValorCatalogos {
   const valor = useContext(Contexto)
   if (!valor) throw new Error('useCatalogos debe usarse dentro de ProveedorCatalogos')
   return valor
+}
+
+/**
+ * Solo las etapas, y sin exigir el proveedor.
+ *
+ * Lo usan las insignias y los puntos de gate, que aparecen en todas partes y no
+ * deberian obligar a cada pantalla a pasarles el catalogo. Sin proveedor
+ * devuelve vacio y la insignia cae al codigo crudo, que sigue siendo legible.
+ */
+export function useEtapas(): EtapaCatalogo[] {
+  return useContext(Contexto)?.etapas ?? []
 }

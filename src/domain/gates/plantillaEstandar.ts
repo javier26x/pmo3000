@@ -3,13 +3,14 @@
  * en la coleccion gateTemplates y es editable), no codigo: esto es solo la
  * semilla con la que arranca una instalacion nueva.
  */
+import { colorPorIndice, ETAPAS_ESTANDAR } from '@/domain/gates/catalogo'
 import type { GatePlantilla, GateTemplate } from '@/domain/tipos/gate'
 
 function item(id: string, texto: string, obligatorio = true, requiereEvidencia = false) {
   return { id, texto, obligatorio, requiereEvidencia }
 }
 
-export const GATES_ESTANDAR: GatePlantilla[] = [
+const GATES_BASE = [
   {
     codigo: 'TSSR',
     nombre: 'TSSR',
@@ -97,6 +98,22 @@ export const GATES_ESTANDAR: GatePlantilla[] = [
   },
 ]
 
+/**
+ * La descripcion y el color de cada etapa estandar salen del catalogo, que es
+ * donde la app los conoce sin cargar nada. La plantilla estandar no trae
+ * revisiones por disciplina: es la secuencia simple, con checklist. Un tracker
+ * real que si las tenga las declara en su propia plantilla.
+ */
+export const GATES_ESTANDAR: GatePlantilla[] = GATES_BASE.map((g, i) => {
+  const etapa = ETAPAS_ESTANDAR.find((e) => e.codigo === g.codigo)
+  return {
+    ...g,
+    descripcion: etapa?.descripcion ?? '',
+    color: etapa?.color ?? colorPorIndice(i),
+    revisiones: [],
+  }
+})
+
 export const ID_PLANTILLA_ESTANDAR = 'estandar-despliegue'
 
 export const PLANTILLA_ESTANDAR: GateTemplate = {
@@ -106,6 +123,8 @@ export const PLANTILLA_ESTANDAR: GateTemplate = {
   version: 1,
   activo: true,
   gates: GATES_ESTANDAR,
+  campos: [],
+  homologacion: {},
   creadoEn: null,
   creadoPor: null,
   actualizadoEn: null,

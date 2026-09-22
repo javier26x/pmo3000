@@ -10,6 +10,7 @@ import {
 import { estaAtrasado } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { TarjetaKanban } from './TarjetaKanban'
+import { useCatalogos } from '@/hooks/useCatalogos'
 
 export function ColumnaGate({
   gate,
@@ -33,12 +34,16 @@ export function ColumnaGate({
 
   const atrasados = sitios.filter((sp) => estaAtrasado(sp, hoy)).length
 
+  const { etapas } = useCatalogos()
+  const secuencia = etapas.map((e) => e.codigo)
+
   // Marca las columnas que aceptarian la tarjeta en vuelo (solo las adyacentes):
   // el usuario no tiene que adivinar cual es el movimiento valido.
   const esDestinoValido =
     gateArrastrado !== null &&
     gate !== gateArrastrado &&
-    (gate === siguienteGate(gateArrastrado) || gate === gateAnterior(gateArrastrado))
+    (gate === siguienteGate(gateArrastrado, secuencia) ||
+      gate === gateAnterior(gateArrastrado, secuencia))
   const arrastreEnCurso = gateArrastrado !== null
 
   return (
@@ -101,7 +106,7 @@ export function ColumnaGate({
 
       {gate !== CERRADO && (
         <footer className="border-t border-borde px-2.5 py-1 text-[11px] text-texto-3">
-          Siguiente: {nombreGate(siguienteGate(gate) ?? CERRADO)}
+          Siguiente: {nombreGate(siguienteGate(gate, secuencia) ?? CERRADO, etapas)}
         </footer>
       )}
     </section>

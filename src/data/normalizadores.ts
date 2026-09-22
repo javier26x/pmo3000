@@ -2,7 +2,6 @@ import type { DocumentData } from 'firebase/firestore'
 import {
   booleano,
   enumerado,
-  enumeradoNulo,
   fechaISO,
   instante,
   listaTexto,
@@ -27,8 +26,10 @@ import {
   type Celula,
   type Dependencia,
   type EventoAuditoria,
+  type CampoPlantilla,
   type GatePlantilla,
   type GateTemplate,
+  type RevisionPlantilla,
   type ItemPlantilla,
   type Portafolio,
   type Programa,
@@ -39,8 +40,15 @@ import {
   type Tarea,
   type Usuario,
 } from '@/domain/tipos'
-import type { GateSitio, ItemChecklist, SitioProyecto } from '@/domain/tipos/sitioProyecto'
-import { CERRADO, CODIGOS_GATE, esCodigoGate, type CodigoGate } from '@/domain/gates/catalogo'
+import type {
+  GateSitio,
+  ItemChecklist,
+  RevisionSitio,
+  SitioProyecto,
+} from '@/domain/tipos/sitioProyecto'
+import { CERRADO, COLORES_GATE, type CodigoGate } from '@/domain/gates/catalogo'
+import { ESTADOS_SEMANTICOS, type EstadoSemantico } from '@/domain/tracker/estados'
+import { TIPOS_CAMPO } from '@/domain/tracker/campos'
 
 export function normalizarUsuario(id: string, d: DocumentData): Usuario {
   return {
@@ -151,15 +159,46 @@ function normalizarItemPlantilla(valor: unknown, indice: number): ItemPlantilla 
   }
 }
 
+function normalizarRevisionPlantilla(valor: unknown, indice: number): RevisionPlantilla {
+  const d = objeto(valor)
+  const nombre = texto(d.nombre, `Revisión ${indice + 1}`)
+  return {
+    id: texto(d.id, `rev-${indice}`),
+    nombre,
+    bloquea: booleano(d.bloquea, true),
+  }
+}
+
 function normalizarGatePlantilla(valor: unknown, indice: number): GatePlantilla | null {
   const d = objeto(valor)
-  if (!esCodigoGate(d.codigo)) return null
+  // El codigo ya no se valida contra una lista: lo define la plantilla. Lo unico
+  // exigible es que exista, porque es la clave del gate en el documento.
+  const codigo = texto(d.codigo)
+  if (codigo === '') return null
   return {
-    codigo: d.codigo,
-    nombre: texto(d.nombre, d.codigo),
+    codigo,
+    nombre: texto(d.nombre, codigo),
+    descripcion: texto(d.descripcion),
+    color: enumerado(d.color, COLORES_GATE, 'gris'),
     orden: numero(d.orden, indice),
     slaDias: numero(d.slaDias, 0),
     checklist: (Array.isArray(d.checklist) ? d.checklist : []).map(normalizarItemPlantilla),
+    revisiones: (Array.isArray(d.revisiones) ? d.revisiones : []).map(normalizarRevisionPlantilla),
+  }
+}
+
+function normalizarCampoPlantilla(valor: unknown): CampoPlantilla | null {
+  const d = objeto(valor)
+  const id = texto(d.id)
+  if (id === '') return null
+  return {
+    id,
+    nombre: texto(d.nombre, id),
+    tipo: enumerado(d.tipo, TIPOS_CAMPO, 'texto'),
+    grupo: texto(d.grupo, 'General'),
+    opciones: (Array.isArray(d.opciones) ? d.opciones : []).map((o) => texto(o)),
+    enTabla: booleano(d.enTabla, false),
+    origen: textoNulo(d.origen),
   }
 }
 
@@ -174,8 +213,36 @@ export function normalizarGateTemplate(id: string, d: DocumentData): GateTemplat
     version: numero(d.version, 1),
     activo: booleano(d.activo, true),
     gates,
+    campos: (Array.isArray(d.campos) ? d.campos : [])
+      .map(normalizarCampoPlantilla)
+      .filter((c): c is CampoPlantilla => c !== null),
+    homologacion: normalizarHomologacion(d.homologacion),
     ...sellos(d),
   }
+}
+
+/** Valores de los campos declarados en la plantilla. Solo tipos que Firestore guarda. */
+function normalizarValores(valor: unknown): Record<string, string | number | boolean | null> {
+  const salida: Record<string, string | number | boolean | null> = {}
+  for (const [clave, bruto] of Object.entries(objeto(valor))) {
+    if (bruto === null) salida[clave] = null
+    else if (typeof bruto === 'string' || typeof bruto === 'number' || typeof bruto === 'boolean') {
+      salida[clave] = bruto
+    }
+  }
+  return salida
+}
+
+/** Tabla de homologacion de estados de la plantilla. Ver domain/tracker/estados.ts. */
+function normalizarHomologacion(valor: unknown): Record<string, EstadoSemantico> {
+  const salida: Record<string, EstadoSemantico> = {}
+  for (const [clave, bruto] of Object.entries(objeto(valor))) {
+    if (typeof bruto !== 'string') continue
+    if ((ESTADOS_SEMANTICOS as readonly string[]).includes(bruto)) {
+      salida[clave] = bruto as EstadoSemantico
+    }
+  }
+  return salida
 }
 
 function normalizarItemChecklist(valor: unknown): ItemChecklist {
@@ -189,14 +256,32 @@ function normalizarItemChecklist(valor: unknown): ItemChecklist {
   }
 }
 
-function normalizarGateSitio(valor: unknown, orden: number): GateSitio {
+function normalizarRevisionSitio(valor: unknown): RevisionSitio {
+  const d = objeto(valor)
+  return {
+    estado: texto(d.estado),
+    comentario: texto(d.comentario),
+    fecha: fechaISO(d.fecha),
+    por: textoNulo(d.por),
+    en: instante(d.en),
+  }
+}
+
+function normalizarGateSitio(valor: unknown, codigo: string, orden: number): GateSitio {
   const d = objeto(valor)
   const checklist: Record<string, ItemChecklist> = {}
   for (const [clave, item] of Object.entries(objeto(d.checklist))) {
     checklist[clave] = normalizarItemChecklist(item)
   }
+  const revisiones: Record<string, RevisionSitio> = {}
+  for (const [clave, rev] of Object.entries(objeto(d.revisiones))) {
+    revisiones[clave] = normalizarRevisionSitio(rev)
+  }
   return {
     orden: numero(d.orden, orden),
+    nombre: texto(d.nombre, codigo),
+    color: enumerado(d.color, COLORES_GATE, 'gris'),
+    siguiente: textoNulo(d.siguiente),
     estado: enumerado(d.estado, ESTADOS_GATE, 'no_iniciado'),
     fechaPlan: fechaISO(d.fechaPlan),
     fechaReal: fechaISO(d.fechaReal),
@@ -204,23 +289,32 @@ function normalizarGateSitio(valor: unknown, orden: number): GateSitio {
     responsableUid: textoNulo(d.responsableUid),
     proveedorId: textoNulo(d.proveedorId),
     checklist,
+    revisiones,
     completadoEn: instante(d.completadoEn),
     completadoPor: textoNulo(d.completadoPor),
   }
 }
 
 export function normalizarSitioProyecto(id: string, d: DocumentData): SitioProyecto {
+  // Los codigos ya no vienen de una lista fija: son las claves que el documento
+  // traiga, que es lo que la plantilla de ese programa definio.
   const gates: Partial<Record<CodigoGate, GateSitio>> = {}
   const crudos = objeto(d.gates)
-  CODIGOS_GATE.forEach((codigo, i) => {
-    if (crudos[codigo] !== undefined) gates[codigo] = normalizarGateSitio(crudos[codigo], i)
-  })
+  Object.keys(crudos)
+    .map((codigo) => ({ codigo, orden: numero(objeto(crudos[codigo]).orden, 0) }))
+    .sort((a, b) => a.orden - b.orden)
+    .forEach(({ codigo }, i) => {
+      gates[codigo] = normalizarGateSitio(crudos[codigo], codigo, i)
+    })
 
-  const gateActual = esCodigoGate(d.gateActual)
-    ? d.gateActual
-    : d.gateActual === CERRADO
-      ? CERRADO
-      : (CODIGOS_GATE[0] as CodigoGate)
+  const primerGate = Object.entries(gates).sort(
+    (a, b) => (a[1]?.orden ?? 0) - (b[1]?.orden ?? 0),
+  )[0]?.[0]
+  const crudoActual = texto(d.gateActual)
+  const gateActual =
+    crudoActual === CERRADO || (crudoActual !== '' && gates[crudoActual] !== undefined)
+      ? crudoActual
+      : (primerGate ?? CERRADO)
 
   return {
     id,
@@ -243,6 +337,7 @@ export function normalizarSitioProyecto(id: string, d: DocumentData): SitioProye
     prioridad: enumerado(d.prioridad, PRIORIDADES, 'media'),
     fechaPlanGateActual: fechaISO(d.fechaPlanGateActual),
     gates,
+    valores: normalizarValores(d.valores),
     gateTemplateId: texto(d.gateTemplateId, 'estandar-despliegue'),
     gateTemplateVersion: numero(d.gateTemplateVersion, 1),
     ...sellos(d),
@@ -272,7 +367,7 @@ export function normalizarTarea(id: string, d: DocumentData): Tarea {
     sitioProyectoId: textoNulo(d.sitioProyectoId),
     proyectoId: textoNulo(d.proyectoId),
     programaId: textoNulo(d.programaId),
-    gateCodigo: enumeradoNulo(d.gateCodigo, CODIGOS_GATE),
+    gateCodigo: textoNulo(d.gateCodigo),
     prioridad: enumerado(d.prioridad, PRIORIDADES, 'media'),
     fechaInicio: fechaISO(d.fechaInicio),
     fechaVencimiento: fechaISO(d.fechaVencimiento),
@@ -344,7 +439,7 @@ export function normalizarComentario(id: string, d: DocumentData): Comentario {
     texto: texto(d.texto),
     uid: texto(d.uid),
     nombre: texto(d.nombre),
-    gateCodigo: enumeradoNulo(d.gateCodigo, CODIGOS_GATE),
+    gateCodigo: textoNulo(d.gateCodigo),
     ts: instante(d.ts),
   }
 }

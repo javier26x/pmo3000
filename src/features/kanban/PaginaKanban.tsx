@@ -23,7 +23,7 @@ import {
 import { avisar, mensajeDeError } from '@/app/avisos'
 import { aplicarParche } from '@/data/repos/sitioProyectos'
 import { hoyEnChile } from '@/domain/fechas'
-import { CERRADO, CODIGOS_GATE, nombreGate, type GateActual } from '@/domain/gates/catalogo'
+import { CERRADO, nombreGate, type GateActual } from '@/domain/gates/catalogo'
 import {
   contextoDe,
   evaluarMovimiento,
@@ -49,6 +49,7 @@ export function PaginaKanban() {
   const actor = useActor()
   const { puedeHacer } = useSesion()
   const { plantillaPorId, nombreProveedor, celulas } = useCatalogos()
+  const { etapas } = useCatalogos()
   const { visibles, cargando, error, hoy } = useDespliegue()
 
   const [vista, setVista] = useState<Vista>('gates')
@@ -72,7 +73,7 @@ export function PaginaKanban() {
   const gateArrastrado = arrastrando
     ? (visibles.find((sp) => sp.id === arrastrando)?.gateActual ?? null)
     : null
-  const columnas: GateActual[] = [...CODIGOS_GATE, CERRADO]
+  const columnas: GateActual[] = [...etapas.map((e) => e.codigo), CERRADO]
 
   const porCelula = useMemo(() => {
     const mapa = new Map<string, SitioProyecto[]>()

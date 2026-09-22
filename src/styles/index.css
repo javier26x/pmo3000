@@ -177,46 +177,63 @@
 }
 
 @layer components {
-  /* Colores por gate, resueltos desde los tokens. */
-  .gate-TSSR {
-    --gate-bg: var(--g-tssr-bg);
-    --gate-fg: var(--g-tssr-fg);
-    --gate-punto: var(--g-tssr-punto);
+  /* Paleta de etapas, resuelta desde los tokens. La clase se arma con el COLOR
+     de la etapa y no con su codigo, porque los codigos los define cada plantilla
+     y no se conocen al escribir el CSS. */
+  .gate-pizarra {
+    --gate-bg: var(--g-pizarra-bg);
+    --gate-fg: var(--g-pizarra-fg);
+    --gate-punto: var(--g-pizarra-punto);
   }
-  .gate-FC {
-    --gate-bg: var(--g-fc-bg);
-    --gate-fg: var(--g-fc-fg);
-    --gate-punto: var(--g-fc-punto);
+  .gate-ambar {
+    --gate-bg: var(--g-ambar-bg);
+    --gate-fg: var(--g-ambar-fg);
+    --gate-punto: var(--g-ambar-punto);
   }
-  .gate-RFI {
-    --gate-bg: var(--g-rfi-bg);
-    --gate-fg: var(--g-rfi-fg);
-    --gate-punto: var(--g-rfi-punto);
+  .gate-violeta {
+    --gate-bg: var(--g-violeta-bg);
+    --gate-fg: var(--g-violeta-fg);
+    --gate-punto: var(--g-violeta-punto);
   }
-  .gate-IMP {
-    --gate-bg: var(--g-imp-bg);
-    --gate-fg: var(--g-imp-fg);
-    --gate-punto: var(--g-imp-punto);
+  .gate-azul {
+    --gate-bg: var(--g-azul-bg);
+    --gate-fg: var(--g-azul-fg);
+    --gate-punto: var(--g-azul-punto);
   }
-  .gate-D1 {
-    --gate-bg: var(--g-d1-bg);
-    --gate-fg: var(--g-d1-fg);
-    --gate-punto: var(--g-d1-punto);
+  .gate-cian {
+    --gate-bg: var(--g-cian-bg);
+    --gate-fg: var(--g-cian-fg);
+    --gate-punto: var(--g-cian-punto);
   }
-  .gate-D7 {
-    --gate-bg: var(--g-d7-bg);
-    --gate-fg: var(--g-d7-fg);
-    --gate-punto: var(--g-d7-punto);
+  .gate-lima {
+    --gate-bg: var(--g-lima-bg);
+    --gate-fg: var(--g-lima-fg);
+    --gate-punto: var(--g-lima-punto);
   }
-  .gate-SSV {
-    --gate-bg: var(--g-ssv-bg);
-    --gate-fg: var(--g-ssv-fg);
-    --gate-punto: var(--g-ssv-punto);
+  .gate-esmeralda {
+    --gate-bg: var(--g-esmeralda-bg);
+    --gate-fg: var(--g-esmeralda-fg);
+    --gate-punto: var(--g-esmeralda-punto);
   }
-  .gate-CERRADO {
-    --gate-bg: var(--g-cerrado-bg);
-    --gate-fg: var(--g-cerrado-fg);
-    --gate-punto: var(--g-cerrado-punto);
+  .gate-rosa {
+    --gate-bg: var(--g-rosa-bg);
+    --gate-fg: var(--g-rosa-fg);
+    --gate-punto: var(--g-rosa-punto);
+  }
+  .gate-naranja {
+    --gate-bg: var(--g-naranja-bg);
+    --gate-fg: var(--g-naranja-fg);
+    --gate-punto: var(--g-naranja-punto);
+  }
+  .gate-rojo {
+    --gate-bg: var(--g-rojo-bg);
+    --gate-fg: var(--g-rojo-fg);
+    --gate-punto: var(--g-rojo-punto);
+  }
+  .gate-gris {
+    --gate-bg: var(--g-gris-bg);
+    --gate-fg: var(--g-gris-fg);
+    --gate-punto: var(--g-gris-punto);
   }
 
   .insignia-gate {

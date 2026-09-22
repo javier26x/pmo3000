@@ -18,7 +18,7 @@ import {
 } from '@/components/ui'
 import { formatearFecha } from '@/domain/fechas'
 import { NOMBRES_SEMAFORO, semaforo, textoAtraso } from '@/domain/gates/atraso'
-import { CERRADO, CODIGOS_GATE, nombreGate } from '@/domain/gates/catalogo'
+import { CERRADO, claseGate, nombreGate } from '@/domain/gates/catalogo'
 import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { usarTema } from '@/app/tema'
@@ -127,7 +127,7 @@ function CapaSeguimientos({
 
 export default function PaginaMapa() {
   const { visibles, cargando, error, hoy } = useDespliegue()
-  const { nombrePrograma, nombreProveedor } = useCatalogos()
+  const { nombrePrograma, nombreProveedor, etapas } = useCatalogos()
   const [modo, setModo] = useState<ModoColor>('gate')
   useTituloPagina('Mapa')
   const [elegido, setElegido] = useState<SitioProyecto | null>(null)
@@ -213,10 +213,10 @@ export default function PaginaMapa() {
         <div className="pointer-events-none absolute bottom-3 left-3 z-[500] max-w-[calc(100%-1.5rem)]">
           <div className="vidrio-mapa vidrio-alzado pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-1 rounded border px-2.5 py-1.5 text-xs">
             {modo === 'gate'
-              ? [...CODIGOS_GATE, CERRADO].map((g) => (
-                  <span key={g} className={cn(`gate-${g}`, 'flex items-center gap-1')}>
+              ? [...etapas.map((e) => e.codigo), CERRADO].map((g) => (
+                  <span key={g} className={cn(claseGate(g, etapas), 'flex items-center gap-1')}>
                     <span aria-hidden className="punto-gate size-2 rounded-full" />
-                    {g === CERRADO ? 'Cerrado' : g}
+                    {nombreGate(g, etapas)}
                   </span>
                 ))
               : (['atrasado', 'por_vencer', 'ok', 'sin_fecha'] as const).map((estado) => (

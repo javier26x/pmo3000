@@ -132,7 +132,8 @@ export function gatesDePrueba(opciones: {
   cerrarActual?: boolean
 }): Record<string, unknown> {
   const gates: Record<string, unknown> = {}
-  PLANTILLA_ESTANDAR.gates.forEach((definicion) => {
+  const ordenados = [...PLANTILLA_ESTANDAR.gates].sort((a, b) => a.orden - b.orden)
+  ordenados.forEach((definicion, i) => {
     const esActual = definicion.codigo === opciones.gateActual
     const checklist: Record<string, unknown> = {}
     definicion.checklist.forEach((item) => {
@@ -140,6 +141,11 @@ export function gatesDePrueba(opciones: {
     })
     gates[definicion.codigo] = {
       orden: definicion.orden,
+      nombre: definicion.nombre,
+      color: definicion.color,
+      // El enlace a la etapa siguiente es lo que permite a las reglas exigir la
+      // secuencia sin recorrer el mapa. Ver firestore.rules > esSiguiente().
+      siguiente: ordenados[i + 1]?.codigo ?? null,
       estado: esActual ? (opciones.cerrarActual ? 'completado' : 'en_curso') : 'no_iniciado',
       fechaPlan: '2026-03-01',
       fechaReal: esActual && opciones.cerrarActual ? '2026-03-05' : null,
@@ -147,6 +153,7 @@ export function gatesDePrueba(opciones: {
       responsableUid: 'u-analista',
       proveedorId: 'prov-alfa',
       checklist,
+      revisiones: {},
       completadoEn: null,
       completadoPor: null,
     }

@@ -2,10 +2,11 @@ import { Check, Circle, CircleDot, Lock } from 'lucide-react'
 import { Insignia, cn } from '@/components/ui'
 import { formatearFecha } from '@/domain/fechas'
 import { semaforo, textoAtraso, diasAtraso } from '@/domain/gates/atraso'
-import { CERRADO, DESCRIPCIONES_GATE, type CodigoGate } from '@/domain/gates/catalogo'
+import { CERRADO, descripcionGate, type CodigoGate } from '@/domain/gates/catalogo'
 import { codigosDePlantilla, gateDePlantilla, type GateTemplate } from '@/domain/tipos/gate'
 import { progresoChecklist } from '@/domain/gates/maquina'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
+import { useEtapas } from '@/hooks/useCatalogos'
 
 /**
  * Secuencia de gates del sitio. Es la pantalla que responde la pregunta de
@@ -25,6 +26,7 @@ export function LineaGates({
   hoy: string
 }) {
   const codigos = codigosDePlantilla(plantilla)
+  const etapas = useEtapas()
 
   return (
     <ol className="flex flex-col">
@@ -137,7 +139,9 @@ export function LineaGates({
       </li>
 
       <li className="mt-2 border-t border-borde px-2 pt-2">
-        <p className="text-xs leading-relaxed text-texto-3">{DESCRIPCIONES_GATE[seleccionado]}</p>
+        <p className="text-xs leading-relaxed text-texto-3">
+          {descripcionGate(seleccionado, etapas)}
+        </p>
       </li>
     </ol>
   )

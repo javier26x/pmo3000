@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Paperclip } from 'lucide-react'
 import { Aviso, Boton, Campo, Casilla, Entrada, Insignia, cn } from '@/components/ui'
 import { formatearFecha, formatearFechaHora } from '@/domain/fechas'
-import { ordenGate, type CodigoGate } from '@/domain/gates/catalogo'
+import { ordenGate, secuenciaDeGates, type CodigoGate } from '@/domain/gates/catalogo'
 import { gateDePlantilla, type GateTemplate } from '@/domain/tipos/gate'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 
@@ -38,7 +38,10 @@ export function PanelChecklist({
   const [evidenciaEnEdicion, setEvidenciaEnEdicion] = useState<string | null>(null)
   const [urlBorrador, setUrlBorrador] = useState('')
 
-  const esFuturo = ordenGate(codigo) > ordenGate(sp.gateActual)
+  // La secuencia sale del propio seguimiento: cada sitio lleva embebido el
+  // orden de las etapas de su plantilla.
+  const secuencia = secuenciaDeGates(sp.gates)
+  const esFuturo = ordenGate(codigo, secuencia) > ordenGate(sp.gateActual, secuencia)
   const puedeEditar = editable && !esFuturo
 
   if (!definicion) {
