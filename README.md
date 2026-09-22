@@ -341,6 +341,46 @@ El recorte que armas queda en la barra de direcciones
 Además, cualquier combinación se guarda con nombre desde el menú **Vistas**
 (queda en tu navegador, no en Firestore: es una preferencia personal).
 
+### Llevar un tracker propio
+
+La secuencia de siete gates que trae la app es un punto de partida. Un tracker
+real de la PMO no se parece: va TSS → FC → Contrato → Ingeniería → obras → As
+Built → Transmisión → IPRAN → On Air, y dentro de cada etapa hay una **revisión
+por disciplina** (RF, OOCC, ECE, Implementación, OOII, MMOO), cada una con su
+estado, su comentario y su fecha. Más de cien columnas de atributos que cambian
+de un proyecto a otro.
+
+Nada de eso está codificado. En **Tracker** subes la planilla y la app propone
+la plantilla: qué etapas tiene el proceso, qué disciplinas revisan cada una, y
+de qué tipo es cada columna. Revisas la propuesta y recién ahí se escribe.
+
+Se apoya en dos cosas que estos archivos cumplen:
+
+1. El proceso está escrito en las columnas `Status …`: cada una nombra su etapa
+   y, si la hay, la disciplina que revisa.
+2. **El orden de las columnas es el orden del proceso.** Nadie pone la columna
+   de As Built antes que la de TSS. De ahí sale la secuencia.
+
+Las filas de contadores que suelen ir sobre el encabezado se saltan solas, y si
+el libro trae varias hojas se elige la más grande y puedes cambiarla.
+
+**En qué etapa queda cada sitio no se lee de una columna: se deduce.** Es la
+primera etapa que no está cerrada. Cuando la etapa trae su propia columna
+consolidada (`Status TSS`), esa manda; si no, se resuelve con las revisiones.
+Al terminar, la app avisa cuántos sitios tienen etapas aprobadas _después_ de la
+que los tiene frenados — casi siempre es una celda que nadie actualizó.
+
+**Los estados escritos a mano se homologan.** `TSS Aprobado`, `TSS aprobado`,
+`TSs Aprobado` y `TSS Aprobado 4G` son el mismo estado. Medido contra las 29.312
+celdas de estado de dos trackers reales, el 99,86 % se clasifica solo; el resto
+es vocabulario propio y se agrega a la tabla de homologación de la plantilla,
+que reemplaza la hoja «Homologación Estados» de la planilla.
+
+> **El documento pesa más.** Un seguimiento con 11 etapas, sus revisiones y 80
+> campos propios ocupa ~7,9 kB contra los 4,85 kB de la plantilla estándar. La
+> carga en dos tandas (ver más abajo) ya lo absorbe, pero conviene saberlo antes
+> de sumar un tercer tracker al mismo proyecto.
+
 ### El embudo del despliegue
 
 Arriba de la tabla hay una barra proporcional con los sitios parados en cada

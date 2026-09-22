@@ -52,6 +52,8 @@ import { EsqueletoFicha } from './EsqueletoFicha'
 import { Historial } from './Historial'
 import { LineaGates } from './LineaGates'
 import { PanelChecklist, type AccionChecklist } from './PanelChecklist'
+import { PanelRevisiones } from './PanelRevisiones'
+import { PanelCampos } from '@/features/sitios/PanelCampos'
 import { useComentarios, useHistorial, useSeguimiento } from './useSeguimiento'
 
 type PestanaLateral = 'comentarios' | 'historial'
@@ -60,8 +62,15 @@ export function PaginaSeguimiento() {
   const { seguimientoId } = useParams<{ seguimientoId: string }>()
   const actor = useActor()
   const { puedeHacer } = useSesion()
-  const { plantillaPorId, nombrePrograma, nombreProyecto, nombreProveedor, proveedores, usuarios } =
-    useCatalogos()
+  const {
+    plantillaPorId,
+    nombrePrograma,
+    nombreProyecto,
+    nombreProveedor,
+    proveedores,
+    usuarios,
+    etapas,
+  } = useCatalogos()
 
   const { datos: sp, cargando, error } = useSeguimiento(seguimientoId)
   const historial = useHistorial(seguimientoId)
@@ -304,12 +313,25 @@ export function PaginaSeguimiento() {
           </section>
 
           <section
-            aria-label="Entregables del gate"
+            aria-label="Avance del gate"
             className="rounded border border-borde bg-superficie p-3"
           >
             <h2 className="mb-2 text-xs font-semibold text-texto-2">
-              Entregables de {gateVisible ? nombreGate(gateVisible) : ''}
+              {gateVisible ? nombreGate(gateVisible, etapas) : ''}
             </h2>
+
+            {/* Un gate de la plantilla estandar se sigue con checklist; uno de
+                un tracker importado, con las revisiones de cada disciplina.
+                Pueden convivir, asi que se muestra lo que el gate tenga. */}
+            {gateVisible && Object.keys(sp.gates[gateVisible]?.revisiones ?? {}).length > 0 && (
+              <div className="mb-3">
+                <PanelRevisiones
+                  gate={sp.gates[gateVisible]!}
+                  definicion={plantilla.gates.find((g) => g.codigo === gateVisible)}
+                  homologacion={plantilla.homologacion}
+                />
+              </div>
+            )}
             {gateVisible && (
               <PanelChecklist
                 sp={sp}
@@ -330,6 +352,16 @@ export function PaginaSeguimiento() {
               />
             )}
           </section>
+
+          {plantilla.campos.length > 0 && (
+            <section
+              aria-label="Campos del tracker"
+              className="rounded border border-borde bg-superficie p-3"
+            >
+              <h2 className="mb-2 text-xs font-semibold text-texto-2">Datos del tracker</h2>
+              <PanelCampos sp={sp} campos={plantilla.campos} />
+            </section>
+          )}
 
           <div className="flex flex-col gap-3">
             <section

@@ -11,6 +11,7 @@ import { Layout } from './Layout'
 // cargan solo cuando alguien entra a esas pantallas.
 const PaginaMapa = lazy(() => import('@/features/sitios/PaginaMapa'))
 const PaginaImportar = lazy(() => import('@/features/importacion/PaginaImportar'))
+const PaginaImportarTracker = lazy(() => import('@/features/tracker/PaginaImportarTracker'))
 
 import { PaginaSitios } from '@/features/sitios/PaginaSitios'
 import { PaginaSitio } from '@/features/sitios/PaginaSitio'
@@ -59,6 +60,16 @@ export function Rutas() {
               <RutaProtegida requiere={['sitios', 'importar']}>
                 <Suspense fallback={<Cargando texto="Cargando el importador…" />}>
                   <PaginaImportar />
+                </Suspense>
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/tracker"
+            element={
+              <RutaProtegida requiere={['sitios', 'importar']}>
+                <Suspense fallback={<Cargando texto="Cargando el importador de trackers…" />}>
+                  <PaginaImportarTracker />
                 </Suspense>
               </RutaProtegida>
             }

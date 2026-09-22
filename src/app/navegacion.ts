@@ -1,4 +1,5 @@
 import {
+  FileSpreadsheet,
   ClipboardList,
   History,
   LayoutGrid,
@@ -23,6 +24,12 @@ export const NAVEGACION: ItemNavegacion[] = [
   { ruta: '/mapa', etiqueta: 'Mapa', icono: MapaIcono, requiere: ['sitios', 'ver'] },
   { ruta: '/kanban', etiqueta: 'Kanban', icono: LayoutGrid, requiere: ['sitioProyectos', 'ver'] },
   { ruta: '/importar', etiqueta: 'Importar', icono: Upload, requiere: ['sitios', 'importar'] },
+  {
+    ruta: '/tracker',
+    etiqueta: 'Tracker',
+    icono: FileSpreadsheet,
+    requiere: ['sitios', 'importar'],
+  },
   { ruta: '/auditoria', etiqueta: 'Auditoria', icono: History, requiere: ['auditoria', 'ver'] },
   { ruta: '/usuarios', etiqueta: 'Usuarios', icono: Users, requiere: ['usuarios', 'editar'] },
   {

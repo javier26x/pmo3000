@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 import { cn } from '@/components/ui'
-import { CERRADO, nombreGate, type GateActual } from '@/domain/gates/catalogo'
+import { CERRADO, claseGate, nombreGate, type GateActual } from '@/domain/gates/catalogo'
 import { estaAtrasado } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useDespliegue } from '@/hooks/useDespliegue'
@@ -111,7 +111,7 @@ export function EmbudoGates() {
           Sin sitios que mostrar con estos filtros
         </div>
       ) : (
-        <div className="flex h-9 w-full gap-0.5 overflow-hidden rounded">
+        <div className="panel-scroll flex h-9 w-full gap-0.5 overflow-x-auto rounded">
           {conSitios.map((tramo) => {
             const seleccionado = vista.gateActual === tramo.gate
             const porcentaje = Math.round((tramo.total / (total || 1)) * 100)
@@ -121,22 +121,26 @@ export function EmbudoGates() {
               <button
                 key={tramo.gate}
                 type="button"
-                // `flex: n` reparte el ancho en proporción al conteo; el mínimo
-                // mantiene pulsable incluso un gate con un solo sitio.
-                style={{ flex: `${tramo.total} 1 0`, minWidth: 46 }}
+                // `flex: n` reparte el ancho en proporción al conteo. El mínimo
+                // mantiene pulsable un gate con un solo sitio y, sobre todo,
+                // legible su nombre: un tracker importado trae once etapas y
+                // conviviendo con otra plantilla pasan de quince, donde los
+                // tramos se estrechan tanto que el nombre queda cortado por
+                // ambos lados. Pasado ese punto la barra se desplaza.
+                style={{ flex: `${tramo.total} 1 0`, minWidth: 58 }}
                 onClick={() => fijarVista({ gateActual: seleccionado ? null : tramo.gate })}
                 aria-pressed={seleccionado}
                 aria-label={
-                  `${nombreGate(tramo.gate)}: ${numero(tramo.total)} sitios` +
+                  `${nombreGate(tramo.gate, etapas)}: ${numero(tramo.total)} sitios` +
                   (tramo.atrasados > 0 ? `, ${numero(tramo.atrasados)} atrasados` : '') +
                   (seleccionado ? '. Filtro activo, pulsa para quitarlo' : '. Pulsa para filtrar')
                 }
                 title={
-                  `${nombreGate(tramo.gate)}: ${numero(tramo.total)} sitios (${porcentaje}%)` +
+                  `${nombreGate(tramo.gate, etapas)}: ${numero(tramo.total)} sitios (${porcentaje}%)` +
                   (tramo.atrasados > 0 ? ` · ${numero(tramo.atrasados)} atrasados` : '')
                 }
                 className={cn(
-                  `gate-${tramo.gate}`,
+                  claseGate(tramo.gate, etapas),
                   'insignia-gate group relative flex flex-col items-center justify-center overflow-hidden',
                   'rounded px-1 transition-[transform,filter] duration-[var(--ms-rapido)]',
                   'hover:z-10 hover:brightness-105 focus-visible:z-10',

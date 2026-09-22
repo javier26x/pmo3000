@@ -91,3 +91,66 @@ export async function leerArchivoTabular(archivo: File, hoja?: string): Promise<
   }
   return resultado
 }
+
+/** Todas las filas tal como estan, sin tocar. */
+export interface ArchivoCrudo {
+  nombre: string
+  hoja: string
+  hojas: string[]
+  filas: unknown[][]
+}
+
+/**
+ * Lee la hoja completa SIN asumir donde esta el encabezado.
+ *
+ * leerArchivoTabular da por hecho que la primera fila son las cabeceras, que es
+ * cierto para una exportacion limpia. Un tracker de verdad no: arriba trae filas
+ * de contadores, de formulas o vacias, y el encabezado puede estar en la segunda
+ * o la tercera. Quien decide cual es la fila de encabezado es la inferencia
+ * (domain/tracker/inferencia.ts), asi que necesita la hoja entera.
+ */
+export async function leerHojaCruda(archivo: File, hojaPedida?: string): Promise<ArchivoCrudo> {
+  if (archivo.size === 0) throw new Error('El archivo esta vacio')
+  if (archivo.size > MAX_BYTES) {
+    throw new Error('El archivo supera los 25 MB. Dividelo o exporta solo las columnas necesarias.')
+  }
+
+  const XLSX = await import('@e965/xlsx')
+  const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array', cellDates: true })
+  const hojas = libro.SheetNames
+  const hoja = hojaPedida && hojas.includes(hojaPedida) ? hojaPedida : elegirHoja(hojas, libro)
+  const pagina = libro.Sheets[hoja]
+  if (!pagina) throw new Error(`No se pudo leer la hoja "${hoja}"`)
+
+  const filas = XLSX.utils
+    .sheet_to_json<unknown[]>(pagina, { header: 1, raw: true, defval: null, blankrows: false })
+    .filter(Array.isArray)
+
+  return { nombre: archivo.name, hoja, hojas, filas }
+}
+
+/**
+ * Cual hoja es el tracker.
+ *
+ * Estos libros traen hojas de apoyo —busquedas, homologaciones, listas de
+ * sitios sueltas— y la del tracker es, sin excepcion en los archivos reales, la
+ * que tiene mas celdas. Se elige esa y se deja cambiarla a mano.
+ */
+function elegirHoja(hojas: readonly string[], libro: { Sheets: Record<string, unknown> }): string {
+  let mejor = hojas[0] ?? ''
+  let mayor = -1
+  for (const nombre of hojas) {
+    const pagina = libro.Sheets[nombre] as { '!ref'?: string } | undefined
+    const ref = pagina?.['!ref']
+    if (ref === undefined) continue
+    const [, fin] = ref.split(':')
+    const columnas = (fin ?? '').replace(/\d/g, '').length
+    const filas = Number((fin ?? '').replace(/\D/g, '')) || 0
+    const celdas = filas * Math.max(columnas, 1)
+    if (celdas > mayor) {
+      mayor = celdas
+      mejor = nombre
+    }
+  }
+  return mejor
+}
