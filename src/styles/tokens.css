@@ -31,13 +31,23 @@
   --texto-3: #83838d;
   --texto-inverso: #fafafa;
 
-  /* --- acento ------------------------------------------------------------ */
-  --acento: #4f46e5;
-  --acento-hover: #4338ca;
-  --acento-suave: #eef0fe;
-  --acento-borde: #c9ccfb;
+  /* --- acento: rojo Claro ------------------------------------------------
+     El rojo de la marca Claro Chile. Blanco sobre #da291c da 4,6:1 (AA). Es
+     identidad y accion principal; el estado de error usa su propio rojo, mas
+     oscuro, y siempre va con icono o texto. */
+  --acento: #da291c;
+  --acento-hover: #b81f14;
+  --acento-suave: #fdecea;
+  --acento-borde: #f5b5ae;
   --acento-texto: #ffffff;
-  --acento-anillo: rgb(79 70 229 / 0.45);
+  --acento-anillo: rgb(218 41 28 / 0.4);
+
+  /* --- graficos ------------------------------------------------------------
+     Dos roles, validados juntos (croma, daltonismo y contraste, claro y
+     oscuro): el dato en azul acero y lo que hay que mirar en rojo Claro. */
+  --dato: #3d6aa8;
+  --dato-destacado: #da291c;
+  --dato-rejilla: rgb(16 16 40 / 0.07);
 
   /* --- semaforo ---------------------------------------------------------- */
   --ok-bg: #d7f5e3;
@@ -138,9 +148,9 @@
      desenfoque de la barra y el panel se calcula sobre el y no sobre la tabla,
      asi que desplazar 4.500 filas no paga el backdrop-filter. */
   --campo:
-    radial-gradient(60rem 38rem at 8% -12%, rgb(99 102 241 / 0.16), transparent 70%),
-    radial-gradient(52rem 34rem at 105% 110%, rgb(14 165 233 / 0.13), transparent 70%),
-    radial-gradient(40rem 30rem at 70% -20%, rgb(236 72 153 / 0.06), transparent 70%), var(--fondo);
+    radial-gradient(60rem 38rem at 8% -12%, rgb(218 41 28 / 0.11), transparent 70%),
+    radial-gradient(52rem 34rem at 105% 110%, rgb(61 106 168 / 0.1), transparent 70%),
+    radial-gradient(40rem 30rem at 70% -20%, rgb(255 120 90 / 0.07), transparent 70%), var(--fondo);
   --lente: rgb(255 255 255 / 0.58);
   --lente-blur: 28px;
   /* Filo especular: la luz entra por arriba a la izquierda y se apaga en el
@@ -161,7 +171,7 @@
   --gota: rgb(255 255 255 / 0.9);
   --gota-sombra:
     inset 0 1px 0 0 rgb(255 255 255 / 1), 0 1px 2px rgb(30 30 80 / 0.08),
-    0 4px 12px -4px rgb(79 70 229 / 0.25);
+    0 4px 12px -4px rgb(218 41 28 / 0.25);
   --vidrio-divisor: rgb(16 16 40 / 0.07);
   --radio-lente: 18px;
 
@@ -201,12 +211,16 @@
   --texto-3: #777782;
   --texto-inverso: #18181b;
 
-  --acento: #8b83f5;
-  --acento-hover: #a49df8;
-  --acento-suave: #1e1b36;
-  --acento-borde: #3a3370;
-  --acento-texto: #100e1c;
-  --acento-anillo: rgb(139 131 245 / 0.5);
+  --acento: #e8483a;
+  --acento-hover: #f26a5d;
+  --acento-suave: #3a1411;
+  --acento-borde: #6b231c;
+  --acento-texto: #1a0604;
+  --acento-anillo: rgb(232 72 58 / 0.5);
+
+  --dato: #5b86c7;
+  --dato-destacado: #e8483a;
+  --dato-rejilla: rgb(255 255 255 / 0.07);
 
   --ok-bg: #0c3323;
   --ok-fg: #6ee7b7;
@@ -263,9 +277,9 @@
   --vidrio-velo: rgb(0 0 0 / 0.55);
 
   --campo:
-    radial-gradient(60rem 38rem at 8% -12%, rgb(99 102 241 / 0.32), transparent 70%),
-    radial-gradient(52rem 34rem at 105% 110%, rgb(14 165 233 / 0.2), transparent 70%),
-    radial-gradient(40rem 30rem at 70% -20%, rgb(236 72 153 / 0.12), transparent 70%), var(--fondo);
+    radial-gradient(60rem 38rem at 8% -12%, rgb(218 41 28 / 0.24), transparent 70%),
+    radial-gradient(52rem 34rem at 105% 110%, rgb(61 106 168 / 0.2), transparent 70%),
+    radial-gradient(40rem 30rem at 70% -20%, rgb(255 120 90 / 0.1), transparent 70%), var(--fondo);
   --lente: rgb(36 36 48 / 0.42);
   --lente-filo: linear-gradient(
     150deg,
@@ -280,7 +294,7 @@
   --gota: rgb(255 255 255 / 0.09);
   --gota-sombra:
     inset 0 1px 0 0 rgb(255 255 255 / 0.12), 0 1px 2px rgb(0 0 0 / 0.4),
-    0 4px 14px -6px rgb(139 131 245 / 0.45);
+    0 4px 14px -6px rgb(232 72 58 / 0.45);
   --vidrio-divisor: rgb(255 255 255 / 0.07);
 
   --sombra-1: 0 1px 2px rgb(0 0 0 / 0.4);

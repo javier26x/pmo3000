@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router'
-import { Mail, Radio, ShieldCheck, Zap } from 'lucide-react'
+import { Mail, ShieldCheck, Zap } from 'lucide-react'
+import { Marca } from '@/app/Marca'
 import {
   AJUSTES_UI,
   completarIngresoConEnlace,
@@ -130,14 +131,14 @@ export function PaginaLogin() {
   }
 
   return (
-    <div className="grid min-h-dvh place-items-center bg-fondo px-4 py-8">
+    <div className="campo-app grid min-h-dvh place-items-center px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="mb-5 flex items-center gap-2">
-          <Radio aria-hidden className="size-5 text-[var(--acento)]" />
-          <div>
-            <h1 className="text-xl">PMO3000</h1>
-            <p className="text-sm text-texto-2">Gestion del despliegue de red movil</p>
-          </div>
+        <div className="mb-5">
+          <h1 className="sr-only">PMO3000, Claro Chile</h1>
+          <Marca tamano="lg" />
+          <p className="mt-3 text-sm text-texto-2">
+            El seguimiento del despliegue de red móvil, sitio por sitio.
+          </p>
         </div>
 
         <div className="rounded-lg border border-borde bg-superficie p-4 shadow-[var(--sombra)]">

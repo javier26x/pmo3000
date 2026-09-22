@@ -413,6 +413,13 @@
   .cifra-inicio:hover {
     background: var(--gota);
   }
+  /* Paneles de graficos del Inicio: hoja casi opaca, sin desenfoque (van sobre
+     contenido que se desplaza), con el mismo filo de luz que la lente. */
+  .hoja-inicio {
+    background: var(--hoja);
+    box-shadow: var(--lente-brillo), var(--lente-sombra);
+  }
+
   /* La seccion recorta lo que sobresale: el anillo de foco va por dentro. */
   .cifra-inicio:focus-visible {
     outline-offset: -3px;

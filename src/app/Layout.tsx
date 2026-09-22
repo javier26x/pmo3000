@@ -6,7 +6,6 @@ import {
   LogOut,
   Menu as MenuIcono,
   Moon,
-  Radio,
   Rows3,
   Settings2,
   Sun,
@@ -37,6 +36,7 @@ import { AyudaAtajos } from './AyudaAtajos'
 import { IndicadorConexion } from './IndicadorConexion'
 import { useAtajosGlobales } from './atajos'
 import { LimiteError } from './LimiteError'
+import { Marca } from './Marca'
 
 /** Vistas que comparten los filtros de la URL: al saltar entre ellas se conservan. */
 const VISTAS_DESPLIEGUE = new Set(['/sitios', '/mapa', '/kanban'])
@@ -88,15 +88,8 @@ export function Layout() {
           }
         />
 
-        <Link to="/" className="flex items-center gap-2 rounded-lg pr-2">
-          <span
-            aria-hidden
-            className="gota grid size-7 place-items-center rounded-full text-[var(--acento)]"
-          >
-            <Radio className="size-4" />
-          </span>
-          <span className="font-semibold tracking-tight">PMO3000</span>
-          <span className="hidden text-xs text-texto-3 lg:inline">Despliegue de red móvil</span>
+        <Link to="/" aria-label="Inicio" className="rounded-lg pr-2">
+          <Marca />
         </Link>
 
         <div className="flex-1" />
