@@ -84,6 +84,7 @@ if (AJUSTES.usarEmuladores) {
 /** Nombres de coleccion en un solo lugar: no se escriben strings sueltos por ahi. */
 export const COLECCIONES = {
   usuarios: 'usuarios',
+  invitaciones: 'invitaciones',
   celulas: 'celulas',
   areas: 'areas',
   proveedores: 'proveedores',

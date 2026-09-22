@@ -10,8 +10,7 @@ import {
   hayEnlaceEnUrl,
   ingresarComoUsuarioDemo,
   ingresarConGoogle,
-  POLITICA,
-  puedeEntrar,
+  tomarAccesoDenegado,
   usuariosDemo,
   type UsuarioDemo,
 } from '@/features/auth/servicio'
@@ -30,6 +29,9 @@ type Estado = 'formulario' | 'enviando' | 'enviado' | 'completando'
  * de la URL y del almacenamiento local, que ya estan disponibles al montar.
  */
 function situacionInicial(): { estado: Estado; error: string | null } {
+  // Se acaba de cerrar la sesion porque el correo no tiene acceso: se dice por que.
+  const denegado = tomarAccesoDenegado()
+  if (denegado) return { estado: 'formulario', error: denegado }
   if (!hayEnlaceEnUrl()) return { estado: 'formulario', error: null }
   if (!correoPendiente()) {
     return {
@@ -72,7 +74,9 @@ export function PaginaLogin() {
   }
 
   const dominio = dominioPermitido()
-  const correoValido = puedeEntrar(correo)
+  // Cualquier correo valido puede pedir el enlace: si es de otro dominio, que
+  // tenga invitacion se comprueba al entrar.
+  const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())
 
   const entrarConGoogle = () => {
     setError(null)
@@ -172,10 +176,10 @@ export function PaginaLogin() {
 
               <form onSubmit={enviar} className="flex flex-col gap-3">
                 <Campo
-                  etiqueta="Correo corporativo"
+                  etiqueta="Correo"
                   htmlFor="correo"
                   obligatorio
-                  ayuda={`Correo @${dominio}`}
+                  ayuda={`Tu correo @${dominio}, o el correo con que te invitaron`}
                   {...(error ? { error } : {})}
                 >
                   <Entrada
@@ -205,9 +209,8 @@ export function PaginaLogin() {
 
               <p className="flex items-start gap-1.5 text-xs text-texto-3">
                 <ShieldCheck aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-                Solo entran los correos <strong>@{dominio}</strong>
-                {POLITICA.correosAdmin.length > 0 && ' y las cuentas autorizadas'}. Se valida
-                también en las reglas del servidor, no solo aquí.
+                Entran los correos <strong>@{dominio}</strong> y las personas invitadas por un
+                administrador. Se valida también en las reglas del servidor, no solo aquí.
               </p>
             </div>
           )}

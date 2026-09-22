@@ -24,6 +24,8 @@ import {
   TIPOS_ENTIDAD,
   TIPOS_RAID,
   type Area,
+  type Invitacion,
+  ESTADOS_INVITACION,
   type Celula,
   type Dependencia,
   type EventoAuditoria,
@@ -69,6 +71,26 @@ export function normalizarUsuario(id: string, d: DocumentData): Usuario {
     activo: booleano(d.activo, true),
     ultimoAcceso: instante(d.ultimoAcceso),
     ...sellos(d),
+  }
+}
+
+export function normalizarInvitacion(id: string, d: DocumentData): Invitacion {
+  return {
+    id,
+    email: texto(d.email, id).toLowerCase(),
+    nombre: texto(d.nombre),
+    rol: enumerado(d.rol, ROLES, 'lector'),
+    celulaId: textoNulo(d.celulaId),
+    proveedorId: textoNulo(d.proveedorId),
+    alcance: {
+      celulas: listaTexto(objeto(d.alcance).celulas),
+      programas: listaTexto(objeto(d.alcance).programas),
+      proyectos: listaTexto(objeto(d.alcance).proyectos),
+    },
+    estado: enumerado(d.estado, ESTADOS_INVITACION, 'pendiente'),
+    invitadoPor: textoNulo(d.invitadoPor),
+    invitadoEn: instante(d.invitadoEn),
+    aceptadaEn: instante(d.aceptadaEn),
   }
 }
 

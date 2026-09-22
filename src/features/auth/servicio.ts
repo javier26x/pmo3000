@@ -17,6 +17,7 @@ export {
   ingresarConGoogle,
   POLITICA,
   puedeEntrar,
+  tomarAccesoDenegado,
   usuariosDemo,
   validarAcceso,
   type MetodoIngreso,

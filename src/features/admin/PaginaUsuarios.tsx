@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShieldAlert, UserCog } from 'lucide-react'
+import { MailPlus, ShieldAlert, UserCog } from 'lucide-react'
 import {
   Aviso,
   Boton,
@@ -25,6 +25,7 @@ import { useActor } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { ChipsAlcance, EditorAlcance } from './EditorAlcance'
+import { DialogoInvitar, ListaInvitaciones, useInvitaciones } from './Invitaciones'
 
 const TONO_ROL: Record<Rol, 'acento' | 'info' | 'neutro' | 'riesgo'> = {
   admin: 'acento',
@@ -39,6 +40,8 @@ export function PaginaUsuarios() {
   const { usuarios, celulas, proveedores, nombreCelula, nombreProveedor, cargando } = useCatalogos()
 
   const [editando, setEditando] = useState<Usuario | null>(null)
+  const [invitando, setInvitando] = useState(false)
+  const invitaciones = useInvitaciones()
   useTituloPagina('Usuarios y roles')
   const [nombre, setNombre] = useState('')
   const [rol, setRol] = useState<Rol>('lector')
@@ -98,7 +101,16 @@ export function PaginaUsuarios() {
     <>
       <CabeceraPantalla
         titulo="Usuarios y roles"
-        descripcion="Quien entra por primera vez queda como lector. Aqui se le asigna su rol real."
+        descripcion="Invita a las personas por correo con su rol ya asignado. Quien entra sin invitación (solo @clarovtr.cl) queda como lector."
+        acciones={
+          <Boton
+            variante="primario"
+            onClick={() => setInvitando(true)}
+            icono={<MailPlus aria-hidden className="size-4" />}
+          >
+            Invitar
+          </Boton>
+        }
       />
 
       <div className="flex min-h-0 flex-1 flex-col p-3">
@@ -107,6 +119,11 @@ export function PaginaUsuarios() {
           alguien. Las reglas de Firestore ademas impiden que un administrador se quite su propio
           rol de admin, para no dejar la instalacion sin quien administre.
         </Aviso>
+
+        <ListaInvitaciones
+          invitaciones={invitaciones.filter((i) => i.estado !== 'aceptada')}
+          actor={actor}
+        />
 
         {cargando && usuarios.length === 0 ? (
           <Cargando texto="Cargando usuarios…" />
@@ -180,6 +197,14 @@ export function PaginaUsuarios() {
           </div>
         )}
       </div>
+
+      {invitando && (
+        <DialogoInvitar
+          actor={actor}
+          correosConCuenta={new Set(usuarios.map((u) => u.email))}
+          onCerrar={() => setInvitando(false)}
+        />
+      )}
 
       <Dialogo
         abierto={editando !== null}

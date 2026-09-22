@@ -6,7 +6,6 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
   updateDoc,
   writeBatch,
   type Unsubscribe,
@@ -18,6 +17,10 @@ import { agregarEventos } from '../auditoria'
 import type { Usuario, UsuarioEditable } from '@/domain/tipos/usuario'
 import { normalizarAlcance, serializarAlcance } from '@/domain/permisos/alcance'
 import type { Actor, Rol } from '@/domain/tipos/comunes'
+import { leerInvitacion } from './invitaciones'
+
+/** El correo no es del dominio ni tiene invitacion vigente. */
+export class AccesoDenegado extends Error {}
 
 const convertidor = crearConvertidor(normalizarUsuario)
 
@@ -74,19 +77,38 @@ export async function asegurarPerfil(datos: {
   email: string
   nombre: string
   rolInicial: Rol
+  /** Correo del dominio o de la lista de administradores. */
+  permitidoPorDominio: boolean
 }): Promise<void> {
+  const email = datos.email.toLowerCase()
+  // La invitacion se lee siempre: para un correo externo es lo unico que lo
+  // deja entrar, y para uno del dominio trae el rol y la celula ya asignados.
+  // El administrador inicial no la necesita.
+  const invitacion =
+    datos.rolInicial === 'admin' ? null : await leerInvitacion(email).catch(() => null)
+  const vigente = invitacion !== null && invitacion.estado !== 'revocada' ? invitacion : null
+  if (!datos.permitidoPorDominio && vigente === null) {
+    throw new AccesoDenegado(
+      invitacion?.estado === 'revocada'
+        ? `La invitación de ${email} fue revocada. Pide a un administrador que te vuelva a invitar.`
+        : `${email} no tiene acceso a PMO3000. Pide a un administrador que te invite.`,
+    )
+  }
+
   const ref = doc(db, COLECCIONES.usuarios, datos.uid)
   const snap = await getDoc(ref)
 
   if (!snap.exists()) {
-    await setDoc(ref, {
-      email: datos.email.toLowerCase(),
-      nombre: datos.nombre || datos.email,
-      rol: datos.rolInicial,
-      celulaId: null,
-      proveedorId: null,
-      // Sin restriccion: el alcance lo asigna un admin, nunca el propio usuario.
-      alcance: { celulas: [], programas: [], proyectos: [] },
+    const batch = writeBatch(db)
+    batch.set(ref, {
+      email,
+      nombre: vigente?.nombre || datos.nombre || email,
+      rol: vigente?.rol ?? datos.rolInicial,
+      celulaId: vigente?.celulaId ?? null,
+      proveedorId: vigente?.proveedorId ?? null,
+      // Sin invitacion, sin restriccion: el alcance lo asigna un admin, nunca
+      // el propio usuario. Con invitacion, el que dejo el admin.
+      alcance: vigente?.alcance ?? { celulas: [], programas: [], proyectos: [] },
       activo: true,
       ultimoAcceso: serverTimestamp(),
       creadoEn: serverTimestamp(),
@@ -94,6 +116,14 @@ export async function asegurarPerfil(datos: {
       actualizadoEn: serverTimestamp(),
       actualizadoPor: datos.uid,
     })
+    if (vigente?.estado === 'pendiente') {
+      batch.update(doc(db, COLECCIONES.invitaciones, email), {
+        estado: 'aceptada',
+        aceptadaEn: serverTimestamp(),
+        uid: datos.uid,
+      })
+    }
+    await batch.commit()
     return
   }
 

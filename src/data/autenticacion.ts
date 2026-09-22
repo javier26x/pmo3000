@@ -9,10 +9,13 @@
  *   correo corporativo en Google Workspace.
  * - **Contraseña**: solo contra los emuladores, como atajo de desarrollo.
  *
- * Todo pasa por `validarAcceso()`, y lo mismo se valida en firestore.rules. Si
- * alguien entra con un método nuevo y su correo no está autorizado, se le cierra
- * la sesión de inmediato: quedar autenticado pero sin poder leer nada es el peor
- * de los estados, porque parece un error de la aplicación.
+ * Entra quien tenga correo del dominio, quien este en la lista de
+ * administradores y quien tenga una invitacion vigente (de cualquier dominio).
+ * Lo ultimo solo se puede saber despues de autenticar, asi que el enlace se
+ * envia a cualquier correo valido y la decision se toma al armar el perfil
+ * (repos/usuarios.ts, asegurarPerfil): sin permiso, se cierra la sesion de
+ * inmediato con un mensaje claro. Las reglas de firestore.rules validan lo
+ * mismo del lado del servidor.
  */
 import {
   GoogleAuthProvider,
@@ -28,6 +31,7 @@ import {
 import { AJUSTES, auth } from './firebase'
 import {
   esAccesoPermitido,
+  esEmailValido,
   mensajeAccesoDenegado,
   normalizarEmail,
   rolInicial,
@@ -76,19 +80,63 @@ export function observarSesion(cb: (usuario: User | null) => void): () => void {
 
 // --- Enlace por correo -----------------------------------------------------
 
+function validarFormato(correo: string): void {
+  if (!esEmailValido(correo)) throw new Error('Ese correo no parece válido')
+}
+
+const AJUSTES_ENLACE = () => ({
+  url: `${window.location.origin}/login`,
+  handleCodeInApp: true,
+})
+
 export async function enviarEnlaceIngreso(email: string): Promise<void> {
   const correo = normalizarEmail(email)
-  validarAcceso(correo)
+  // Solo el formato: si el correo es de otro dominio, que tenga invitacion se
+  // sabe despues de entrar. Recibir un enlace no da acceso a nada.
+  validarFormato(correo)
 
-  await sendSignInLinkToEmail(auth, correo, {
-    url: `${window.location.origin}/login`,
-    handleCodeInApp: true,
-  })
+  await sendSignInLinkToEmail(auth, correo, AJUSTES_ENLACE())
 
   try {
     window.localStorage.setItem(CLAVE_CORREO, correo)
   } catch {
     // Modo privado sin localStorage: se le pedirá el correo de nuevo al volver.
+  }
+}
+
+/**
+ * Enlace para una persona invitada, enviado desde la sesion de un admin. No
+ * toca la sesion del admin ni guarda nada en su navegador: la persona abre el
+ * enlace en su dispositivo y la pantalla de ingreso le pide confirmar el correo.
+ */
+export async function enviarEnlaceInvitacion(email: string): Promise<void> {
+  const correo = normalizarEmail(email)
+  validarFormato(correo)
+  await sendSignInLinkToEmail(auth, correo, AJUSTES_ENLACE())
+}
+
+const CLAVE_DENEGADO = 'pmo3000.accesoDenegado'
+
+/**
+ * Por que se cerro la sesion recien abierta. Sobrevive al cierre de sesion
+ * (que limpia el estado de la app) para que la pantalla de ingreso lo muestre.
+ */
+export function recordarAccesoDenegado(mensaje: string): void {
+  try {
+    window.sessionStorage.setItem(CLAVE_DENEGADO, mensaje)
+  } catch {
+    // sin almacenamiento, el ingreso solo no avanza
+  }
+}
+
+/** Lee y olvida el motivo del ultimo acceso denegado. */
+export function tomarAccesoDenegado(): string | null {
+  try {
+    const mensaje = window.sessionStorage.getItem(CLAVE_DENEGADO)
+    window.sessionStorage.removeItem(CLAVE_DENEGADO)
+    return mensaje
+  } catch {
+    return null
   }
 }
 
@@ -109,7 +157,7 @@ export async function completarIngresoConEnlace(emailProporcionado?: string): Pr
   if (!correo) {
     throw new Error('Necesitamos tu correo para completar el ingreso desde este dispositivo')
   }
-  validarAcceso(correo)
+  validarFormato(correo)
 
   const credencial = await signInWithEmailLink(auth, correo, window.location.href)
   try {
@@ -133,13 +181,9 @@ export async function ingresarConGoogle(): Promise<User> {
   // abiertas y entrar con la equivocada es el error más común.
   proveedor.setCustomParameters({ prompt: 'select_account' })
 
+  // Si la cuenta no es del dominio ni tiene invitacion, asegurarPerfil cierra
+  // la sesion al armar el perfil (ver la cabecera de este archivo).
   const credencial = await signInWithPopup(auth, proveedor)
-  const correo = credencial.user.email ?? ''
-
-  if (!puedeEntrar(correo)) {
-    await signOut(auth)
-    throw new Error(`La cuenta ${correo} no está autorizada. ${mensajeAccesoDenegado(POLITICA)}`)
-  }
   return credencial.user
 }
 

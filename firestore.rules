@@ -57,8 +57,31 @@ service cloud.firestore {
     // verificados.
     function dominioValido() {
       return autenticado()
-        && (esCorreoCorporativo() || esAdministradorInicial())
+        && (esCorreoCorporativo() || esAdministradorInicial() || invitado())
         && request.auth.token.email_verified == true;
+    }
+
+    // Invitaciones: un admin invita un correo (de cualquier dominio) y deja
+    // listo su perfil. Para un correo externo, la invitacion vigente es lo que
+    // lo deja entrar; revocarla le quita el acceso. Va al final del || de
+    // dominioValido para que un correo corporativo no pague la lectura.
+    function rutaInvitacion() {
+      return /databases/$(database)/documents/invitaciones/$(correo().lower());
+    }
+    function invitado() {
+      return correo() is string
+        && exists(rutaInvitacion())
+        && get(rutaInvitacion()).data.estado != 'revocada';
+    }
+    // El perfil nace con lo que dice la invitacion, ni mas ni menos.
+    function calzaConInvitacion(d, inv) {
+      return d.rol == inv.rol
+        && d.get('celulaId', null) == inv.celulaId
+        && d.get('proveedorId', null) == inv.proveedorId
+        && d.get('alcance', null) == inv.alcance;
+    }
+    function comoInvitado(d) {
+      return invitado() && calzaConInvitacion(d, get(rutaInvitacion()).data);
     }
 
     function rutaPerfil() {
@@ -195,12 +218,13 @@ service cloud.firestore {
       // pudiera promover al primero.
       allow create: if dominioValido()
         && request.auth.uid == uid
-        && request.resource.data.email == correo()
-        && (request.resource.data.rol == 'lector'
-            || (esAdministradorInicial() && request.resource.data.rol == 'admin'))
+        && request.resource.data.email == correo().lower()
         && request.resource.data.activo == true
-        && request.resource.data.proveedorId == null
-        && alcanceVacio(request.resource.data.get('alcance', null));
+        && (comoInvitado(request.resource.data)
+            || ((request.resource.data.rol == 'lector'
+                  || (esAdministradorInicial() && request.resource.data.rol == 'admin'))
+                && request.resource.data.proveedorId == null
+                && alcanceVacio(request.resource.data.get('alcance', null))));
 
       // El propio usuario solo puede refrescar su marca de ultimo acceso. En
       // particular, no toca su alcance: eso lo asigna un admin.
@@ -235,6 +259,30 @@ service cloud.firestore {
       // Los usuarios se desactivan (activo=false), no se borran: si no, su
       // rastro en la auditoria queda apuntando a la nada.
       allow delete: if false;
+    }
+
+    match /invitaciones/{correoId} {
+      // El invitado lee la suya para armar su perfil en el primer ingreso.
+      allow get: if esAdmin()
+        || (autenticado() && correo() is string && correo().lower() == correoId);
+      allow list: if esAdmin();
+
+      allow create, update: if esAdmin()
+        && request.resource.data.email == correoId
+        && request.resource.data.rol in ['admin', 'jefe_celula', 'analista', 'contratista', 'lector']
+        && request.resource.data.estado in ['pendiente', 'revocada']
+        && (request.resource.data.rol != 'contratista'
+            || request.resource.data.proveedorId is string)
+        && alcanceValido(request.resource.data.alcance);
+
+      // Al entrar, el invitado la marca aceptada. Nada mas.
+      allow update: if autenticado()
+        && correo() is string && correo().lower() == correoId
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.estado == 'aceptada'
+        && soloCambia(['estado', 'aceptadaEn', 'uid']);
+
+      allow delete: if esAdmin();
     }
 
     // -------------------------------------------------------------- catalogos

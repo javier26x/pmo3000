@@ -7,8 +7,14 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { observarSesion, rolInicialDe } from '@/data/autenticacion'
-import { asegurarPerfil, observarUsuario } from '@/data/repos/usuarios'
+import {
+  cerrarSesion,
+  observarSesion,
+  puedeEntrar,
+  recordarAccesoDenegado,
+  rolInicialDe,
+} from '@/data/autenticacion'
+import { AccesoDenegado, asegurarPerfil, observarUsuario } from '@/data/repos/usuarios'
 import { mensajeDeError } from '@/app/avisos'
 import type { Usuario } from '@/domain/tipos/usuario'
 import type { Actor } from '@/domain/tipos/comunes'
@@ -57,7 +63,17 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
         email: correo,
         nombre: usuario.displayName ?? correo,
         rolInicial: rolInicialDe(correo),
-      }).catch((e) => setError(mensajeDeError(e)))
+        permitidoPorDominio: puedeEntrar(correo),
+      }).catch((e) => {
+        if (e instanceof AccesoDenegado) {
+          // Autenticado pero sin acceso es el peor estado: parece un error de
+          // la app. Se cierra la sesion y la pantalla de ingreso muestra por que.
+          recordarAccesoDenegado(e.message)
+          void cerrarSesion()
+          return
+        }
+        setError(mensajeDeError(e))
+      })
     })
   }, [])
 
