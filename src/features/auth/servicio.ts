@@ -10,7 +10,7 @@ export {
   cerrarSesion,
   completarIngresoConEnlace,
   correoPendiente,
-  dominioPermitido,
+  dominiosPermitidos,
   enviarEnlaceIngreso,
   hayEnlaceEnUrl,
   ingresarComoUsuarioDemo,

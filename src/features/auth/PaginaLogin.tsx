@@ -6,7 +6,7 @@ import {
   AJUSTES_UI,
   completarIngresoConEnlace,
   correoPendiente,
-  dominioPermitido,
+  dominiosPermitidos,
   enviarEnlaceIngreso,
   hayEnlaceEnUrl,
   ingresarComoUsuarioDemo,
@@ -76,7 +76,7 @@ export function PaginaLogin() {
     return <Navigate to={desde && desde !== '/login' ? desde : '/'} replace />
   }
 
-  const dominio = dominioPermitido()
+  const dominios = dominiosPermitidos()
   // Cualquier correo valido puede pedir el enlace: si es de otro dominio, que
   // tenga invitacion se comprueba al entrar.
   const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())
@@ -195,7 +195,7 @@ export function PaginaLogin() {
                   etiqueta="Correo"
                   htmlFor="correo"
                   obligatorio
-                  ayuda={`Tu correo @${dominio}, o el correo con que te invitaron`}
+                  ayuda={`Tu correo ${dominios}, o el correo con que te invitaron`}
                   {...(error ? { error } : {})}
                 >
                   <Entrada
@@ -203,7 +203,7 @@ export function PaginaLogin() {
                     type="email"
                     autoComplete="email"
                     inputMode="email"
-                    placeholder={`nombre.apellido@${dominio}`}
+                    placeholder="nombre.apellido@clarovtr.cl"
                     value={correo}
                     onChange={(e) => setCorreo(e.target.value)}
                     aria-invalid={correo !== '' && !correoValido}
@@ -225,7 +225,7 @@ export function PaginaLogin() {
 
               <p className="flex items-start gap-1.5 text-xs text-texto-3">
                 <ShieldCheck aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-                Entran los correos <strong>@{dominio}</strong> y las personas invitadas por un
+                Entran los correos <strong>{dominios}</strong> y las personas invitadas por un
                 administrador. Se valida también en las reglas del servidor, no solo aquí.
               </p>
             </div>

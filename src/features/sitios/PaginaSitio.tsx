@@ -32,6 +32,7 @@ import { nombreGate } from '@/domain/gates/catalogo'
 import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
 import { textoSla } from '@/domain/sla'
 import { useMedidorSla } from '@/hooks/useSla'
+import { SolicitarCarpeta } from './SolicitarCarpeta'
 import { esquemaSitioNuevo, estaEnChile, type Sitio, type SitioNuevo } from '@/domain/tipos/sitio'
 import type { Actor } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
@@ -277,10 +278,21 @@ export function PaginaSitio() {
                 Carpeta documental
               </h2>
 
+              {/* Solo mientras no tenga carpeta: pedirla dos veces crea lio en SharePoint. */}
+              {!sitio.carpetaUrl && puedeHacer('sitios', 'editar') && (
+                <div className="mb-3">
+                  <SolicitarCarpeta
+                    sitio={sitio}
+                    participaciones={participaciones.datos}
+                    actor={actor}
+                  />
+                </div>
+              )}
+
               <Campo
                 etiqueta="URL de la carpeta en SharePoint"
                 htmlFor="carpeta"
-                ayuda="Se pega a mano. En Fase 2 la app genera el correo que dispara el flujo de Power Automate que crea la estructura."
+                ayuda="Pega aquí la URL que responde Power Automate, o la de una carpeta que ya exista."
               >
                 <Entrada
                   id="carpeta"

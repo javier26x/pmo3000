@@ -5,6 +5,7 @@ import {
   esAdministradorInicial,
   esDominioPermitido,
   esEmailValido,
+  textoDominios,
   listaDeCorreos,
   mensajeAccesoDenegado,
   normalizarEmail,
@@ -13,7 +14,7 @@ import {
 } from './dominio'
 
 const POLITICA: PoliticaAcceso = {
-  dominio: 'clarovtr.cl',
+  dominios: ['clarovtr.cl', 'claro.cl'],
   correosAdmin: ['javier.neo@gmail.com'],
 }
 
@@ -26,7 +27,14 @@ describe('esDominioPermitido', () => {
   it('rechaza otros dominios', () => {
     expect(esDominioPermitido('persona@gmail.com', 'clarovtr.cl')).toBe(false)
     expect(esDominioPermitido('persona@claro.cl', 'clarovtr.cl')).toBe(false)
+    expect(esDominioPermitido('persona@claro.com', ['clarovtr.cl', 'claro.cl'])).toBe(false)
     expect(esDominioPermitido('persona@vtr.cl', 'clarovtr.cl')).toBe(false)
+  })
+
+  it('acepta cualquiera de los dominios de la lista', () => {
+    expect(esDominioPermitido('persona@claro.cl', ['clarovtr.cl', 'claro.cl'])).toBe(true)
+    expect(esDominioPermitido('persona@clarovtr.cl', ['clarovtr.cl', 'claro.cl'])).toBe(true)
+    expect(esDominioPermitido('persona@noclaro.cl', ['clarovtr.cl', 'claro.cl'])).toBe(false)
   })
 
   it('rechaza dominios que solo terminan parecido', () => {
@@ -54,6 +62,7 @@ describe('administradores externos', () => {
 
   it('deja entrar tanto al dominio como a la lista', () => {
     expect(esAccesoPermitido('persona@clarovtr.cl', POLITICA)).toBe(true)
+    expect(esAccesoPermitido('persona@claro.cl', POLITICA)).toBe(true)
     expect(esAccesoPermitido('javier.neo@gmail.com', POLITICA)).toBe(true)
     expect(esAccesoPermitido('otro@gmail.com', POLITICA)).toBe(false)
   })
@@ -64,7 +73,7 @@ describe('administradores externos', () => {
   })
 
   it('sin lista, solo manda el dominio', () => {
-    const soloDominio: PoliticaAcceso = { dominio: 'clarovtr.cl', correosAdmin: [] }
+    const soloDominio: PoliticaAcceso = { dominios: ['clarovtr.cl'], correosAdmin: [] }
     expect(esAccesoPermitido('javier.neo@gmail.com', soloDominio)).toBe(false)
     expect(rolInicial('persona@clarovtr.cl', soloDominio)).toBe('lector')
   })
@@ -81,9 +90,16 @@ describe('listaDeCorreos', () => {
 describe('mensajeAccesoDenegado', () => {
   it('menciona la excepcion solo si existe', () => {
     expect(mensajeAccesoDenegado(POLITICA)).toContain('cuenta autorizada')
-    expect(mensajeAccesoDenegado({ dominio: 'clarovtr.cl', correosAdmin: [] })).not.toContain(
+    expect(mensajeAccesoDenegado({ dominios: ['clarovtr.cl'], correosAdmin: [] })).not.toContain(
       'cuenta autorizada',
     )
+  })
+})
+
+describe('textoDominios', () => {
+  it('arma el texto de los mensajes', () => {
+    expect(textoDominios(['clarovtr.cl', 'claro.cl'])).toBe('@clarovtr.cl o @claro.cl')
+    expect(textoDominios(['clarovtr.cl'])).toBe('@clarovtr.cl')
   })
 })
 

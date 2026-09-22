@@ -51,6 +51,22 @@ describe('ingreso con Microsoft 365', () => {
     )
   })
 
+  it('tambien entra una cuenta @claro.cl', async () => {
+    await assertSucceeds(
+      comoMicrosoft('persona@claro.cl', 'u-ms2')
+        .doc('usuarios/u-ms2')
+        .set(perfilLector('persona@claro.cl')),
+    )
+  })
+
+  it('pero no un dominio parecido', async () => {
+    await assertFails(
+      comoMicrosoft('persona@claro.com', 'u-ms3')
+        .doc('usuarios/u-ms3')
+        .set(perfilLector('persona@claro.com')),
+    )
+  })
+
   it('una cuenta de Microsoft de otro dominio no entra', async () => {
     await assertFails(
       comoMicrosoft('persona@outlook.com')

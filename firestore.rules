@@ -43,8 +43,11 @@ service cloud.firestore {
       return ['javier.neo@gmail.com'];
     }
 
+    // Dominios de Claro: @clarovtr.cl y @claro.cl. Espejo en el cliente:
+    // AJUSTES.dominiosPermitidos (VITE_DOMINIOS_PERMITIDOS). Sin mayusculas:
+    // el token puede traer el correo como lo escribio el directorio.
     function esCorreoCorporativo() {
-      return correo() is string && correo().matches('^[^@]+@clarovtr[.]cl$');
+      return correo() is string && correo().lower().matches('^[^@]+@(clarovtr|claro)[.]cl$');
     }
 
     function esAdministradorInicial() {
@@ -335,6 +338,21 @@ service cloud.firestore {
     match /gateTemplates/{id} {
       allow get, list: if habilitado();
       allow write: if esAdmin();
+    }
+
+    // Registro de los correos de carpeta preparados para Power Automate: quien
+    // pidio que y cuando. Se crea al preparar el correo y no se edita: es el
+    // rastro. Solo quien gestiona sitios lo genera, y a su propio nombre.
+    match /solicitudesCarpeta/{id} {
+      allow get, list: if esInterno();
+      allow create: if puedeGestionar()
+        && request.resource.data.generadoPor == request.auth.uid
+        && request.resource.data.estado == 'preparada'
+        && request.resource.data.sitioId is string
+        && request.resource.data.asunto is string
+        && request.resource.data.asunto.size() <= 300;
+      allow update: if false;
+      allow delete: if esAdmin();
     }
 
     match /config/{id} {

@@ -4,6 +4,7 @@ import {
   Check,
   ClipboardCheck,
   Copy,
+  FolderOpen,
   FolderTree,
   Layers,
   ListChecks,
@@ -69,6 +70,7 @@ import { EditorPlantilla } from './EditorPlantilla'
 import { ProtegerSecuencias } from './ProtegerSecuencias'
 import { EditorSla } from './EditorSla'
 import { EditorArea } from './EditorArea'
+import { ConfigCarpetasSharePoint } from './ConfigCarpetas'
 import { crearAreasSemilla } from '@/data/repos/areas'
 import { AREAS_SEMILLA, type Area } from '@/domain/tipos/area'
 
@@ -537,6 +539,17 @@ export function PaginaConfiguracion() {
               vacio="Sin proveedores."
             />
           </Seccion>
+
+          {actor.rol === 'admin' && (
+            <Seccion
+              icono={<FolderOpen aria-hidden className="size-4" />}
+              titulo="Carpetas de SharePoint"
+              descripcion="Las carpetas se piden con un correo que lee un flujo de Power Automate. Aquí se configura adónde va y el formato del asunto."
+              accion={null}
+            >
+              <ConfigCarpetasSharePoint actor={actor} />
+            </Seccion>
+          )}
 
           {actor.rol === 'admin' && (
             <Seccion

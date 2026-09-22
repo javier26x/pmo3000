@@ -4,7 +4,7 @@
  * Dos puertas, y las dos se validan igual en el cliente (para dar un mensaje
  * claro antes de intentar) y en firestore.rules (que es donde de verdad cuenta):
  *
- * 1. El dominio corporativo: cualquier correo @clarovtr.cl.
+ * 1. Los dominios corporativos: cualquier correo @clarovtr.cl o @claro.cl.
  * 2. Una lista corta de correos externos autorizados, que además entran como
  *    administradores. Existe para resolver el arranque: alguien tiene que poder
  *    administrar la instalación antes de que exista el primer administrador, y
@@ -18,8 +18,8 @@
  */
 
 export interface PoliticaAcceso {
-  /** Dominio corporativo, sin la arroba. */
-  dominio: string
+  /** Dominios corporativos, sin la arroba (clarovtr.cl, claro.cl). */
+  dominios: readonly string[]
   /** Correos externos autorizados, que se crean con rol admin. */
   correosAdmin: readonly string[]
 }
@@ -39,9 +39,20 @@ export function esEmailValido(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizarEmail(email))
 }
 
-export function esDominioPermitido(email: string, dominioPermitido: string): boolean {
+export function esDominioPermitido(email: string, dominios: string | readonly string[]): boolean {
   if (!esEmailValido(email)) return false
-  return dominioDe(email) === dominioPermitido.trim().toLowerCase()
+  const dominio = dominioDe(email)
+  const lista = typeof dominios === 'string' ? [dominios] : dominios
+  // Igualdad exacta, no sufijo: "noclarovtr.cl" no es "clarovtr.cl".
+  return lista.some((d) => d.trim().toLowerCase() === dominio)
+}
+
+/** "@clarovtr.cl o @claro.cl", para los mensajes. */
+export function textoDominios(dominios: readonly string[]): string {
+  const conArroba = dominios.map((d) => `@${d}`)
+  return conArroba.length <= 1
+    ? (conArroba[0] ?? '')
+    : `${conArroba.slice(0, -1).join(', ')} o ${conArroba.at(-1)}`
 }
 
 /** True si el correo está en la lista de administradores externos. */
@@ -54,7 +65,7 @@ export function esAdministradorInicial(email: string, correosAdmin: readonly str
 /** True si el correo puede iniciar sesión, por dominio o por lista. */
 export function esAccesoPermitido(email: string, politica: PoliticaAcceso): boolean {
   return (
-    esDominioPermitido(email, politica.dominio) ||
+    esDominioPermitido(email, politica.dominios) ||
     esAdministradorInicial(email, politica.correosAdmin)
   )
 }
@@ -65,9 +76,18 @@ export function rolInicial(email: string, politica: PoliticaAcceso): 'admin' | '
 }
 
 export function mensajeAccesoDenegado(politica: PoliticaAcceso): string {
+  const dominios = textoDominios(politica.dominios)
   return politica.correosAdmin.length > 0
-    ? `Solo se permite el acceso con correos @${politica.dominio} o con una cuenta autorizada.`
-    : `Solo se permite el acceso con correos @${politica.dominio}`
+    ? `Solo se permite el acceso con correos ${dominios} o con una cuenta autorizada.`
+    : `Solo se permite el acceso con correos ${dominios}`
+}
+
+/** Dominios desde una variable de entorno separada por comas, sin arroba. */
+export function listaDeDominios(crudo: string): string[] {
+  return crudo
+    .split(',')
+    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
+    .filter((d) => d !== '')
 }
 
 /** Lee la lista desde una variable de entorno separada por comas. */

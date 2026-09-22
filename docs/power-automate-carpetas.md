@@ -181,15 +181,22 @@ también _ha fallado_, y agrega una acción de respuesta que avise del problema.
 El caso más común es que la carpeta ya exista, que no es realmente un error:
 conviene responder con la URL igual.
 
-## Qué hará la app en la Fase 2
+## Qué hace la app (implementado)
 
-- Botón **«Preparar correo de carpeta»** en la ficha del sitio, que abre el
-  cliente de correo con el `mailto:` ya armado (destinatario, asunto y cuerpo).
-- Registro en la colección `solicitudesCarpeta` de qué se pidió, cuándo y quién,
-  para poder ver qué sitios quedaron sin carpeta.
-- Campo `carpetaUrl` en el sitio, editable a mano — **esto ya existe en la Fase 1**.
-- Plantilla del asunto configurable en `config/app.asuntoCarpeta`, por si cambia
-  el formato sin tener que tocar código.
+- Botón **«Preparar correo de carpeta»** en la ficha del sitio (mientras no
+  tenga carpeta), que abre el cliente de correo con el `mailto:` ya armado
+  (destinatario, asunto y cuerpo). Si el sitio está en varios programas, se
+  elige cuál.
+- Registro en la colección `solicitudesCarpeta` de qué se pidió, cuándo y quién
+  (la ficha muestra la última solicitud).
+- Campo `carpetaUrl` en el sitio, donde se pega la URL que responde el flujo.
+- Buzón (`config/app.buzonCarpetas`) y plantilla del asunto
+  (`config/app.asuntoCarpeta`) en **Configuración → Carpetas de SharePoint**
+  (admin), con vista previa que avisa si la plantilla no da el formato de cuatro
+  partes.
+- El código está detrás de la interfaz `ServicioCarpetas`
+  (`src/data/microsoft/carpetas.ts`): pasar a Graph API es otra
+  implementación, sin tocar la pantalla. Ver `ingreso-microsoft.md`.
 
 ## Límite conocido del `mailto:`
 

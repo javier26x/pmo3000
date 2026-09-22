@@ -19,7 +19,6 @@
  */
 import {
   GoogleAuthProvider,
-  OAuthProvider,
   isSignInWithEmailLink,
   onAuthStateChanged,
   sendSignInLinkToEmail,
@@ -30,9 +29,11 @@ import {
   type User,
 } from 'firebase/auth'
 import { AJUSTES, auth } from './firebase'
+import { hayIngresoMicrosoft } from './microsoft/identidad'
 import {
   esAccesoPermitido,
   esEmailValido,
+  textoDominios,
   mensajeAccesoDenegado,
   normalizarEmail,
   rolInicial,
@@ -45,20 +46,21 @@ const CLAVE_CORREO = 'pmo3000.correoPendiente'
 export type MetodoIngreso = 'enlace_correo' | 'google' | 'microsoft' | 'password_dev'
 
 export const POLITICA: PoliticaAcceso = {
-  dominio: AJUSTES.dominioPermitido,
+  dominios: AJUSTES.dominiosPermitidos,
   correosAdmin: AJUSTES.correosAdmin,
 }
 
 /** Lo único del entorno que necesita la interfaz. */
 export const AJUSTES_AUTENTICACION = {
   usarEmuladores: AJUSTES.usarEmuladores,
-  dominioPermitido: AJUSTES.dominioPermitido,
+  dominiosPermitidos: AJUSTES.dominiosPermitidos,
   correosAdmin: AJUSTES.correosAdmin,
-  conMicrosoft: AJUSTES.tenantMicrosoft !== '',
+  conMicrosoft: hayIngresoMicrosoft(),
 } as const
 
-export function dominioPermitido(): string {
-  return AJUSTES.dominioPermitido
+/** "@clarovtr.cl o @claro.cl", para los textos de la pantalla de ingreso. */
+export function dominiosPermitidos(): string {
+  return textoDominios(AJUSTES.dominiosPermitidos)
 }
 
 export function puedeEntrar(email: string): boolean {
@@ -190,35 +192,9 @@ export async function ingresarConGoogle(): Promise<User> {
 }
 
 // --- Microsoft 365 -----------------------------------------------------------
-
-/**
- * Ingreso con la cuenta de Microsoft 365 (Office) de Claro.
- *
- * Solo lectura del perfil: se pide User.Read, que entrega nombre y correo, y
- * nada mas. La app no lee correo, calendario ni archivos, y no guarda el token
- * de Microsoft. El tenant se fija aca, pero lo que garantiza que solo entren
- * cuentas de Claro es que el registro de la aplicacion en Azure sea de un solo
- * inquilino (ver docs/ingreso-microsoft.md).
- */
-export async function ingresarConMicrosoft(): Promise<User> {
-  if (!AJUSTES.tenantMicrosoft) throw new Error('El ingreso con Microsoft no esta configurado')
-  const proveedor = new OAuthProvider('microsoft.com')
-  proveedor.addScope('User.Read')
-  proveedor.setCustomParameters({ tenant: AJUSTES.tenantMicrosoft, prompt: 'select_account' })
-  try {
-    const credencial = await signInWithPopup(auth, proveedor)
-    return credencial.user
-  } catch (e) {
-    if ((e as { code?: string }).code === 'auth/account-exists-with-different-credential') {
-      throw new Error(
-        'Tu correo ya entró antes con otro método (enlace por correo o Google). ' +
-          'Entra con ese método; un administrador puede unificarlo después.',
-        { cause: e },
-      )
-    }
-    throw e
-  }
-}
+// Vive en su propia capa: src/data/microsoft. Se reexporta para que la
+// interfaz siga entrando por este modulo.
+export { ingresarConMicrosoft } from './microsoft/identidad'
 
 // --- Atajo de desarrollo ---------------------------------------------------
 
