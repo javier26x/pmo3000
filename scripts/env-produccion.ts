@@ -33,10 +33,28 @@ interface ConfiguracionWeb {
 }
 
 function firebase(argumentos: string[]): unknown {
-  const salida = execFileSync('firebase', [...argumentos, '--project', ALIAS, '--json'], {
-    encoding: 'utf8',
-    maxBuffer: 10 * 1024 * 1024,
-  })
+  let salida: string
+  try {
+    salida = execFileSync('firebase', [...argumentos, '--project', ALIAS, '--json'], {
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+      // En Windows la CLI es firebase.cmd y solo se encuentra a traves del shell.
+      // Los argumentos son fijos (no vienen del usuario), asi que no hay inyeccion.
+      shell: process.platform === 'win32',
+    })
+  } catch (e) {
+    // En Windows con Node 24 la CLI a veces se cae al CERRAR (assertion de libuv)
+    // despues de haber escrito la respuesta completa. Si stdout trae un JSON con
+    // status "success", la respuesta es valida; cualquier otro caso es un error.
+    const stdout = (e as { stdout?: string }).stdout ?? ''
+    try {
+      const datos = JSON.parse(stdout) as { status?: string }
+      if (datos.status === 'success') return datos
+    } catch {
+      // stdout no era JSON: se relanza el error original.
+    }
+    throw e
+  }
   return JSON.parse(salida)
 }
 
