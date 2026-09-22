@@ -3,6 +3,7 @@ import {
   History,
   LayoutGrid,
   Map as MapaIcono,
+  SlidersHorizontal,
   Upload,
   Users,
   type LucideIcon,
@@ -24,4 +25,10 @@ export const NAVEGACION: ItemNavegacion[] = [
   { ruta: '/importar', etiqueta: 'Importar', icono: Upload, requiere: ['sitios', 'importar'] },
   { ruta: '/auditoria', etiqueta: 'Auditoria', icono: History, requiere: ['auditoria', 'ver'] },
   { ruta: '/usuarios', etiqueta: 'Usuarios', icono: Users, requiere: ['usuarios', 'editar'] },
+  {
+    ruta: '/configuracion',
+    etiqueta: 'Configuración',
+    icono: SlidersHorizontal,
+    requiere: ['gateTemplates', 'editar'],
+  },
 ]

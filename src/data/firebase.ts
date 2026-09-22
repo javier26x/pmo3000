@@ -20,6 +20,10 @@ export const AJUSTES = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? 'demo-api-key',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? 'demo-pmo3000.firebaseapp.com',
   appId: import.meta.env.VITE_FIREBASE_APP_ID ?? 'demo-app-id',
+  // Storage y Messaging no se usan en Fase 1; van en la configuración porque la
+  // subida de evidencias de Fase 2 los necesita y así no hay que volver acá.
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '',
   dominioPermitido: (import.meta.env.VITE_DOMINIO_PERMITIDO ?? 'claro.cl').toLowerCase(),
   puertoAuth: 9099,
   puertoFirestore: 8080,
@@ -30,7 +34,18 @@ export const app: FirebaseApp = initializeApp({
   authDomain: AJUSTES.authDomain,
   projectId: AJUSTES.projectId,
   appId: AJUSTES.appId,
+  ...(AJUSTES.storageBucket ? { storageBucket: AJUSTES.storageBucket } : {}),
+  ...(AJUSTES.messagingSenderId ? { messagingSenderId: AJUSTES.messagingSenderId } : {}),
 })
+
+// Red de seguridad: apuntar a un proyecto real creyendo estar en emuladores es
+// la forma más fácil de ensuciar la base de producción con datos de prueba.
+if (!AJUSTES.usarEmuladores && AJUSTES.projectId.startsWith('demo-')) {
+  console.warn(
+    `Firebase apunta al proyecto "${AJUSTES.projectId}" sin emuladores. ` +
+      'Un projectId "demo-" no existe en la nube: revisa tu archivo .env.',
+  )
+}
 
 export const auth: Auth = getAuth(app)
 

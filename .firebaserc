@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-pmo3000"
+    "default": "demo-pmo3000",
+    "produccion": "pmoclr"
   }
 }

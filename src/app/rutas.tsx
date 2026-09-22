@@ -18,6 +18,7 @@ import { PaginaSeguimiento } from '@/features/gates/PaginaSeguimiento'
 import { PaginaKanban } from '@/features/kanban/PaginaKanban'
 import { PaginaAuditoria } from '@/features/auditoria/PaginaAuditoria'
 import { PaginaUsuarios } from '@/features/admin/PaginaUsuarios'
+import { PaginaConfiguracion } from '@/features/admin/PaginaConfiguracion'
 
 /** Envuelve las rutas de la app con los proveedores de datos compartidos. */
 function AppProtegida() {
@@ -75,6 +76,14 @@ export function Rutas() {
             element={
               <RutaProtegida requiere={['usuarios', 'editar']}>
                 <PaginaUsuarios />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/configuracion"
+            element={
+              <RutaProtegida requiere={['gateTemplates', 'editar']}>
+                <PaginaConfiguracion />
               </RutaProtegida>
             }
           />

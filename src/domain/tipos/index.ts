@@ -1,5 +1,6 @@
 export * from './base'
 export * from './comunes'
+export * from './identificadores'
 export * from './usuario'
 export * from './organizacion'
 export * from './sitio'

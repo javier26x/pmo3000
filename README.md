@@ -102,79 +102,142 @@ ejercitar el importador a escala real.
 
 ---
 
-## 3. Crear el proyecto en Firebase (desde cero)
+## 3. Conectar con el proyecto real (`pmoclr`)
 
-> ### ⚠️ La región de Firestore es permanente
->
-> Se elige al crear la base de datos y **no se puede cambiar después**: para
-> moverla habría que crear otro proyecto y migrar los datos.
-> Prefiere **`southamerica-west1` (Santiago)**. Si no aparece en el selector,
-> usa **`southamerica-east1` (São Paulo)**.
+El repositorio ya trae dos destinos separados, para que no se pueda desplegar
+por accidente:
 
-> ### ⚠️ Los despliegues los ejecutas tú
->
-> Ningún comando de este repositorio hace `firebase deploy` por su cuenta.
+| Alias        | Proyecto       | Se usa en                                       |
+| ------------ | -------------- | ----------------------------------------------- |
+| `default`    | `demo-pmo3000` | emuladores (`npm run emu`, `npm run seed`)      |
+| `produccion` | `pmoclr`       | los comandos de despliegue, siempre nombrándolo |
 
-```bash
-# 1. Autenticarse (en un servidor sin navegador usa --no-localhost)
-firebase login
-# firebase login --no-localhost
+`npm run dev` lee `.env` (emuladores) y `npm run build` lee `.env.production`
+(proyecto real). Nunca se mezclan.
 
-# 2. Crear el proyecto (o créalo en https://console.firebase.google.com)
-firebase projects:create pmo-despliegue --display-name "PMO Despliegue"
+### 3.1 Recrear `.env.production`
 
-# 3. Apuntar este repositorio al proyecto
-firebase use --add          # elige pmo-despliegue y ponle el alias "produccion"
-```
-
-**En la consola web** hay tres pasos que no tienen comando:
-
-1. **Firestore Database → Crear base de datos** → modo producción → región
-   `southamerica-west1`. _(Esta es la elección irreversible.)_
-2. **Authentication → Sign-in method** → habilitar **Correo electrónico/contraseña**
-   y dentro de esa opción activar **Vínculo de correo (inicio de sesión sin contraseña)**.
-   Deja la contraseña deshabilitada si no la quieres.
-3. **Authentication → Settings → Dominios autorizados** → agrega el dominio donde
-   vas a publicar (por ejemplo `pmo-despliegue.web.app`).
-
-Después, registra una app web y copia la configuración a tu `.env`:
+Está en `.gitignore`, así que en una máquina nueva hay que crearlo. La
+configuración web de Firebase **no es secreta** —viaja en el bundle de cualquier
+app web y así está diseñada; lo que protege los datos son las reglas de
+Firestore— pero se deja fuera del repositorio para que nadie la confunda con una
+credencial.
 
 ```bash
-firebase apps:create web "PMO3000"
-firebase apps:sdkconfig web        # copia los valores al .env
-```
-
-`.env` apuntando a la nube:
-
-```bash
+cat > .env.production << 'EOF'
 VITE_USAR_EMULADORES=false
-VITE_FIREBASE_PROJECT_ID=pmo-despliegue
-VITE_FIREBASE_API_KEY=AIza...
-VITE_FIREBASE_AUTH_DOMAIN=pmo-despliegue.firebaseapp.com
-VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+VITE_FIREBASE_PROJECT_ID=pmoclr
+VITE_FIREBASE_API_KEY=AIzaSyDsYXf-hL7i0bc78RPPePD1VMf5spJjPhs
+VITE_FIREBASE_AUTH_DOMAIN=pmoclr.firebaseapp.com
+VITE_FIREBASE_APP_ID=1:311927873870:web:9f01dafcd4307ee7593e1f
+VITE_FIREBASE_STORAGE_BUCKET=pmoclr.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=311927873870
 VITE_DOMINIO_PERMITIDO=claro.cl
+EOF
 ```
 
-### Publicar
+### 3.2 Autenticarse
 
 ```bash
-# Reglas e índices primero: sin ellos la app no puede leer nada
-npm run deploy:rules
-
-# Hosting (hace el build antes)
-npm run deploy:hosting
+npm install -g firebase-tools
+firebase login
+# En un servidor sin navegador:
+# firebase login --no-localhost
 ```
 
-### El primer administrador
+### 3.3 Crear la base de datos de Firestore
+
+> ### ⚠️ La región es permanente
+>
+> Se elige al crear la base y **no se puede cambiar después**: para moverla hay
+> que crear otro proyecto y migrar los datos. Elige **`southamerica-west1`
+> (Santiago)**; si no aparece en el selector, **`southamerica-east1` (São Paulo)**.
+
+Primero revisa si ya existe y en qué región quedó:
+
+```bash
+firebase firestore:databases:list --project pmoclr
+```
+
+Si no existe, créala. Desde la consola es **Firestore Database → Crear base de
+datos → modo producción → región**, o por línea de comandos:
+
+```bash
+firebase firestore:databases:create "(default)"   --location southamerica-west1 --project pmoclr
+```
+
+### 3.4 Habilitar el ingreso por correo
+
+Esto no tiene comando; va en la consola de Firebase, proyecto `pmoclr`:
+
+1. **Authentication → Sign-in method → Correo electrónico/contraseña**: habilítalo
+   y, dentro de esa misma opción, activa **Vínculo de correo (inicio de sesión sin
+   contraseña)**. Puedes dejar la contraseña deshabilitada: la app usa el enlace.
+2. **Authentication → Settings → Dominios autorizados**: `pmoclr.web.app` y
+   `pmoclr.firebaseapp.com` ya vienen autorizados. Agrega aquí tu dominio propio
+   si vas a publicar en uno.
+
+### 3.5 Desplegar
+
+> Ningún comando del repositorio despliega solo: estos los ejecutas tú.
+
+**Las reglas y los índices van primero.** Sin ellos la app no puede leer nada, y
+la pantalla de auditoría necesita índices compuestos que hay que crear antes de
+usarla.
+
+```bash
+npm run deploy:rules      # reglas + índices
+npm run deploy:hosting    # build + hosting
+```
+
+O ambas cosas de una:
+
+```bash
+npm run deploy
+```
+
+Queda publicada en <https://pmoclr.web.app>.
+
+### 3.6 El primer administrador
 
 Toda persona que entra por primera vez queda con rol **lector** — así lo exigen
-las reglas de seguridad, para que nadie se autoasigne permisos. El primer admin
-se promueve a mano, una sola vez:
+las reglas, para que nadie se autoasigne permisos. El primer admin se promueve a
+mano, una sola vez:
 
-1. Entra a la app con tu correo `@claro.cl` (se crea tu perfil como lector).
-2. En la consola de Firebase → **Firestore → colección `usuarios`** → busca tu
+1. Entra a la app con tu correo `@claro.cl`. Te llega el enlace de ingreso y, al
+   abrirlo, se crea tu perfil como lector.
+2. Consola de Firebase → **Firestore → colección `usuarios`** → busca tu
    documento (el id es tu UID) y cambia `rol` de `lector` a `admin`.
-3. Recarga la app. Desde ahí administras los demás roles en **Usuarios**.
+3. Recarga la app: desde ahí administras los demás roles en **Usuarios**.
+
+### 3.7 Dejar la base lista (desde la app, no desde la consola)
+
+La base parte vacía: el seed es solo para emuladores y nunca escribe en la nube
+(aborta si el projectId no empieza con `demo-`). Todo lo que hace falta se crea
+desde **Configuración**, que solo ve un administrador, en este orden:
+
+1. **Plantilla de gates** → botón _Crear la plantilla estándar_. Deja lista la
+   secuencia TCSR → FC → RFI → Implementación → D+1 → D+7 → SSV con sus 29
+   entregables. Sin ella ningún sitio puede entrar en seguimiento.
+2. **Portafolio** → ej. «Portafolio Despliegue 2026».
+3. **Programas** → ej. «Plan 200 sitios nuevos». Ojo: el nombre que pongas aquí
+   es el que la importación busca en la columna _Programa_ de tu planilla.
+4. **Proyectos** → el tramo de cada programa al que se incorporan los sitios.
+5. **Células** y **Proveedores** → se pueden agregar cuando quieras; los
+   proveedores hacen falta antes de dar de alta usuarios con rol contratista.
+
+Los identificadores se generan legibles a partir del nombre
+(`prog-plan-200-sitios-nuevos`), así que la consola de Firestore y la auditoría
+se leen sin tener que traducir.
+
+Después, **Importar** carga el maestro de sitios desde tu Excel o CSV.
+
+### 3.8 App Check, antes de los datos reales
+
+La clave de API es pública por diseño (viaja en el bundle de cualquier app web).
+Lo que impide que alguien use tu backend desde fuera de tu aplicación no es
+esconderla, sino **App Check**. Está en la lista de Fase 3, y vale la pena
+activarlo antes de que la herramienta tenga el despliegue completo cargado.
 
 ---
 

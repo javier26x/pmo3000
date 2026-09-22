@@ -9,6 +9,7 @@ import {
   Moon,
   Rows3,
   Search,
+  SlidersHorizontal,
   Sun,
   Upload,
   Users,
@@ -133,6 +134,14 @@ export function PaletaComandos({ onCerrar }: { onCerrar: () => void }) {
         atajo: 'G U',
         requiere: ['usuarios', 'editar'],
         ejecutar: () => navegar('/usuarios'),
+      },
+      {
+        id: 'ir-configuracion',
+        titulo: 'Configuración: gates, programas y proyectos',
+        grupo: 'Navegación',
+        icono: <SlidersHorizontal aria-hidden className="size-4" />,
+        requiere: ['gateTemplates', 'editar'],
+        ejecutar: () => navegar('/configuracion'),
       },
       {
         id: 'atrasados',

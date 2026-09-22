@@ -35,6 +35,16 @@ export function Dialogo({
 
   useEffect(() => {
     const dialogo = ref.current
+    // Si el componente se desmonta con el diálogo abierto, el navegador lo deja
+    // colgado en la capa superior: la página queda inerte y el siguiente
+    // showModal() no hace nada. Cerrarlo al desmontar evita ese estado zombi.
+    return () => {
+      if (dialogo?.open) dialogo.close()
+    }
+  }, [])
+
+  useEffect(() => {
+    const dialogo = ref.current
     if (!dialogo) return
     const alCancelar = (e: Event) => {
       e.preventDefault()
