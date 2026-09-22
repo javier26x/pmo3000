@@ -7,6 +7,14 @@ import { semaforo, textoAtraso } from '@/domain/gates/atraso'
 import { NOMBRES_PRIORIDAD } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
+import { textoSla, type EstadoSla, type MedicionSla } from '@/domain/sla'
+
+/** Color del texto de SLA: solo lo que pide atencion se destaca. */
+const CLASE_SLA: Partial<Record<EstadoSla, string>> = {
+  vencido: 'font-semibold text-[var(--error-fg)]',
+  por_vencer: 'text-[var(--riesgo-fg)]',
+  en_plazo: 'text-texto-2',
+}
 
 const TONO_SEMAFORO = {
   atrasado: 'error',
@@ -34,6 +42,8 @@ export interface DatosFila {
   nombrePrograma: string
   nombreProveedor: string
   nombreResponsable: string
+  /** SLA de la etapa actual, con la configuracion del proyecto. */
+  sla: MedicionSla
   hoy: string
 }
 
@@ -155,6 +165,11 @@ export function FilaSeguimiento({
           {textoAtraso(dias)}
         </span>
       </Celda>
+      <Celda alineacion="derecha">
+        <span className={cn('tabular-nums', CLASE_SLA[datos.sla.estado] ?? 'text-texto-3')}>
+          {textoSla(datos.sla)}
+        </span>
+      </Celda>
       <Celda>
         <Insignia tono={TONO_SEMAFORO[estado]}>{TEXTO_SEMAFORO[estado]}</Insignia>
       </Celda>
@@ -206,6 +221,9 @@ export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
         >
           {textoAtraso(dias)}
         </span>
+        {datos.sla.estado !== 'sin_sla' && datos.sla.estado !== 'cerrado' && (
+          <span className={CLASE_SLA[datos.sla.estado]}>SLA {textoSla(datos.sla)}</span>
+        )}
       </div>
     </Link>
   )
@@ -219,7 +237,7 @@ export function FilaEsqueleto({ columnas }: { columnas: number }) {
         <Celda key={i}>
           <span
             className="esqueleto block h-3 rounded"
-            style={{ width: `${[60, 80, 55, 70, 40, 65, 50, 45, 60, 55, 45][i] ?? 60}%` }}
+            style={{ width: `${[60, 80, 55, 70, 40, 65, 50, 50, 45, 60, 55, 45][i] ?? 60}%` }}
           />
         </Celda>
       ))}

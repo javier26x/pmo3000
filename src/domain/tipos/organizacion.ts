@@ -86,6 +86,18 @@ export const esquemaProyecto = z
       .object({ planes: z.array(z.string()), soloVigentes: z.boolean() })
       .nullable()
       .default(null),
+    /**
+     * Dias que puede estar un sitio en cada etapa, con excepciones por celula
+     * (ver domain/sla). null: el proyecto no mide SLA.
+     */
+    sla: z
+      .object({
+        dias: z.record(z.string(), z.number()),
+        porCelula: z.record(z.string(), z.record(z.string(), z.number())),
+        habiles: z.boolean(),
+      })
+      .nullable()
+      .default(null),
   })
   .extend(esquemaSellos.shape)
 export type Proyecto = z.infer<typeof esquemaProyecto>

@@ -21,6 +21,7 @@ import { recordarSitio } from '@/app/PaletaComandos'
 import type { CampoOrden } from '@/domain/vistas/filtrado'
 import { BarraFiltros } from './BarraFiltros'
 import { EmbudoGates } from './EmbudoGates'
+import { useMedidorSla } from '@/hooks/useSla'
 import {
   FilaEsqueleto,
   FilaSeguimiento,
@@ -36,6 +37,7 @@ const COLUMNAS: { campo: CampoOrden | null; etiqueta: string; alineacion?: 'dere
   { campo: 'gate', etiqueta: 'Gate' },
   { campo: 'plan', etiqueta: 'Fecha plan', alineacion: 'derecha' },
   { campo: 'atraso', etiqueta: 'Desviación', alineacion: 'derecha' },
+  { campo: null, etiqueta: 'SLA etapa', alineacion: 'derecha' },
   { campo: null, etiqueta: 'Estado' },
   { campo: null, etiqueta: 'Proveedor' },
   { campo: null, etiqueta: 'Responsable' },
@@ -46,6 +48,7 @@ export function PaginaSitios() {
   const { puedeHacer } = useSesion()
   const { nombrePrograma, nombreProveedor, nombreUsuario } = useCatalogos()
   const { visibles, cargando, error, hoy, seguimientos } = useDespliegue()
+  const medirSla = useMedidorSla()
   const { orden, alternarOrden } = useFiltros()
   const esMovil = useEsMovil()
   useTituloPagina('Sitios')
@@ -60,9 +63,10 @@ export function PaginaSitios() {
         nombrePrograma: nombrePrograma(sp.programaId),
         nombreProveedor: nombreProveedor(sp.proveedorId),
         nombreResponsable: nombreUsuario(sp.responsableUid),
+        sla: medirSla(sp, hoy),
         hoy,
       })),
-    [visibles, nombrePrograma, nombreProveedor, nombreUsuario, hoy],
+    [visibles, nombrePrograma, nombreProveedor, nombreUsuario, medirSla, hoy],
   )
 
   // Virtualización: con 4.500 filas, el DOM completo hace inusable el scroll.

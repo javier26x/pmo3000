@@ -46,6 +46,7 @@ import type {
 } from '@/domain/tipos'
 import type { Actor } from '@/domain/tipos/comunes'
 import type { TipoEntidad } from '@/domain/tipos/auditoria'
+import { describirSla } from '@/domain/sla'
 import {
   analizarCambios,
   evaluarImpacto,
@@ -313,6 +314,44 @@ export const guardarFiltroTracker = (
     false,
     proyecto,
   )
+
+/**
+ * Guarda el SLA por etapa (y por celula) de un proyecto. Queda en la auditoria.
+ *
+ * Con update y no con el set con merge de guardarCatalogo: merge fusiona los
+ * mapas anidados, y quitar el plazo de una etapa no lo borraria.
+ */
+export async function guardarSlaProyecto(
+  proyecto: Proyecto,
+  sla: Proyecto['sla'],
+  actor: Actor,
+): Promise<void> {
+  const batch = writeBatch(db)
+  batch.update(doc(db, COLECCIONES.proyectos, proyecto.id), {
+    sla,
+    actualizadoEn: serverTimestamp(),
+    actualizadoPor: actor.uid,
+  })
+  agregarEventos(
+    batch,
+    [
+      {
+        entidadTipo: 'proyecto',
+        entidadId: proyecto.id,
+        sitioId: null,
+        proyectoId: proyecto.id,
+        programaId: proyecto.programaId,
+        accion: 'actualizar',
+        campo: 'sla',
+        valorAnterior: describirSla(proyecto.sla),
+        valorNuevo: describirSla(sla),
+        detalle: COLECCIONES.proyectos,
+      },
+    ],
+    actor,
+  )
+  await batch.commit()
+}
 
 /**
  * Crea o actualiza una plantilla de gates.

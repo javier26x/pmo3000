@@ -421,8 +421,13 @@
     border-left: 1px solid var(--vidrio-divisor);
   }
   @media (max-width: 639px) {
-    .cifra-inicio:nth-child(3) {
+    .cifra-inicio:nth-child(3),
+    .cifra-inicio:nth-child(5) {
       border-left: 0;
+    }
+    /* Con SLA hay una quinta cifra: ocupa la fila entera en vez de dejar un hueco. */
+    .cifra-inicio:nth-child(5) {
+      grid-column: span 2;
     }
     .cifra-inicio:nth-child(n + 3) {
       border-top: 1px solid var(--vidrio-divisor);

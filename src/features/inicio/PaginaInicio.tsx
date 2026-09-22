@@ -10,6 +10,7 @@ import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useDespliegue } from '@/hooks/useDespliegue'
+import { useMedidorSla, type MedidorSla } from '@/hooks/useSla'
 import { useSesion } from '@/hooks/useSesion'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 
@@ -40,18 +41,21 @@ interface Resumen {
   porVencer: number
   bloqueados: number
   cerrados: number
+  /** Llevan en su etapa mas dias que el SLA de su proyecto. */
+  fueraSla: number
   porGate: Map<GateActual, number>
   /** Lo que hay que mirar hoy: atrasados primero, luego lo que vence pronto. */
   urgentes: { sp: SitioProyecto; dias: number }[]
 }
 
-function resumir(lista: readonly SitioProyecto[], hoy: string): Resumen {
+function resumir(lista: readonly SitioProyecto[], hoy: string, medirSla: MedidorSla): Resumen {
   const porGate = new Map<GateActual, number>()
   const urgentes: Resumen['urgentes'] = []
   let atrasados = 0
   let porVencer = 0
   let bloqueados = 0
   let cerrados = 0
+  let fueraSla = 0
 
   let total = 0
   for (const sp of lista) {
@@ -61,6 +65,7 @@ function resumir(lista: readonly SitioProyecto[], hoy: string): Resumen {
     total += 1
     porGate.set(sp.gateActual, (porGate.get(sp.gateActual) ?? 0) + 1)
     if (sp.bloqueado) bloqueados += 1
+    if (medirSla(sp, hoy).estado === 'vencido') fueraSla += 1
     if (sp.gateActual === CERRADO) {
       cerrados += 1
       continue
@@ -81,6 +86,7 @@ function resumir(lista: readonly SitioProyecto[], hoy: string): Resumen {
     porVencer,
     bloqueados,
     cerrados,
+    fueraSla,
     porGate,
     urgentes: urgentes.slice(0, 7),
   }
@@ -95,9 +101,11 @@ export function PaginaInicio() {
   useTituloPagina('Inicio')
   const { perfil } = useSesion()
   const { seguimientos, cargando, completando, hoy } = useDespliegue()
-  const { etapas } = useCatalogos()
+  const { etapas, proyectos } = useCatalogos()
 
-  const r = useMemo(() => resumir(seguimientos, hoy), [seguimientos, hoy])
+  const medirSla = useMedidorSla()
+  const conSla = proyectos.some((p) => p.sla !== null)
+  const r = useMemo(() => resumir(seguimientos, hoy, medirSla), [seguimientos, hoy, medirSla])
 
   const recientes = useMemo(() => {
     const porSitio = new Map<string, SitioProyecto>()
@@ -143,7 +151,10 @@ export function PaginaInicio() {
         {/* Cifras: cada una abre la tabla con ese recorte. */}
         <section
           aria-label="Resumen"
-          className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl sm:grid-cols-4 lente"
+          className={cn(
+            'grid grid-cols-2 gap-px overflow-hidden rounded-2xl lente',
+            conSla ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
+          )}
         >
           <Cifra
             etiqueta="Atrasados"
@@ -167,6 +178,15 @@ export function PaginaInicio() {
             a={`/sitios?gate=${CERRADO}`}
             cargando={cargando}
           />
+          {conSla && (
+            <Cifra
+              etiqueta="Fuera de SLA"
+              valor={r.fueraSla}
+              tono="error"
+              a="/sitios?sla=1"
+              cargando={cargando}
+            />
+          )}
         </section>
 
         {/* Firma: la franja del despliegue. El ancho de cada tramo es su peso. */}

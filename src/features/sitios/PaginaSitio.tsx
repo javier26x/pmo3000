@@ -15,6 +15,7 @@ import {
   Insignia,
   InsigniaGate,
   Metrica,
+  cn,
 } from '@/components/ui'
 import { avisar, mensajeDeError } from '@/app/avisos'
 import { contarReferencias } from '@/data/repos/catalogos'
@@ -29,6 +30,8 @@ import { formatearFecha, formatearFechaHora, hoyEnChile } from '@/domain/fechas'
 import { textoAtraso } from '@/domain/gates/atraso'
 import { nombreGate } from '@/domain/gates/catalogo'
 import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
+import { textoSla } from '@/domain/sla'
+import { useMedidorSla } from '@/hooks/useSla'
 import { esquemaSitioNuevo, estaEnChile, type Sitio, type SitioNuevo } from '@/domain/tipos/sitio'
 import type { Actor } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
@@ -60,6 +63,7 @@ export function PaginaSitio() {
   const actor = useActor()
   const { puedeHacer } = useSesion()
   const { nombrePrograma, nombreProyecto, nombreProveedor, etapas } = useCatalogos()
+  const medirSla = useMedidorSla()
   const [carpeta, setCarpeta] = useState<string | null>(null)
   const [editando, setEditando] = useState(false)
   const [eliminando, setEliminando] = useState(false)
@@ -211,6 +215,7 @@ export function PaginaSitio() {
                 {participaciones.datos.map((sp) => {
                   const dias = atrasoDeSeguimiento(sp, hoy)
                   const gate = sp.gateActual === 'CERRADO' ? null : sp.gates[sp.gateActual]
+                  const sla = medirSla(sp, hoy)
                   return (
                     <li
                       key={sp.id}
@@ -220,17 +225,38 @@ export function PaginaSitio() {
                         <p className="text-sm font-medium">{nombrePrograma(sp.programaId)}</p>
                         <p className="text-xs text-texto-2">{nombreProyecto(sp.proyectoId)}</p>
                       </div>
-                      <InsigniaGate gate={sp.gateActual} estado={sp.estadoGate} />
-                      <div className="text-xs text-texto-2">
-                        <p>Plan {formatearFecha(gate?.fechaPlan ?? null)}</p>
-                        <p className={dias !== null && dias > 0 ? 'text-[var(--error-fg)]' : ''}>
-                          {textoAtraso(dias)}
-                        </p>
-                      </div>
-                      <div className="text-xs text-texto-2">
-                        <p>{nombreProveedor(sp.proveedorId)}</p>
-                        <p>{nombreGate(sp.gateActual, etapas)}</p>
-                      </div>
+                      <span className="flex items-center gap-1.5 text-xs text-texto-2">
+                        <InsigniaGate gate={sp.gateActual} estado={sp.estadoGate} />
+                        {nombreGate(sp.gateActual, etapas)}
+                      </span>
+                      {/* Solo lo que tiene dato: una fila de guiones no dice nada. */}
+                      {gate?.fechaPlan && (
+                        <div className="text-xs text-texto-2">
+                          <p>Plan {formatearFecha(gate.fechaPlan)}</p>
+                          <p className={dias !== null && dias > 0 ? 'text-[var(--error-fg)]' : ''}>
+                            {textoAtraso(dias)}
+                          </p>
+                        </div>
+                      )}
+                      {sla.estado !== 'sin_sla' && sla.estado !== 'cerrado' && (
+                        <span
+                          className={cn(
+                            'text-xs',
+                            sla.estado === 'vencido'
+                              ? 'font-semibold text-[var(--error-fg)]'
+                              : sla.estado === 'por_vencer'
+                                ? 'text-[var(--riesgo-fg)]'
+                                : 'text-texto-2',
+                          )}
+                        >
+                          SLA {textoSla(sla)}
+                        </span>
+                      )}
+                      {sp.proveedorId && (
+                        <span className="text-xs text-texto-2">
+                          {nombreProveedor(sp.proveedorId)}
+                        </span>
+                      )}
                       <EnlaceBoton to={`/seguimiento/${encodeURIComponent(sp.id)}`} tamano="sm">
                         Abrir ficha
                       </EnlaceBoton>

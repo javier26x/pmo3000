@@ -24,6 +24,7 @@ import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useFiltros } from './useFiltros'
 import { useSesion } from './useSesion'
 import { useSuscripcion } from './useSuscripcion'
+import { useMedidorSla } from './useSla'
 
 /** Lo mínimo de un sitio que necesita la paleta de comandos. */
 export interface SitioMinimo {
@@ -94,6 +95,7 @@ export function ProveedorDespliegue({ children }: { children: ReactNode }) {
   const { actor } = useSesion()
   const pausado = usarPausaDespliegue((e) => e.pausado)
   const { servidor, vista, orden } = useFiltros()
+  const medirSla = useMedidorSla()
 
   // Los filtros de servidor se serializan para que la suscripcion se rearme solo
   // cuando cambian de verdad, y no en cada render por ser un objeto nuevo.
@@ -156,9 +158,10 @@ export function ProveedorDespliegue({ children }: { children: ReactNode }) {
     // Mientras la consulta completa no llegue, se trabaja sobre la tanda corta.
     const completo = completoListo
     const datos = completo ? resCompleto.datos : resRapido.datos
-    const filtrados = filtrarSeguimientos(datos, vista, hoy)
+    const fueraDeSla = (sp: SitioProyecto) => medirSla(sp, hoy).estado === 'vencido'
+    const filtrados = filtrarSeguimientos(datos, vista, hoy, fueraDeSla)
     const sinFiltroGate = vista.gateActual
-      ? filtrarSeguimientos(datos, { ...vista, gateActual: null }, hoy)
+      ? filtrarSeguimientos(datos, { ...vista, gateActual: null }, hoy, fueraDeSla)
       : filtrados
 
     // Un sitio puede estar en varios proyectos: para buscarlo basta una entrada.
@@ -193,7 +196,7 @@ export function ProveedorDespliegue({ children }: { children: ReactNode }) {
       ),
       hoy,
     }
-  }, [resRapido, resCompleto, completoListo, completoArmado, vista, orden])
+  }, [resRapido, resCompleto, completoListo, completoArmado, vista, orden, medirSla])
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>
 }

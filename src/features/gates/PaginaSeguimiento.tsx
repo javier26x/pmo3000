@@ -3,6 +3,7 @@ import { useParams } from 'react-router'
 import {
   ArrowRight,
   ArrowLeft,
+  ChevronRight,
   ExternalLink,
   Lock,
   MapPin,
@@ -57,6 +58,8 @@ import { useCatalogos } from '@/hooks/useCatalogos'
 import { AdministrarSeguimiento } from './AdministrarSeguimiento'
 import { EsqueletoFicha } from './EsqueletoFicha'
 import { Historial } from './Historial'
+import { useMedidorSla } from '@/hooks/useSla'
+import { textoSla } from '@/domain/sla'
 import { LineaGates } from './LineaGates'
 import { PanelChecklist, type AccionChecklist } from './PanelChecklist'
 import { PanelRevisiones } from './PanelRevisiones'
@@ -82,6 +85,7 @@ export function PaginaSeguimiento() {
   const { datos: sp, cargando, error } = useSeguimiento(seguimientoId)
   const historial = useHistorial(seguimientoId)
   const comentarios = useComentarios(seguimientoId)
+  const medirSla = useMedidorSla()
 
   const [gateElegido, setGateElegido] = useState<CodigoGate | null>(null)
   const [pestana, setPestana] = useState<PestanaLateral>('historial')
@@ -173,6 +177,7 @@ export function PaginaSeguimiento() {
   const gateActual = sp.gateActual === CERRADO ? null : sp.gates[sp.gateActual]
   const dias = diasAtraso(gateActual?.fechaPlan ?? null, gateActual?.fechaReal ?? null, hoy)
   const avance = porcentajeAvance(sp, plantilla)
+  const sla = medirSla(sp, hoy)
   // Hay algo a que volver si el gate actual tiene uno anterior en la secuencia
   // de ESTE documento (desde CERRADO, la ultima etapa). No se asume ningun
   // proceso en particular.
@@ -288,6 +293,19 @@ export function PaginaSeguimiento() {
             valor={textoAtraso(dias)}
             tono={dias !== null && dias > 0 ? 'error' : 'neutro'}
           />
+          {sla.estado !== 'sin_sla' && sla.estado !== 'cerrado' && (
+            <Metrica
+              etiqueta="SLA de la etapa"
+              valor={textoSla(sla)}
+              tono={
+                sla.estado === 'vencido'
+                  ? 'error'
+                  : sla.estado === 'por_vencer'
+                    ? 'riesgo'
+                    : 'neutro'
+              }
+            />
+          )}
           <Metrica etiqueta="Prioridad" valor={NOMBRES_PRIORIDAD[sp.prioridad]} />
         </div>
       </CabeceraPantalla>
@@ -309,10 +327,16 @@ export function PaginaSeguimiento() {
           </Aviso>
         )}
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)_minmax(260px,340px)]">
+        {/* En pantalla ancha: secuencia | gate + datos del tracker | asignacion e
+            historial. La columna derecha queda arriba: antes, con un tracker
+            importado, los datos del tracker ocupaban la tercera columna y la
+            asignacion y el historial caian a una fila nueva, varios scroll abajo.
+            En pantalla angosta el orden del DOM ya deja la asignacion antes de
+            los ~130 campos del tracker. */}
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_minmax(260px,340px)] lg:grid-rows-[auto_1fr]">
           <section
             aria-label="Secuencia de gates"
-            className="rounded border border-borde bg-superficie p-2"
+            className="rounded border border-borde bg-superficie p-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:self-start"
           >
             <h2 className="px-2 pb-1 text-xs font-semibold text-texto-2">Secuencia de gates</h2>
             {gateVisible && (
@@ -328,7 +352,7 @@ export function PaginaSeguimiento() {
 
           <section
             aria-label="Avance del gate"
-            className="rounded border border-borde bg-superficie p-3"
+            className="rounded border border-borde bg-superficie p-3 lg:col-start-2 lg:row-start-1"
           >
             <h2 className="mb-2 text-xs font-semibold text-texto-2">
               {gateVisible ? nombreGate(gateVisible, etapas) : ''}
@@ -367,17 +391,7 @@ export function PaginaSeguimiento() {
             )}
           </section>
 
-          {plantilla.campos.length > 0 && (
-            <section
-              aria-label="Campos del tracker"
-              className="rounded border border-borde bg-superficie p-3"
-            >
-              <h2 className="mb-2 text-xs font-semibold text-texto-2">Datos del tracker</h2>
-              <PanelCampos sp={sp} campos={plantilla.campos} />
-            </section>
-          )}
-
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:self-start">
             <section
               aria-label="Asignacion"
               className="rounded border border-borde bg-superficie p-3"
@@ -553,6 +567,25 @@ export function PaginaSeguimiento() {
               )}
             </section>
           </div>
+
+          {plantilla.campos.length > 0 && (
+            <details
+              open
+              aria-label="Campos del tracker"
+              className="group rounded border border-borde bg-superficie lg:col-start-2 lg:row-start-2 lg:self-start"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-texto-2 select-none">
+                <ChevronRight
+                  aria-hidden
+                  className="size-3.5 transition-transform group-open:rotate-90"
+                />
+                Datos del tracker
+              </summary>
+              <div className="border-t border-borde p-3">
+                <PanelCampos sp={sp} campos={plantilla.campos} />
+              </div>
+            </details>
+          )}
         </div>
       </div>
 

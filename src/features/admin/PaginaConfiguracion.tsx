@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   ShieldCheck,
+  Timer,
   Trash2,
   Truck,
   Users2,
@@ -65,6 +66,7 @@ import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { DialogoEliminar } from './DialogoEliminar'
 import { EditorPlantilla } from './EditorPlantilla'
 import { ProtegerSecuencias } from './ProtegerSecuencias'
+import { EditorSla } from './EditorSla'
 
 /** Plantilla abierta en el editor. `original` null es un alta o un duplicado. */
 interface EdicionPlantilla {
@@ -166,6 +168,7 @@ export function PaginaConfiguracion() {
   const [creandoPlantilla, setCreandoPlantilla] = useState(false)
   const [editandoPlantilla, setEditandoPlantilla] = useState<EdicionPlantilla | null>(null)
   const [eliminandoPlantilla, setEliminandoPlantilla] = useState<GateTemplate | null>(null)
+  const [slaDe, setSlaDe] = useState<Proyecto | null>(null)
 
   const puedeEditarPlantillas = puedeHacer('gateTemplates', 'editar')
   const plantillaEstandar = plantillas.find((p) => p.id === PLANTILLA_ESTANDAR.id)
@@ -416,6 +419,8 @@ export function PaginaConfiguracion() {
                 ...acciones({ tipo: 'proyecto', item: p }, () =>
                   setEdicion({ tipo: 'proyecto', existente: p }),
                 ),
+                ...(puedeHacer('proyectos', 'editar') ? { onSla: () => setSlaDe(p) } : {}),
+                ...(p.sla ? { conSla: true } : {}),
               }))}
               vacio={programas.length === 0 ? 'Crea primero un programa.' : 'Sin proyectos.'}
             />
@@ -510,6 +515,18 @@ export function PaginaConfiguracion() {
           generarId={editandoPlantilla.idDesdeNombre ? idNuevaPlantilla : undefined}
           actor={actor}
           onCerrar={() => setEditandoPlantilla(null)}
+        />
+      )}
+
+      {slaDe && (
+        <EditorSla
+          key={slaDe.id}
+          proyecto={slaDe}
+          programas={programas}
+          plantillas={plantillas}
+          celulas={celulas}
+          actor={actor}
+          onCerrar={() => setSlaDe(null)}
         />
       )}
 
@@ -642,6 +659,10 @@ interface ItemLista {
   insignia?: { texto: string; tono: TonoInsignia } | undefined
   onEditar?: () => void
   onEliminar?: () => void
+  /** Proyectos: abre el SLA por etapa y celula. */
+  onSla?: () => void
+  /** El proyecto ya tiene SLA configurado. */
+  conSla?: boolean
 }
 
 function Lista({
@@ -667,6 +688,18 @@ function Lista({
           <span className="ml-auto flex min-w-0 items-center gap-1">
             {item.detalle && (
               <span className="mr-1 truncate text-xs text-texto-2">{item.detalle}</span>
+            )}
+            {item.onSla && (
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                aria-label={`SLA de ${item.titulo}`}
+                title="SLA por etapa y célula"
+                onClick={item.onSla}
+                icono={<Timer aria-hidden className="size-3.5" />}
+              >
+                {item.conSla ? 'SLA' : 'Definir SLA'}
+              </Boton>
             )}
             {item.onEditar && (
               <Boton

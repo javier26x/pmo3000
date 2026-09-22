@@ -86,6 +86,14 @@ cada re-importación. Una fila que no lo cumple no se importa, salvo que su
 sitio ya esté en el proyecto: entonces se actualiza como no vigente (salió del
 plan) en vez de quedar congelado. `null`: entra el archivo completo.
 
+**`sla`** — `{ dias: {etapa: n}, porCelula: {celulaId: {etapa: n}}, habiles } |
+null`. Cuántos días puede estar un sitio en cada etapa secuencial, con
+excepciones por célula (la de la célula del sitio manda sobre la general). Se
+mide desde la fecha real de cierre de la etapa anterior, en días corridos o
+hábiles (ver `domain/sla`). Lo editan admin y jefe desde Configuración →
+Proyectos → SLA. Se guarda con `update` (no con `set` + merge) para que quitar
+el plazo de una etapa lo borre de verdad.
+
 ---
 
 ## Sitios: maestro y participación

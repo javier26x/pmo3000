@@ -136,8 +136,29 @@ export function normalizarProyecto(id: string, d: DocumentData): Proyecto {
     fechaFin: fechaISO(d.fechaFin),
     estado: enumerado(d.estado, ESTADOS_PROGRAMA, 'en_curso'),
     filtroTracker: normalizarFiltroTracker(d.filtroTracker),
+    sla: normalizarSla(d.sla),
     ...sellos(d),
   }
+}
+
+/** Solo dias enteros positivos: un plazo roto se lee como "sin SLA", no como 0. */
+function diasPorEtapa(valor: unknown): Record<string, number> {
+  const dias: Record<string, number> = {}
+  for (const [etapa, n] of Object.entries(objeto(valor))) {
+    if (typeof n === 'number' && Number.isInteger(n) && n > 0) dias[etapa] = n
+  }
+  return dias
+}
+
+function normalizarSla(valor: unknown): Proyecto['sla'] {
+  if (valor === null || typeof valor !== 'object') return null
+  const d = objeto(valor)
+  const porCelula: Record<string, Record<string, number>> = {}
+  for (const [celula, dias] of Object.entries(objeto(d.porCelula))) {
+    const limpios = diasPorEtapa(dias)
+    if (Object.keys(limpios).length > 0) porCelula[celula] = limpios
+  }
+  return { dias: diasPorEtapa(d.dias), porCelula, habiles: booleano(d.habiles, false) }
 }
 
 function normalizarFiltroTracker(valor: unknown): Proyecto['filtroTracker'] {

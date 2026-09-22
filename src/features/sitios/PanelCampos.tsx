@@ -49,7 +49,7 @@ export function PanelCampos({
               "W TSS Aprobación Implementación" y un panel lateral angosto, una
               etiqueta en columna fija se come todo el ancho y el valor —que es
               lo que se viene a leer— queda cortado o invisible. */}
-          <dl className="grid gap-x-6 gap-y-2 @md:grid-cols-2">
+          <dl className="grid gap-x-6 gap-y-2 @md:grid-cols-2 @3xl:grid-cols-3">
             {lista.map((campo) => (
               <div key={campo.id} className="min-w-0">
                 <dt className="truncate text-xs text-texto-3" title={campo.nombre}>

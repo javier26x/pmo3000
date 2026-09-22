@@ -49,7 +49,7 @@ interface DefinicionFiltro {
 }
 
 interface FiltroBooleano {
-  clave: 'soloAtrasados' | 'soloBloqueados'
+  clave: 'soloAtrasados' | 'soloBloqueados' | 'soloFueraSla'
   etiqueta: string
   activo: boolean
 }
@@ -204,6 +204,7 @@ export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
   const booleanos: FiltroBooleano[] = [
     { clave: 'soloAtrasados', etiqueta: 'Solo atrasados', activo: vista.soloAtrasados },
     { clave: 'soloBloqueados', etiqueta: 'Solo bloqueados', activo: vista.soloBloqueados },
+    { clave: 'soloFueraSla', etiqueta: 'Fuera de SLA', activo: vista.soloFueraSla },
   ]
 
   const activos = definiciones.filter((d) => d.activo !== null)

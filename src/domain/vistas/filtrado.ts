@@ -47,6 +47,8 @@ export interface FiltrosVista {
   gateActual: GateActual | null
   soloAtrasados: boolean
   soloBloqueados: boolean
+  /** Solo los que llevan en su etapa mas dias que el SLA del proyecto. */
+  soloFueraSla: boolean
   /**
    * Por defecto solo los vigentes: un sitio eliminado o fuera de plan conserva
    * su historia, pero no deberia inflar ni los conteos ni la lista de trabajo.
@@ -71,6 +73,7 @@ export const FILTROS_VISTA_VACIOS: FiltrosVista = {
   gateActual: null,
   soloAtrasados: false,
   soloBloqueados: false,
+  soloFueraSla: false,
   vigencia: 'vigentes',
 }
 
@@ -86,6 +89,7 @@ export function hayFiltrosActivos(filtros: FiltrosVista): boolean {
     filtros.prioridad !== null ||
     filtros.soloAtrasados ||
     filtros.soloBloqueados ||
+    filtros.soloFueraSla ||
     filtros.vigencia !== 'vigentes'
   )
 }
@@ -166,6 +170,8 @@ export function filtrarSeguimientos(
   lista: readonly SitioProyecto[],
   filtros: FiltrosVista,
   hoy: FechaISO = hoyEnChile(),
+  /** Si el seguimiento vencio su SLA. Sin esto, el filtro de SLA no deja nada. */
+  fueraDeSla?: (sp: SitioProyecto) => boolean,
 ): SitioProyecto[] {
   const buscado = normalizar(filtros.texto.trim())
   const ids = idsDeBusqueda(filtros.texto)
@@ -185,6 +191,7 @@ export function filtrarSeguimientos(
     if (filtros.prioridad && sp.prioridad !== filtros.prioridad) return false
     if (filtros.soloBloqueados && !sp.bloqueado) return false
     if (filtros.soloAtrasados && !estaAtrasado(sp, hoy)) return false
+    if (filtros.soloFueraSla && !(fueraDeSla?.(sp) ?? false)) return false
 
     if (conjuntoIds !== null) return conjuntoIds.has(normalizar(sp.sitioId))
     if (buscado !== '' && !henoDe(sp).includes(buscado)) return false

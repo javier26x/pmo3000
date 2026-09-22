@@ -55,6 +55,7 @@ describe('codificacion de filtros en la URL', () => {
         prioridad: 'critica',
         soloAtrasados: true,
         soloBloqueados: true,
+        soloFueraSla: true,
         vigencia: 'no_vigentes',
       },
       orden: { campo: 'plan', direccion: 'asc' },

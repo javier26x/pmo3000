@@ -49,6 +49,7 @@ const CLAVES = {
   prioridad: 'pri',
   soloAtrasados: 'atr',
   soloBloqueados: 'blo',
+  soloFueraSla: 'sla',
   vigencia: 'vig',
   orden: 'ord',
 } as const
@@ -74,6 +75,7 @@ export function aParametros(estado: EstadoFiltros): URLSearchParams {
   poner(CLAVES.prioridad, estado.vista.prioridad)
   if (estado.vista.soloAtrasados) p.set(CLAVES.soloAtrasados, '1')
   if (estado.vista.soloBloqueados) p.set(CLAVES.soloBloqueados, '1')
+  if (estado.vista.soloFueraSla) p.set(CLAVES.soloFueraSla, '1')
   // Como el orden, la vigencia solo viaja si no es la de por defecto.
   if (estado.vista.vigencia !== FILTROS_VISTA_VACIOS.vigencia) {
     p.set(CLAVES.vigencia, estado.vista.vigencia)
@@ -121,6 +123,7 @@ export function desdeParametros(p: URLSearchParams): EstadoFiltros {
           : null,
       soloAtrasados: p.get(CLAVES.soloAtrasados) === '1',
       soloBloqueados: p.get(CLAVES.soloBloqueados) === '1',
+      soloFueraSla: p.get(CLAVES.soloFueraSla) === '1',
       vigencia:
         vigencia && (FILTROS_VIGENCIA as readonly string[]).includes(vigencia)
           ? (vigencia as FiltroVigencia)
