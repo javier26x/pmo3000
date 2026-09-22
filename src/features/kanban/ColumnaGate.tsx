@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { cn } from '@/components/ui'
 import {
   CERRADO,
+  claseGate,
   gateAnterior,
   nombreGate,
   siguienteGate,
@@ -11,6 +13,8 @@ import { estaAtrasado } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { TarjetaKanban } from './TarjetaKanban'
 import { useCatalogos } from '@/hooks/useCatalogos'
+
+const TANDA_TARJETAS = 24
 
 export function ColumnaGate({
   gate,
@@ -31,6 +35,10 @@ export function ColumnaGate({
   nombreProveedor: (id: string | null) => string
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: gate })
+  // Cada tarjeta es arrastrable y dnd-kit la registra al montarla: pintar 60 por
+  // columna eran ~500 al abrir el kanban. Se parte con las primeras y el resto
+  // aparece a pedido.
+  const [mostradas, setMostradas] = useState(TANDA_TARJETAS)
 
   const atrasados = sitios.filter((sp) => estaAtrasado(sp, hoy)).length
 
@@ -49,7 +57,7 @@ export function ColumnaGate({
   return (
     <section
       ref={setNodeRef}
-      aria-label={`${nombreGate(gate)} — ${total} sitios`}
+      aria-label={`${nombreGate(gate, etapas)} — ${total} sitios`}
       className={cn(
         'flex w-72 shrink-0 snap-start flex-col rounded border bg-superficie-2 transition-colors',
         isOver && esDestinoValido
@@ -63,11 +71,14 @@ export function ColumnaGate({
       )}
     >
       <header
-        className={cn(`gate-${gate}`, 'flex items-center gap-2 border-b border-borde px-2.5 py-2')}
+        className={cn(
+          claseGate(gate, etapas),
+          'flex items-center gap-2 border-b border-borde px-2.5 py-2',
+        )}
       >
         <span aria-hidden className="punto-gate size-2.5 rounded-full" />
         <h2 className="flex-1 truncate text-sm font-semibold">
-          {gate === CERRADO ? 'Cerrado' : nombreGate(gate)}
+          {gate === CERRADO ? 'Cerrado' : nombreGate(gate, etapas)}
         </h2>
         {atrasados > 0 && (
           <span
@@ -86,18 +97,30 @@ export function ColumnaGate({
             {gate === CERRADO ? 'Ningun sitio cerrado' : 'Sin sitios en este gate'}
           </p>
         ) : (
-          sitios.map((sp) => (
-            <TarjetaKanban
-              key={sp.id}
-              sp={sp}
-              hoy={hoy}
-              arrastrable={arrastrable && sp.gateActual !== CERRADO}
-              nombreProveedor={nombreProveedor(sp.proveedorId)}
-            />
-          ))
+          sitios
+            .slice(0, mostradas)
+            .map((sp) => (
+              <TarjetaKanban
+                key={sp.id}
+                sp={sp}
+                hoy={hoy}
+                arrastrable={arrastrable && sp.gateActual !== CERRADO}
+                nombreProveedor={nombreProveedor(sp.proveedorId)}
+              />
+            ))
         )}
 
-        {total > sitios.length && (
+        {sitios.length > mostradas && (
+          <button
+            type="button"
+            onClick={() => setMostradas((n) => n + TANDA_TARJETAS)}
+            className="enlace-sutil rounded-lg px-1 py-2 text-center text-xs"
+          >
+            Mostrar {Math.min(TANDA_TARJETAS, sitios.length - mostradas)} más
+          </button>
+        )}
+
+        {total > sitios.length && sitios.length <= mostradas && (
           <p className="px-1 py-2 text-center text-xs text-texto-3">
             y {total - sitios.length} mas — usa los filtros para acotar
           </p>

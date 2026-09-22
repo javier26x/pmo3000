@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router'
 import { useDraggable } from '@dnd-kit/core'
 import { GripVertical, Lock } from 'lucide-react'
@@ -16,7 +17,9 @@ const TONO_PRIORIDAD = {
   baja: 'neutro',
 } as const
 
-export function TarjetaKanban({
+/** Memoizada: durante un arrastre el kanban se repinta entero y las tarjetas
+ *  que no se mueven no tienen por qué rehacerse. */
+export const TarjetaKanban = memo(function TarjetaKanban({
   sp,
   hoy,
   arrastrable,
@@ -94,4 +97,4 @@ export function TarjetaKanban({
       </div>
     </article>
   )
-}
+})

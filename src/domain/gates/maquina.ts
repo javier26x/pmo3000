@@ -579,3 +579,186 @@ export function planBloqueo(
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// Correccion administrativa
+// ---------------------------------------------------------------------------
+
+/**
+ * Solo el admin corrige a mano. Es la misma condicion que firestore.rules
+ * (esAdmin() se salta gateSecuencial y cierreConsistente): si cambias una,
+ * cambia la otra.
+ */
+export function puedeCorregirComoAdmin(actor: Pick<Actor, 'rol'>): boolean {
+  return actor.rol === 'admin'
+}
+
+export interface OpcionesCorreccionAdmin {
+  /** Cualquier etapa de la secuencia del documento, o CERRADO. */
+  destino: GateActual
+  /** Fecha real para los gates que quedan cerrados y no tenian una. */
+  fechaReal: FechaISO
+  /** Obligatorio: queda en la auditoria. */
+  motivo: string
+}
+
+/**
+ * Lleva el sitio a CUALQUIER etapa de su secuencia, hacia adelante o hacia
+ * atras y saltando las que haga falta, dejando todos los gates coherentes:
+ *
+ * - los anteriores al destino quedan `completado`; si no tenian fecha real se
+ *   les pone `opciones.fechaReal` (la que ya tenian se respeta);
+ * - el destino queda `en_curso`, sin fecha real ni cierre;
+ * - los posteriores quedan `no_iniciado`, sin fecha real ni cierre;
+ * - `estadoGate` y `fechaPlanGateActual` se recalculan.
+ *
+ * Con destino igual al gate actual sirve para reparar estados incoherentes (por
+ * ejemplo, los que deja una importacion). Existe para que un admin arregle el
+ * dato sin que un desarrollador toque la base.
+ */
+export function planCorreccionAdmin(
+  sp: SitioProyecto,
+  ctx: ContextoCambio,
+  opciones: OpcionesCorreccionAdmin,
+): Resultado<Parche> {
+  if (!puedeCorregirComoAdmin(ctx.actor)) {
+    return { ok: false, motivo: 'Solo un administrador puede hacer una correccion administrativa' }
+  }
+  const motivo = opciones.motivo.trim()
+  if (!motivo) {
+    return { ok: false, motivo: 'Una correccion administrativa exige un motivo' }
+  }
+  const secuencia = secuenciaDeGates(sp.gates)
+  const posDestino = ordenGate(opciones.destino, secuencia)
+  if (posDestino < 0) {
+    return { ok: false, motivo: `La etapa ${opciones.destino} no existe en este sitio` }
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(opciones.fechaReal)) {
+    return { ok: false, motivo: 'La fecha real no es valida' }
+  }
+  if (diasEntre(ctx.hoy, opciones.fechaReal) > 0) {
+    return { ok: false, motivo: 'La fecha real no puede estar en el futuro' }
+  }
+
+  const campos: Record<string, unknown> = {}
+  const poner = (clave: string, valor: unknown, actual: unknown) => {
+    if (actual !== valor) campos[clave] = valor
+  }
+
+  const cerrados: string[] = []
+  const reabiertos: string[] = []
+
+  secuencia.forEach((codigo, i) => {
+    const g = sp.gates[codigo]
+    if (!g) return
+    const p = `gates.${codigo}`
+    if (i < posDestino) {
+      if (g.estado !== 'completado' || !g.fechaReal) cerrados.push(codigo)
+      poner(`${p}.estado`, 'completado', g.estado)
+      if (!g.fechaReal) campos[`${p}.fechaReal`] = opciones.fechaReal
+      if (g.estado !== 'completado') {
+        campos[`${p}.completadoEn`] = ctx.ahora
+        campos[`${p}.completadoPor`] = ctx.actor.uid
+      }
+    } else {
+      const estado = i === posDestino ? 'en_curso' : 'no_iniciado'
+      if (g.estado === 'completado' || g.fechaReal) reabiertos.push(codigo)
+      poner(`${p}.estado`, estado, g.estado)
+      poner(`${p}.fechaReal`, null, g.fechaReal)
+      poner(`${p}.completadoEn`, null, g.completadoEn)
+      poner(`${p}.completadoPor`, null, g.completadoPor)
+    }
+  })
+
+  const destino = opciones.destino
+  const estadoGate = destino === CERRADO ? 'completado' : sp.bloqueado ? 'bloqueado' : 'en_curso'
+  const fechaPlan = destino === CERRADO ? null : (sp.gates[destino]?.fechaPlan ?? null)
+  poner('gateActual', destino, sp.gateActual)
+  poner('estadoGate', estadoGate, sp.estadoGate)
+  poner('fechaPlanGateActual', fechaPlan, sp.fechaPlanGateActual)
+
+  if (Object.keys(campos).length === 0) {
+    return { ok: false, motivo: 'El sitio ya esta en ese estado: no hay nada que corregir' }
+  }
+
+  const partes = [`Correccion administrativa: ${motivo}`]
+  if (cerrados.length > 0) partes.push(`Cerrados: ${cerrados.join(', ')}`)
+  if (reabiertos.length > 0) partes.push(`Reabiertos: ${reabiertos.join(', ')}`)
+
+  const posActual = ordenGate(sp.gateActual, secuencia)
+  const accion =
+    destino === sp.gateActual
+      ? 'actualizar'
+      : posActual >= 0 && posDestino < posActual
+        ? 'retroceso_gate'
+        : 'cambio_gate'
+
+  return {
+    ok: true,
+    valor: {
+      campos,
+      eventos: [
+        {
+          ...eventoBase(sp),
+          accion,
+          campo: 'gateActual',
+          valorAnterior: sp.gateActual,
+          valorNuevo: destino,
+          detalle: partes.join('. '),
+        },
+      ],
+    },
+  }
+}
+
+/** Reasigna la celula del seguimiento. Correccion de admin, con motivo opcional. */
+export function planCambiarCelula(
+  sp: SitioProyecto,
+  ctx: ContextoCambio,
+  opciones: { celulaId: string | null; motivo?: string },
+): Resultado<Parche> {
+  if (!puedeCorregirComoAdmin(ctx.actor)) {
+    return { ok: false, motivo: 'Solo un administrador puede cambiar la celula' }
+  }
+  const celulaId = opciones.celulaId?.trim() ? opciones.celulaId.trim() : null
+  if (celulaId === sp.celulaId) {
+    return { ok: false, motivo: 'El sitio ya esta en esa celula' }
+  }
+  return {
+    ok: true,
+    valor: {
+      campos: { celulaId },
+      eventos: [
+        {
+          ...eventoBase(sp),
+          accion: 'actualizar',
+          campo: 'celulaId',
+          valorAnterior: sp.celulaId,
+          valorNuevo: celulaId,
+          detalle: opciones.motivo?.trim() ? opciones.motivo.trim() : null,
+        },
+      ],
+    },
+  }
+}
+
+/**
+ * Valida la eliminacion de un seguimiento: solo admin, con motivo y escribiendo
+ * el id del sitio tal cual, para que no se borre por un clic equivocado.
+ */
+export function validarEliminacion(
+  sp: Pick<SitioProyecto, 'sitioId'>,
+  actor: Pick<Actor, 'rol'>,
+  opciones: { confirmacion: string; motivo: string },
+): Resultado<null> {
+  if (!puedeCorregirComoAdmin(actor)) {
+    return { ok: false, motivo: 'Solo un administrador puede eliminar un seguimiento' }
+  }
+  if (!opciones.motivo.trim()) {
+    return { ok: false, motivo: 'Eliminar un seguimiento exige un motivo' }
+  }
+  if (opciones.confirmacion.trim() !== sp.sitioId) {
+    return { ok: false, motivo: `Escribe ${sp.sitioId} para confirmar` }
+  }
+  return { ok: true, valor: null }
+}

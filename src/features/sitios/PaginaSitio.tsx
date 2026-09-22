@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useParams } from 'react-router'
-import { FolderOpen, MapPin, Save } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router'
+import { FolderOpen, MapPin, Pencil, Save, Trash2 } from 'lucide-react'
 import {
   Aviso,
   Boton,
   CabeceraPantalla,
   Campo,
   Cargando,
+  Casilla,
+  Dialogo,
   EnlaceBoton,
   Entrada,
   EstadoVacio,
@@ -15,14 +17,22 @@ import {
   Metrica,
 } from '@/components/ui'
 import { avisar, mensajeDeError } from '@/app/avisos'
-import { actualizarCarpeta, observarSitio } from '@/data/repos/sitios'
+import { contarReferencias } from '@/data/repos/catalogos'
+import {
+  actualizarCarpeta,
+  actualizarSitio,
+  eliminarSitio,
+  observarSitio,
+} from '@/data/repos/sitios'
 import { observarSeguimientosDeSitio } from '@/data/repos/sitioProyectos'
 import { formatearFecha, formatearFechaHora, hoyEnChile } from '@/domain/fechas'
 import { textoAtraso } from '@/domain/gates/atraso'
 import { nombreGate } from '@/domain/gates/catalogo'
 import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
-import type { Sitio } from '@/domain/tipos/sitio'
+import { esquemaSitioNuevo, estaEnChile, type Sitio, type SitioNuevo } from '@/domain/tipos/sitio'
+import type { Actor } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
+import { DialogoEliminar } from '@/features/admin/DialogoEliminar'
 import { useActor, useSesion } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useSuscripcion } from '@/hooks/useSuscripcion'
@@ -30,12 +40,29 @@ import { useTituloPagina } from '@/hooks/useTituloPagina'
 
 const SIN_SEGUIMIENTOS: SitioProyecto[] = []
 
+/** Los campos editables de un sitio, sin los sellos de sistema. */
+function datosDe(sitio: Sitio): SitioNuevo {
+  const { creadoEn: _c, creadoPor: _cp, actualizadoEn: _a, actualizadoPor: _ap, ...datos } = sitio
+  return datos
+}
+
+/** Edita el maestro sin esperar al servidor (sin señal no llega nunca). */
+function guardarEdicion(sitio: Sitio, datos: SitioNuevo, actor: Actor, aviso: string) {
+  actualizarSitio(sitio, datos, actor).catch((e) =>
+    avisar.error(`No se pudieron guardar los cambios del sitio ${sitio.id}: ${mensajeDeError(e)}`),
+  )
+  avisar.ok(aviso)
+}
+
 export function PaginaSitio() {
   const { sitioId } = useParams<{ sitioId: string }>()
+  const navegar = useNavigate()
   const actor = useActor()
   const { puedeHacer } = useSesion()
-  const { nombrePrograma, nombreProyecto, nombreProveedor } = useCatalogos()
+  const { nombrePrograma, nombreProyecto, nombreProveedor, etapas } = useCatalogos()
   const [carpeta, setCarpeta] = useState<string | null>(null)
+  const [editando, setEditando] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
 
   const suscribirSitio = useCallback(
     (cb: (s: Sitio | null) => void, onError: (e: Error) => void) => {
@@ -117,9 +144,30 @@ export function PaginaSitio() {
           </span>
         }
         acciones={
-          <EnlaceBoton to="/mapa" tamano="sm">
-            Ver en el mapa
-          </EnlaceBoton>
+          <span className="flex flex-wrap items-center gap-2">
+            {puedeHacer('sitios', 'editar') && (
+              <Boton
+                tamano="sm"
+                onClick={() => setEditando(true)}
+                icono={<Pencil aria-hidden className="size-3.5" />}
+              >
+                Editar sitio
+              </Boton>
+            )}
+            {puedeHacer('sitios', 'eliminar') && (
+              <Boton
+                tamano="sm"
+                variante="peligro"
+                onClick={() => setEliminando(true)}
+                icono={<Trash2 aria-hidden className="size-3.5" />}
+              >
+                Eliminar
+              </Boton>
+            )}
+            <EnlaceBoton to="/mapa" tamano="sm">
+              Ver en el mapa
+            </EnlaceBoton>
+          </span>
         }
       >
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -181,7 +229,7 @@ export function PaginaSitio() {
                       </div>
                       <div className="text-xs text-texto-2">
                         <p>{nombreProveedor(sp.proveedorId)}</p>
-                        <p>{nombreGate(sp.gateActual)}</p>
+                        <p>{nombreGate(sp.gateActual, etapas)}</p>
                       </div>
                       <EnlaceBoton to={`/seguimiento/${encodeURIComponent(sp.id)}`} tamano="sm">
                         Abrir ficha
@@ -280,6 +328,223 @@ export function PaginaSitio() {
           </div>
         </div>
       </div>
+
+      {editando && (
+        <DialogoEditarSitio
+          sitio={sitio}
+          seguimientos={participaciones.datos.length}
+          onCerrar={() => setEditando(false)}
+          onGuardar={(datos) => {
+            guardarEdicion(sitio, datos, actor, `Cambios guardados en el sitio ${sitio.id}`)
+            setEditando(false)
+          }}
+        />
+      )}
+
+      {eliminando && (
+        <DialogoEliminar
+          titulo="Eliminar sitio"
+          etiquetaEliminar="Eliminar sitio"
+          nombre={`${sitio.id} · ${sitio.nombre}`}
+          queEs="el sitio"
+          verificar={() => contarReferencias('sitio', sitio.id)}
+          eliminar={() => eliminarSitio(sitio, actor)}
+          alternativa={
+            sitio.activo
+              ? {
+                  etiqueta: 'Desactivar sitio',
+                  explicacion:
+                    'Desactivarlo no borra nada: sus seguimientos y su historial quedan intactos, y se puede volver a activar editándolo.',
+                  ejecutar: () =>
+                    guardarEdicion(
+                      sitio,
+                      { ...datosDe(sitio), activo: false },
+                      actor,
+                      `El sitio ${sitio.id} quedó inactivo`,
+                    ),
+                }
+              : null
+          }
+          onCerrar={() => setEliminando(false)}
+          onEliminado={() => navegar('/sitios')}
+        />
+      )}
     </>
+  )
+}
+
+/** Texto a numero aceptando coma decimal ("-33,45"). NaN si esta vacio. */
+function aNumero(texto: string): number {
+  const limpio = texto.trim().replace(',', '.')
+  return limpio === '' ? Number.NaN : Number(limpio)
+}
+
+function DialogoEditarSitio({
+  sitio,
+  seguimientos,
+  onCerrar,
+  onGuardar,
+}: {
+  sitio: Sitio
+  seguimientos: number
+  onCerrar: () => void
+  onGuardar: (datos: SitioNuevo) => void
+}) {
+  const [nombre, setNombre] = useState(sitio.nombre)
+  const [region, setRegion] = useState(sitio.region)
+  const [comuna, setComuna] = useState(sitio.comuna)
+  const [direccion, setDireccion] = useState(sitio.direccion)
+  const [lat, setLat] = useState(String(sitio.lat))
+  const [lon, setLon] = useState(String(sitio.lon))
+  const [tecnologias, setTecnologias] = useState(sitio.tecnologias.join(', '))
+  const [tipoSitio, setTipoSitio] = useState(sitio.tipoSitio)
+  const [activo, setActivo] = useState(sitio.activo)
+  const [error, setError] = useState<string | null>(null)
+
+  const guardar = () => {
+    const latNum = aNumero(lat)
+    const lonNum = aNumero(lon)
+    if (Number.isNaN(latNum) || Number.isNaN(lonNum)) {
+      setError('La latitud y la longitud tienen que ser números, por ejemplo -33.4489 y -70.6693.')
+      return
+    }
+    if (!estaEnChile(latNum, lonNum)) {
+      setError(
+        'Esas coordenadas quedan fuera de Chile. Revisa que no estén invertidas y que ambas sean negativas.',
+      )
+      return
+    }
+
+    const candidato: SitioNuevo = {
+      ...datosDe(sitio),
+      nombre: nombre.trim(),
+      region: region.trim(),
+      comuna: comuna.trim(),
+      direccion: direccion.trim(),
+      lat: latNum,
+      lon: lonNum,
+      tecnologias: [
+        ...new Set(
+          tecnologias
+            .split(/[,;/]/)
+            .map((t) => t.trim())
+            .filter(Boolean),
+        ),
+      ],
+      tipoSitio: tipoSitio.trim(),
+      activo,
+    }
+
+    // El mismo esquema Zod que valida la importación.
+    const validado = esquemaSitioNuevo.safeParse(candidato)
+    if (!validado.success) {
+      setError(validado.error.issues[0]?.message ?? 'Los datos del sitio no son válidos.')
+      return
+    }
+    onGuardar(validado.data)
+  }
+
+  return (
+    <Dialogo
+      abierto
+      onCerrar={onCerrar}
+      titulo="Editar sitio"
+      descripcion={`ID ${sitio.id}. El ID no se puede cambiar.`}
+      pie={
+        <>
+          <Boton onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="primario" onClick={guardar}>
+            Guardar cambios
+          </Boton>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {error && <Aviso tono="error">{error}</Aviso>}
+
+        {seguimientos > 0 && (
+          <p className="text-xs text-texto-2">
+            Nombre, región, comuna y coordenadas también se actualizan en{' '}
+            {seguimientos === 1
+              ? 'el seguimiento de este sitio'
+              : `los ${seguimientos} seguimientos de este sitio`}
+            .
+          </p>
+        )}
+
+        <Campo etiqueta="Nombre" htmlFor="sitio-nombre" obligatorio>
+          <Entrada
+            id="sitio-nombre"
+            autoFocus
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+          />
+        </Campo>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Campo etiqueta="Región" htmlFor="sitio-region" obligatorio>
+            <Entrada id="sitio-region" value={region} onChange={(e) => setRegion(e.target.value)} />
+          </Campo>
+          <Campo etiqueta="Comuna" htmlFor="sitio-comuna" obligatorio>
+            <Entrada id="sitio-comuna" value={comuna} onChange={(e) => setComuna(e.target.value)} />
+          </Campo>
+        </div>
+
+        <Campo etiqueta="Dirección" htmlFor="sitio-direccion">
+          <Entrada
+            id="sitio-direccion"
+            value={direccion}
+            onChange={(e) => setDireccion(e.target.value)}
+          />
+        </Campo>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Campo etiqueta="Latitud" htmlFor="sitio-lat" obligatorio>
+            <Entrada
+              id="sitio-lat"
+              inputMode="decimal"
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Longitud" htmlFor="sitio-lon" obligatorio>
+            <Entrada
+              id="sitio-lon"
+              inputMode="decimal"
+              value={lon}
+              onChange={(e) => setLon(e.target.value)}
+            />
+          </Campo>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Campo
+            etiqueta="Tecnologías"
+            htmlFor="sitio-tecnologias"
+            ayuda="Separadas por coma. Ej.: 4G, 5G"
+          >
+            <Entrada
+              id="sitio-tecnologias"
+              value={tecnologias}
+              onChange={(e) => setTecnologias(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Tipo de sitio" htmlFor="sitio-tipo">
+            <Entrada
+              id="sitio-tipo"
+              value={tipoSitio}
+              onChange={(e) => setTipoSitio(e.target.value)}
+            />
+          </Campo>
+        </div>
+
+        <Casilla
+          etiqueta="Sitio activo"
+          descripcion="Desactivarlo no borra nada: sus seguimientos y su historial quedan intactos."
+          checked={activo}
+          onChange={(e) => setActivo(e.target.checked)}
+        />
+      </div>
+    </Dialogo>
   )
 }

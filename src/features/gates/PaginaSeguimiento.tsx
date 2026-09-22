@@ -31,7 +31,13 @@ import { avisar, mensajeDeError } from '@/app/avisos'
 import { agregarComentario, aplicarParche, asignarResponsable } from '@/data/repos/sitioProyectos'
 import { formatearFecha, formatearFechaHora, hoyEnChile } from '@/domain/fechas'
 import { diasAtraso, textoAtraso } from '@/domain/gates/atraso'
-import { CERRADO, nombreGate, type CodigoGate } from '@/domain/gates/catalogo'
+import {
+  CERRADO,
+  gateAnterior,
+  nombreGate,
+  secuenciaDeGates,
+  type CodigoGate,
+} from '@/domain/gates/catalogo'
 import {
   contextoDe,
   evaluarAvance,
@@ -48,6 +54,7 @@ import { NOMBRES_PRIORIDAD, PRIORIDADES, type Prioridad } from '@/domain/tipos/c
 import { useActor, useSesion } from '@/hooks/useSesion'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { useCatalogos } from '@/hooks/useCatalogos'
+import { AdministrarSeguimiento } from './AdministrarSeguimiento'
 import { EsqueletoFicha } from './EsqueletoFicha'
 import { Historial } from './Historial'
 import { LineaGates } from './LineaGates'
@@ -92,7 +99,9 @@ export function PaginaSeguimiento() {
   const gateVisible: CodigoGate | null = useMemo(() => {
     if (!sp) return null
     if (gateElegido) return gateElegido
-    return sp.gateActual === CERRADO ? 'SSV' : sp.gateActual
+    if (sp.gateActual !== CERRADO) return sp.gateActual
+    // Un sitio cerrado muestra su ultima etapa, sea cual sea su proceso.
+    return secuenciaDeGates(sp.gates).at(-1) ?? null
   }, [sp, gateElegido])
 
   const evaluacion = useMemo(
@@ -164,6 +173,10 @@ export function PaginaSeguimiento() {
   const gateActual = sp.gateActual === CERRADO ? null : sp.gates[sp.gateActual]
   const dias = diasAtraso(gateActual?.fechaPlan ?? null, gateActual?.fechaReal ?? null, hoy)
   const avance = porcentajeAvance(sp, plantilla)
+  // Hay algo a que volver si el gate actual tiene uno anterior en la secuencia
+  // de ESTE documento (desde CERRADO, la ultima etapa). No se asume ningun
+  // proceso en particular.
+  const tieneAnterior = gateAnterior(sp.gateActual, secuenciaDeGates(sp.gates)) !== null
   const puedeEditar =
     puedeHacer('sitioProyectos', 'editarChecklist') &&
     (actor.rol !== 'contratista' || sp.proveedorId === actor.proveedorId)
@@ -232,7 +245,7 @@ export function PaginaSeguimiento() {
                 {sp.bloqueado ? 'Desbloquear' : 'Bloquear'}
               </Boton>
             )}
-            {puedeHacer('sitioProyectos', 'retrocederGate') && sp.gateActual !== 'TSSR' && (
+            {puedeHacer('sitioProyectos', 'retrocederGate') && tieneAnterior && (
               <Boton
                 icono={<ArrowLeft aria-hidden className="size-4" />}
                 onClick={() => {
@@ -256,6 +269,7 @@ export function PaginaSeguimiento() {
                 Avanzar gate
               </Boton>
             )}
+            <AdministrarSeguimiento sp={sp} />
           </>
         }
       >
@@ -267,7 +281,7 @@ export function PaginaSeguimiento() {
             </div>
             <BarraProgreso valor={avance} etiqueta={`Avance del sitio: ${avance}%`} />
           </div>
-          <Metrica etiqueta="Gate actual" valor={nombreGate(sp.gateActual)} />
+          <Metrica etiqueta="Gate actual" valor={nombreGate(sp.gateActual, etapas)} />
           <Metrica etiqueta="Plan" valor={formatearFecha(gateActual?.fechaPlan ?? null)} />
           <Metrica
             etiqueta="Desviacion"
@@ -546,9 +560,11 @@ export function PaginaSeguimiento() {
       <Dialogo
         abierto={dialogo === 'avanzar'}
         onCerrar={() => setDialogo(null)}
-        titulo={`Cerrar ${nombreGate(sp.gateActual)} y avanzar`}
+        titulo={`Cerrar ${nombreGate(sp.gateActual, etapas)} y avanzar`}
         descripcion={
-          evaluacion?.destino ? `El sitio pasara a ${nombreGate(evaluacion.destino)}.` : undefined
+          evaluacion?.destino
+            ? `El sitio pasara a ${nombreGate(evaluacion.destino, etapas)}.`
+            : undefined
         }
         pie={
           <>
@@ -562,7 +578,7 @@ export function PaginaSeguimiento() {
                     fechaReal: fechaCierre,
                     ...(comentarioCierre.trim() ? { comentario: comentarioCierre } : {}),
                   }),
-                  `${sp.sitioId} avanzó a ${nombreGate(evaluacion?.destino ?? sp.gateActual)}`,
+                  `${sp.sitioId} avanzó a ${nombreGate(evaluacion?.destino ?? sp.gateActual, etapas)}`,
                   {
                     accion: { texto: 'Ver el historial', ejecutar: () => setPestana('historial') },
                   },

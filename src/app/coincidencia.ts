@@ -11,10 +11,30 @@ export function normalizar(texto: string): string {
   return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 }
 
+/**
+ * Los candidatos (IDs, nombres, comunas) son los mismos en cada tecla: se
+ * normalizan una vez. Antes cada tecla repetía NFD + regex sobre ~4.000 textos y
+ * la paleta se trababa más de un segundo con CPU lenta.
+ */
+const NORMALIZADOS = new Map<string, string>()
+const TOPE_NORMALIZADOS = 50_000
+
+function normalizarCandidato(texto: string): string {
+  let n = NORMALIZADOS.get(texto)
+  if (n === undefined) {
+    n = normalizar(texto)
+    if (NORMALIZADOS.size >= TOPE_NORMALIZADOS) NORMALIZADOS.clear()
+    NORMALIZADOS.set(texto, n)
+  }
+  return n
+}
+
 /** Devuelve la puntuación (mayor es mejor) o null si no hay coincidencia. */
 export function puntuar(candidato: string, consulta: string): number | null {
-  const c = normalizar(candidato)
-  const q = normalizar(consulta)
+  return puntuarNormalizado(normalizarCandidato(candidato), normalizar(consulta))
+}
+
+function puntuarNormalizado(c: string, q: string): number | null {
   if (q === '') return 0
   if (c === q) return 1000
 
@@ -46,13 +66,14 @@ export function ordenarPorCoincidencia<T>(
   textoDe: (item: T) => string[],
   tope: number,
 ): T[] {
-  if (normalizar(consulta) === '') return items.slice(0, tope)
+  const q = normalizar(consulta)
+  if (q === '') return items.slice(0, tope)
 
   const puntuados: Puntuado<T>[] = []
   for (const item of items) {
     let mejor: number | null = null
     for (const texto of textoDe(item)) {
-      const p = puntuar(texto, consulta)
+      const p = puntuarNormalizado(normalizarCandidato(texto), q)
       if (p !== null && (mejor === null || p > mejor)) mejor = p
     }
     if (mejor !== null) puntuados.push({ item, puntos: mejor })

@@ -5,6 +5,7 @@ import { guardarPlantillaTracker, ejecutarImportacionTracker } from '@/data/repo
 import { inferirPlantilla, type PlantillaInferida } from '@/domain/tracker/inferencia'
 import { construirPlantilla, indexarColumnas } from '@/domain/tracker/aplicacion'
 import { coercionar, type TipoCampo } from '@/domain/tracker/campos'
+import { puedeCorregirComoAdmin } from '@/domain/gates/maquina'
 import { crearId } from '@/domain/tipos/identificadores'
 import { mensajeDeError, usarAvisos } from '@/app/avisos'
 import { useActor } from '@/hooks/useSesion'
@@ -22,10 +23,14 @@ import {
   Selector,
 } from '@/components/ui'
 import { RevisionPlantillaInferida } from './RevisionPlantilla'
+import { EliminarSeguimientosProyecto } from './EliminarSeguimientosProyecto'
 
 type Paso = 'archivo' | 'revisar' | 'importando' | 'listo'
 
 interface Resumen {
+  proyectoId: string
+  /** La plantilla ya existia y quien importa no es admin: se reutilizo sin tocarla. */
+  plantillaReutilizada: boolean
   sitios: number
   omitidas: number
   fueraDeOrden: number
@@ -34,6 +39,7 @@ interface Resumen {
 
 export default function PaginaImportarTracker() {
   const actor = useActor()
+  const esAdmin = puedeCorregirComoAdmin(actor)
   const { programas, proyectos, portafolios, proveedores } = useCatalogos()
   const mostrar = usarAvisos((e) => e.mostrar)
   const pausar = usarPausaDespliegue((e) => e.pausar)
@@ -129,7 +135,7 @@ export default function PaginaImportarTracker() {
         version: 1,
         homologacion: {},
       })
-      await guardarPlantillaTracker(plantilla as never, actor)
+      const estadoPlantilla = await guardarPlantillaTracker(plantilla as never, actor)
 
       const r = await ejecutarImportacionTracker(
         filasDatos,
@@ -156,6 +162,8 @@ export default function PaginaImportarTracker() {
         mostrar('ok', `${r.seguimientosEscritos} sitios importados.`)
       }
       setResumen({
+        proyectoId: proyecto.id,
+        plantillaReutilizada: estadoPlantilla === 'existente',
         sitios: r.seguimientosEscritos,
         omitidas: r.filasOmitidas,
         fueraDeOrden: r.fueraDeOrden,
@@ -296,6 +304,16 @@ export default function PaginaImportarTracker() {
                   </Campo>
                 </div>
 
+                {!esAdmin && (
+                  <Aviso tono="info" className="mt-3">
+                    Las plantillas las crea un administrador. Si ya existe una plantilla con este
+                    nombre (porque el tracker ya se importó antes) se reutiliza tal cual; si no
+                    existe, la importación se detiene antes de escribir nada. Además, al re-importar
+                    solo puedes mover cada sitio una etapa: los saltos mayores los re-importa un
+                    administrador.
+                  </Aviso>
+                )}
+
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Boton
                     variante="primario"
@@ -332,6 +350,14 @@ export default function PaginaImportarTracker() {
                 {resumen.omitidas > 0 && `, ${resumen.omitidas} filas omitidas por no traer ID`}.
               </Aviso>
 
+              {resumen.plantillaReutilizada && (
+                <Aviso tono="info" titulo="Se usó la plantilla existente">
+                  La plantilla ya existía y solo un administrador puede modificarla, así que se
+                  reutilizó sin cambios. Si el tracker trae etapas o columnas nuevas, pide a un
+                  administrador que lo re-importe.
+                </Aviso>
+              )}
+
               {resumen.fueraDeOrden > 0 && (
                 <Aviso tono="riesgo" titulo="Avance fuera de orden">
                   {resumen.fueraDeOrden} sitios tienen etapas aprobadas <em>después</em> de la que
@@ -364,6 +390,14 @@ export default function PaginaImportarTracker() {
                 </Boton>
               </div>
             </div>
+          )}
+
+          {(paso === 'archivo' || paso === 'listo') && (
+            <EliminarSeguimientosProyecto
+              {...(paso === 'listo' && resumen !== null
+                ? { proyectoInicial: resumen.proyectoId }
+                : {})}
+            />
           )}
         </div>
       </div>

@@ -36,22 +36,48 @@ export function hoyEnChile(ahora: Date = new Date()): FechaISO {
   return formateadorISO.format(ahora)
 }
 
-/** Valida que el string sea 'YYYY-MM-DD' y ademas un dia real del calendario. */
-export function esFechaISO(valor: unknown): valor is FechaISO {
-  if (typeof valor !== 'string') return false
+/**
+ * Numero de dia (dias desde 1970-01-01) de cada FechaISO ya vista, o null si el
+ * texto no es un dia real.
+ *
+ * Existe por rendimiento: ordenar 4.500 sitios por atraso compara cada uno
+ * ~12 veces, y cada comparacion validaba y convertia dos fechas con regex y
+ * Date. Pero los dias distintos en juego son pocos cientos, asi que se calculan
+ * una vez. El tope evita que un importador con basura haga crecer el mapa.
+ */
+const DIAS = new Map<string, number | null>()
+const TOPE_DIAS = 20_000
+
+function calcularDia(valor: string): number | null {
   const m = RE_ISO.exec(valor)
-  if (!m) return false
+  if (!m) return null
   const [, a, mes, d] = m
   const anio = Number(a)
   const numMes = Number(mes)
   const dia = Number(d)
-  if (numMes < 1 || numMes > 12 || dia < 1 || dia > 31) return false
-  const fecha = new Date(Date.UTC(anio, numMes - 1, dia))
-  return (
+  if (numMes < 1 || numMes > 12 || dia < 1 || dia > 31) return null
+  const ms = Date.UTC(anio, numMes - 1, dia)
+  const fecha = new Date(ms)
+  const valido =
     fecha.getUTCFullYear() === anio &&
     fecha.getUTCMonth() === numMes - 1 &&
     fecha.getUTCDate() === dia
-  )
+  return valido ? ms / 86_400_000 : null
+}
+
+function numeroDeDia(valor: string): number | null {
+  let dia = DIAS.get(valor)
+  if (dia === undefined) {
+    dia = calcularDia(valor)
+    if (DIAS.size >= TOPE_DIAS) DIAS.clear()
+    DIAS.set(valor, dia)
+  }
+  return dia
+}
+
+/** Valida que el string sea 'YYYY-MM-DD' y ademas un dia real del calendario. */
+export function esFechaISO(valor: unknown): valor is FechaISO {
+  return typeof valor === 'string' && numeroDeDia(valor) !== null
 }
 
 /** 'YYYY-MM-DD' -> 'dd-mm-aaaa' (formato chileno). Puro string: sin zonas horarias. */
@@ -81,8 +107,10 @@ function desdeUTC(ms: number): FechaISO {
 
 /** Dias calendario entre dos fechas (b - a). Positivo si b es posterior. */
 export function diasEntre(a: FechaISO, b: FechaISO): number {
-  if (!esFechaISO(a) || !esFechaISO(b)) return 0
-  return Math.round((aUTC(b) - aUTC(a)) / 86_400_000)
+  const diaA = typeof a === 'string' ? numeroDeDia(a) : null
+  const diaB = typeof b === 'string' ? numeroDeDia(b) : null
+  if (diaA === null || diaB === null) return 0
+  return diaB - diaA
 }
 
 export function sumarDias(fecha: FechaISO, dias: number): FechaISO {

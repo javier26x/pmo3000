@@ -68,7 +68,7 @@ export function PaginaLogin() {
   // Ya hay sesion: volver a la pantalla desde la que se pidio el ingreso.
   if (autenticado) {
     const desde = (ubicacion.state as { desde?: string } | null)?.desde
-    return <Navigate to={desde && desde !== '/login' ? desde : '/sitios'} replace />
+    return <Navigate to={desde && desde !== '/login' ? desde : '/'} replace />
   }
 
   const dominio = dominioPermitido()

@@ -360,3 +360,118 @@ describe('secuencia con una plantilla propia', () => {
     await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'TSS' }))
   })
 })
+
+/**
+ * El admin puede corregir el dato a mano desde la app: llevar el sitio a
+ * cualquier etapa de su secuencia y eliminar el seguimiento completo. Nadie mas.
+ */
+describe('correccion administrativa', () => {
+  /** Salto de TSSR a D1 cerrando todo lo de en medio, como lo arma planCorreccionAdmin. */
+  const salto = {
+    gateActual: 'D1',
+    estadoGate: 'en_curso',
+    'gates.TSSR.estado': 'completado',
+    'gates.TSSR.fechaReal': '2026-03-05',
+    'gates.FC.estado': 'completado',
+    'gates.FC.fechaReal': '2026-03-05',
+    'gates.RFI.estado': 'completado',
+    'gates.RFI.fechaReal': '2026-03-05',
+    'gates.IMP.estado': 'completado',
+    'gates.IMP.fechaReal': '2026-03-05',
+    'gates.D1.estado': 'en_curso',
+  }
+
+  it('el admin salta etapas hacia adelante', async () => {
+    await assertSucceeds(como(entorno, PERFILES.admin!).doc(RUTA).update(salto))
+  })
+
+  it('el admin cierra el sitio de un salto y lo devuelve a la primera etapa', async () => {
+    const db = como(entorno, PERFILES.admin!)
+    await assertSucceeds(db.doc(RUTA).update({ gateActual: 'CERRADO', estadoGate: 'completado' }))
+    await assertSucceeds(db.doc(RUTA).update({ gateActual: 'TSSR', estadoGate: 'en_curso' }))
+  })
+
+  it('el admin retrocede saltando etapas', async () => {
+    await ponerEnGate('D7')
+    await assertSucceeds(como(entorno, PERFILES.admin!).doc(RUTA).update({ gateActual: 'FC' }))
+  })
+
+  it('ni el admin puede mandar el sitio a una etapa que el documento no tiene', async () => {
+    await assertFails(como(entorno, PERFILES.admin!).doc(RUTA).update({ gateActual: 'INVENTADO' }))
+  })
+
+  it('ni el admin cambia la identidad del seguimiento', async () => {
+    const db = como(entorno, PERFILES.admin!)
+    await assertFails(db.doc(RUTA).update({ ...salto, sitioId: 'OTRO' }))
+    await assertFails(db.doc(RUTA).update({ proyectoId: 'proy-9' }))
+    await assertFails(db.doc(RUTA).update({ portafolioId: 'port-9' }))
+  })
+
+  it('jefe y analista siguen sin poder saltar', async () => {
+    await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update(salto))
+    await assertFails(como(entorno, PERFILES.analista!).doc(RUTA).update(salto))
+    await ponerEnGate('D7')
+    await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'FC' }))
+  })
+
+  it('el contratista sigue sin mover el gate', async () => {
+    await assertFails(como(entorno, PERFILES.contratista!).doc(RUTA).update(salto))
+  })
+
+  it('el admin puede cambiar la celula', async () => {
+    await assertSucceeds(como(entorno, PERFILES.admin!).doc(RUTA).update({ celulaId: 'cel-2' }))
+  })
+
+  it('solo el admin elimina un seguimiento', async () => {
+    for (const perfil of [PERFILES.jefe!, PERFILES.analista!, PERFILES.lector!]) {
+      await assertFails(como(entorno, perfil).doc(RUTA).delete())
+    }
+    await assertSucceeds(como(entorno, PERFILES.admin!).doc(RUTA).delete())
+  })
+
+  describe('comentarios al eliminar', () => {
+    let idComentario = ''
+
+    beforeEach(async () => {
+      await entorno.withSecurityRulesDisabled(async (ctx) => {
+        const ref = await ctx.firestore().collection(`${RUTA}/comentarios`).add({
+          texto: 'x',
+          uid: PERFILES.analista!.uid,
+          nombre: 'Persona',
+          gateCodigo: 'TSSR',
+          ts: new Date(),
+        })
+        idComentario = ref.id
+      })
+    })
+
+    it('el admin borra el seguimiento y sus comentarios en el mismo lote', async () => {
+      const db = como(entorno, PERFILES.admin!)
+      const lote = db.batch()
+      lote.delete(db.doc(RUTA))
+      lote.delete(db.doc(`${RUTA}/comentarios/${idComentario}`))
+      await assertSucceeds(lote.commit())
+    })
+
+    it('y los que quedaron, una vez borrado el padre', async () => {
+      const db = como(entorno, PERFILES.admin!)
+      await assertSucceeds(db.doc(RUTA).delete())
+      await assertSucceeds(db.doc(`${RUTA}/comentarios/${idComentario}`).delete())
+    })
+
+    it('pero un comentario de un sitio vivo no se borra', async () => {
+      await assertFails(
+        como(entorno, PERFILES.admin!).doc(`${RUTA}/comentarios/${idComentario}`).delete(),
+      )
+    })
+
+    it('y un no admin no los borra ni con el padre eliminado', async () => {
+      await entorno.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().doc(RUTA).delete()
+      })
+      await assertFails(
+        como(entorno, PERFILES.jefe!).doc(`${RUTA}/comentarios/${idComentario}`).delete(),
+      )
+    })
+  })
+})

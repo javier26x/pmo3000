@@ -10,6 +10,8 @@
 import {
   collection,
   doc,
+  getCountFromServer,
+  getDocs,
   getDoc,
   limit as limitar,
   onSnapshot,
@@ -19,6 +21,8 @@ import {
   setDoc,
   where,
   writeBatch,
+  type DocumentReference,
+  type WriteBatch,
   type Unsubscribe,
 } from 'firebase/firestore'
 import { COLECCIONES, db } from '../firebase'
@@ -33,6 +37,7 @@ import type { GateTemplate } from '@/domain/tipos/gate'
 import type { Sitio } from '@/domain/tipos/sitio'
 import type { Actor, Prioridad } from '@/domain/tipos/comunes'
 import type { FechaISO } from '@/domain/fechas'
+import type { EventoAuditoriaNuevo } from '@/domain/tipos/auditoria'
 
 const convertidor = crearConvertidor(normalizarSitioProyecto)
 const convComentario = crearConvertidor(normalizarComentario)
@@ -94,9 +99,21 @@ export function observarSeguimientos(
     limitar(tope),
   )
 
+  // Cuando alguien avanza un gate, el snapshot trae los 1.500 documentos pero
+  // solo uno cambio. Normalizar solo los que cambiaron ahorra el trabajo y, mas
+  // importante, conserva la identidad de los demas objetos: las filas, el mapa y
+  // los calculos memoizados que dependen de ellos no se rehacen.
+  const vigentes = new Map<string, SitioProyecto>()
+
   return onSnapshot(
     q,
-    (snap) => cb(snap.docs.map((d) => d.data())),
+    (snap) => {
+      for (const cambio of snap.docChanges()) {
+        if (cambio.type === 'removed') vigentes.delete(cambio.doc.id)
+        else vigentes.set(cambio.doc.id, cambio.doc.data())
+      }
+      cb(snap.docs.map((d) => vigentes.get(d.id) ?? d.data()))
+    },
     (e) => onError(e),
   )
 }
@@ -331,4 +348,199 @@ export async function agregarComentario(
       ts: serverTimestamp(),
     },
   )
+}
+
+// --- Eliminacion (solo admin) ---------------------------------------------
+
+/**
+ * Tope de operaciones por lote. Firestore admite 500; se deja margen para que
+ * la auditoria siempre quepa junto al cambio que la origina.
+ */
+const MAX_OPERACIONES = 450
+
+/** Comentarios de un seguimiento, sin tope: al eliminar hay que llevarlos todos. */
+async function refsComentarios(sitioProyectoId: string): Promise<DocumentReference[]> {
+  const snap = await getDocs(
+    collection(db, COLECCIONES.sitioProyectos, sitioProyectoId, COLECCIONES.comentarios),
+  )
+  return snap.docs.map((d) => d.ref)
+}
+
+function eventoEliminacion(
+  sp: Pick<SitioProyecto, 'id' | 'sitioId' | 'proyectoId' | 'programaId' | 'gateActual'>,
+  motivo: string,
+): EventoAuditoriaNuevo {
+  return {
+    entidadTipo: 'sitioProyecto',
+    entidadId: sp.id,
+    sitioId: sp.sitioId,
+    proyectoId: sp.proyectoId,
+    programaId: sp.programaId,
+    accion: 'eliminar',
+    campo: null,
+    valorAnterior: `${sp.sitioId} en ${sp.proyectoId} (etapa ${sp.gateActual})`,
+    valorNuevo: null,
+    detalle: motivo.trim() || null,
+  }
+}
+
+/**
+ * Arma los lotes de una eliminacion: cada seguimiento viaja con su evento de
+ * auditoria en el MISMO lote, y sus comentarios en ese lote o en los siguientes.
+ *
+ * El orden importa por las reglas: un comentario solo se puede borrar si su
+ * seguimiento ya no existe despues de la escritura (existsAfter). Por eso el
+ * seguimiento va siempre en el primer lote que toca sus comentarios, y los que
+ * no quepan van en lotes posteriores, cuando el padre ya no esta.
+ */
+class Lotes {
+  private lote: WriteBatch = writeBatch(db)
+  private operaciones = 0
+  private readonly pendientes: WriteBatch[] = []
+
+  constructor(private readonly actor: Actor) {}
+
+  private asegurarEspacio(necesarias: number) {
+    if (this.operaciones > 0 && this.operaciones + necesarias > MAX_OPERACIONES) this.cortar()
+  }
+
+  private cortar() {
+    if (this.operaciones === 0) return
+    this.pendientes.push(this.lote)
+    this.lote = writeBatch(db)
+    this.operaciones = 0
+  }
+
+  eliminar(ref: DocumentReference, evento: EventoAuditoriaNuevo, comentarios: DocumentReference[]) {
+    // Seguimiento + evento, y tantos comentarios como quepan en el mismo lote.
+    this.asegurarEspacio(2 + Math.min(comentarios.length, MAX_OPERACIONES - 2))
+    this.lote.delete(ref)
+    agregarEventos(this.lote, [evento], this.actor)
+    this.operaciones += 2
+    for (const c of comentarios) {
+      if (this.operaciones >= MAX_OPERACIONES) this.cortar()
+      this.lote.delete(c)
+      this.operaciones++
+    }
+  }
+
+  evento(evento: EventoAuditoriaNuevo) {
+    this.asegurarEspacio(1)
+    agregarEventos(this.lote, [evento], this.actor)
+    this.operaciones++
+  }
+
+  /** Confirma en orden. Si uno falla, los anteriores ya quedaron y los siguientes no. */
+  async confirmar(onLote?: (hechos: number, total: number) => void): Promise<void> {
+    this.cortar()
+    for (const [i, lote] of this.pendientes.entries()) {
+      await lote.commit()
+      onLote?.(i + 1, this.pendientes.length)
+    }
+  }
+}
+
+/**
+ * Elimina un seguimiento con sus comentarios y deja el rastro en la auditoria.
+ * Solo admin (las reglas lo exigen). El maestro del sitio NO se toca: puede
+ * estar en otros proyectos. Las tareas que apuntaban al seguimiento quedan con
+ * la referencia colgando, igual que antes de existir esta funcion.
+ */
+export async function eliminarSeguimiento(
+  sp: SitioProyecto,
+  motivo: string,
+  actor: Actor,
+): Promise<{ comentarios: number }> {
+  const comentarios = await refsComentarios(sp.id)
+  const lotes = new Lotes(actor)
+  lotes.eliminar(
+    doc(db, COLECCIONES.sitioProyectos, sp.id),
+    eventoEliminacion(sp, motivo),
+    comentarios,
+  )
+  await lotes.confirmar()
+  return { comentarios: comentarios.length }
+}
+
+/** Cuantos seguimientos tiene un proyecto. Lee el conteo, no los documentos. */
+export async function contarSeguimientosDeProyecto(proyectoId: string): Promise<number> {
+  const snap = await getCountFromServer(
+    query(collection(db, COLECCIONES.sitioProyectos), where('proyectoId', '==', proyectoId)),
+  )
+  return snap.data().count
+}
+
+export interface AvanceEliminacion {
+  fase: 'leyendo' | 'escribiendo'
+  hechos: number
+  total: number
+}
+
+/**
+ * Elimina TODOS los seguimientos de un proyecto (por ejemplo, para deshacer una
+ * importacion de tracker equivocada). Un evento de auditoria por seguimiento,
+ * en el mismo lote que su borrado, mas un evento resumen sobre el proyecto al
+ * final. Los sitios del maestro no se tocan.
+ *
+ * No es atomica: son varios lotes. Si se corta a medio camino, lo borrado queda
+ * borrado y auditado, y volver a ejecutarla termina el trabajo.
+ */
+export async function eliminarSeguimientosDeProyecto(
+  proyectoId: string,
+  motivo: string,
+  actor: Actor,
+  onAvance?: (avance: AvanceEliminacion) => void,
+): Promise<{ seguimientos: number; comentarios: number }> {
+  if (!motivo.trim()) throw new Error('Eliminar seguimientos exige un motivo')
+
+  const snap = await getDocs(
+    query(
+      collection(db, COLECCIONES.sitioProyectos).withConverter(convertidor),
+      where('proyectoId', '==', proyectoId),
+    ),
+  )
+  const seguimientos = snap.docs.map((d) => d.data())
+  if (seguimientos.length === 0) return { seguimientos: 0, comentarios: 0 }
+
+  // Los comentarios se leen en tandas en paralelo: uno por uno serian 1.500
+  // idas y vueltas.
+  const comentarios = new Map<string, DocumentReference[]>()
+  const PARALELO = 16
+  for (let i = 0; i < seguimientos.length; i += PARALELO) {
+    const tanda = seguimientos.slice(i, i + PARALELO)
+    const refs = await Promise.all(tanda.map((sp) => refsComentarios(sp.id)))
+    tanda.forEach((sp, j) => comentarios.set(sp.id, refs[j] ?? []))
+    onAvance?.({
+      fase: 'leyendo',
+      hechos: Math.min(i + PARALELO, seguimientos.length),
+      total: seguimientos.length,
+    })
+  }
+
+  const lotes = new Lotes(actor)
+  let totalComentarios = 0
+  for (const sp of seguimientos) {
+    const propios = comentarios.get(sp.id) ?? []
+    totalComentarios += propios.length
+    lotes.eliminar(
+      doc(db, COLECCIONES.sitioProyectos, sp.id),
+      eventoEliminacion(sp, motivo),
+      propios,
+    )
+  }
+  lotes.evento({
+    entidadTipo: 'proyecto',
+    entidadId: proyectoId,
+    sitioId: null,
+    proyectoId,
+    programaId: seguimientos[0]?.programaId ?? null,
+    accion: 'eliminar',
+    campo: 'sitioProyectos',
+    valorAnterior: String(seguimientos.length),
+    valorNuevo: '0',
+    detalle: `Eliminacion masiva de ${seguimientos.length} seguimientos: ${motivo.trim()}`,
+  })
+
+  await lotes.confirmar((hechos, total) => onAvance?.({ fase: 'escribiendo', hechos, total }))
+  return { seguimientos: seguimientos.length, comentarios: totalComentarios }
 }

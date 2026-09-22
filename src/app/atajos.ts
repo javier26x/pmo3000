@@ -16,6 +16,7 @@ export const ATAJOS: Atajo[] = [
   { grupo: 'General', teclas: ['?'], descripcion: 'Mostrar esta ayuda' },
   { grupo: 'General', teclas: ['Esc'], descripcion: 'Cerrar el diálogo o limpiar la búsqueda' },
 
+  { grupo: 'Ir a', teclas: ['G', 'H'], descripcion: 'Inicio' },
   { grupo: 'Ir a', teclas: ['G', 'S'], descripcion: 'Sitios' },
   { grupo: 'Ir a', teclas: ['G', 'M'], descripcion: 'Mapa' },
   { grupo: 'Ir a', teclas: ['G', 'K'], descripcion: 'Kanban' },
@@ -32,6 +33,7 @@ export const ATAJOS: Atajo[] = [
 ]
 
 const IR_A: Record<string, string> = {
+  h: '/',
   s: '/sitios',
   m: '/mapa',
   k: '/kanban',

@@ -8,7 +8,7 @@ un cliente manipulado no gana nada saltándose la matriz.
 > `src/domain/permisos/matriz.ts` y `tests/rules/`.
 
 ```bash
-npm run test:rules             # 62 casos contra el emulador
+npm run test:rules             # 95 casos contra el emulador
 npm run test:rules:conectado   # usando el emulador que ya tienes levantado
 ```
 
@@ -54,6 +54,11 @@ fuera (hay tests para ambos).
 | Editar proyectos              | ✓     | ✓           | —        | —                     | —      |
 | Administrar usuarios          | ✓     | —           | —        | —                     | —      |
 | Borrar sitios o seguimientos  | ✓     | —           | —        | —                     | —      |
+| Corrección administrativa     | ✓     | —           | —        | —                     | —      |
+
+«Corrección administrativa» es mover un sitio a cualquier etapa de su secuencia
+(saltando hacia adelante o hacia atrás), eliminar un seguimiento completo con sus
+comentarios y eliminar todos los seguimientos de un proyecto. Ver más abajo.
 
 ---
 
@@ -63,11 +68,91 @@ fuera (hay tests para ambos).
 
 El nuevo `gateActual` solo puede ser el mismo, el inmediatamente siguiente, o el
 inmediatamente anterior (y esto último solo para admin y jefe de célula). Saltar
-gates se rechaza en el servidor, no solo en la interfaz.
+gates se rechaza en el servidor, no solo en la interfaz. La única excepción es la
+corrección administrativa del admin (abajo).
 
 Además, **el cierre tiene que ser real**: al avanzar, el gate que se deja atrás
 debe quedar con `estado == 'completado'` **y** `fechaReal != null`. Sin esta
 regla se podría «avanzar» sin cerrar nada.
+
+### Corrección administrativa (solo admin)
+
+La app tiene que poder administrarse sin que un desarrollador toque la base. Por
+eso el **admin** se salta `gateSecuencial()` y `cierreConsistente()`:
+
+```
+allow update: if puedeGestionar()
+  && noCambia('sitioId') && noCambia('proyectoId')
+  && noCambia('programaId') && noCambia('portafolioId')
+  && ((esAdmin() && destinoValido())
+      || (gateSecuencial() && cierreConsistente()));
+```
+
+- `destinoValido()` exige que el `gateActual` nuevo sea una etapa del propio
+  documento o `CERRADO`: ni el admin puede mandar un sitio a una etapa inventada.
+- La identidad del seguimiento (`sitioId`, `proyectoId`, `programaId`,
+  `portafolioId`) sigue siendo inmutable también para el admin.
+- Jefe, analista y contratista quedan exactamente como antes.
+
+En la interfaz esto es el menú **Administrar** de la ficha del seguimiento
+(`src/features/gates/AdministrarSeguimiento.tsx`), que solo ve el admin:
+
+- **Mover a cualquier etapa**: `planCorreccionAdmin` en
+  `src/domain/gates/maquina.ts`. Deja coherentes todos los gates: los anteriores
+  al destino `completado` (con la fecha real que ya tenían, o la que indica el
+  admin), el destino `en_curso` y los posteriores `no_iniciado` sin fecha real
+  ni cierre. Recalcula `estadoGate` y `fechaPlanGateActual`. Con destino igual
+  al actual sirve para reparar estados incoherentes. Motivo obligatorio.
+- **Cambiar célula** (`planCambiarCelula`).
+- **Eliminar seguimiento**, escribiendo el ID del sitio para confirmar.
+
+`estadoGate` y el `estado` de cada gate **no** se editan sueltos: son derivados
+(de la etapa actual y de `bloqueado`), y editarlos a mano dejaría el documento
+contradiciéndose. La corrección de etapa los recalcula; el bloqueo se maneja con
+Bloquear/Desbloquear.
+
+Además, en la pantalla de importar tracker, el admin tiene **Deshacer / eliminar
+seguimientos de un proyecto**: cuenta los seguimientos del proyecto, pide motivo
+y el ID del proyecto, y borra en lotes de hasta 450 operaciones. No es atómico:
+si se corta, lo borrado quedó borrado y auditado, y volver a ejecutarlo termina.
+
+Todo pasa por la auditoría en el **mismo** `writeBatch`: un evento por
+corrección, un evento `eliminar` por cada seguimiento borrado y, en el borrado
+masivo, un evento resumen sobre el proyecto.
+
+### Comentarios al eliminar un seguimiento
+
+Un comentario sigue sin poder editarse ni borrarse suelto. La única excepción es
+el admin eliminando el seguimiento completo:
+
+```
+allow delete: if esAdmin()
+  && !existsAfter(/databases/$(database)/documents/sitioProyectos/$(spId));
+```
+
+O sea, un comentario solo se borra si su seguimiento **ya no existe después de la
+escritura**: en el mismo lote que borra el padre o en uno posterior. Nadie puede
+limpiar los comentarios incómodos de un sitio vivo, y eliminar un seguimiento no
+deja comentarios huérfanos.
+
+Lo que **no** se borra al eliminar un seguimiento: el sitio del maestro (puede
+estar en otros proyectos) y las tareas que apuntaban a ese seguimiento
+(`sitioProyectoId` queda colgando).
+
+### Importar un tracker sin ser admin
+
+Las plantillas (`gateTemplates`) son solo de admin, pero importar un tracker lo
+pueden hacer jefe y analista. Para que no falle a medio camino:
+
+- si la plantilla **ya existe** (re-importación), quien no es admin la reutiliza
+  tal cual y la importación sigue; la pantalla avisa que se usó la existente;
+- si **no existe**, la importación se detiene **antes de escribir nada**, con un
+  mensaje que pide a un admin hacer la primera importación.
+
+Re-importar sobre seguimientos existentes es una actualización, así que para
+jefe y analista rige la secuencia: si el tracker mueve un sitio más de una etapa,
+el lote se rechaza y la pantalla lo explica. Un admin re-importa sin esa
+restricción. Los eventos de auditoría de la importación llevan `origen: 'import'`.
 
 ### Visibilidad del contratista
 
@@ -182,7 +267,7 @@ desaparecen.
 
 ## Qué cubren los tests
 
-`tests/rules/` — 62 casos contra el emulador:
+`tests/rules/` — 95 casos contra el emulador:
 
 - **`acceso.test.ts`** — dominio, correo sin verificar, usuario sin perfil,
   usuario desactivado, permisos por rol sobre sitios, catálogos y tareas, y que
@@ -191,6 +276,9 @@ desaparecen.
   cerrar el origen, retroceso por rol, cierre del último gate, campos de
   identidad inmutables, visibilidad del contratista (incluida la consulta sin
   filtro y la consulta suplantando a otro proveedor), lo que el contratista
-  puede y no puede escribir, y los comentarios.
+  puede y no puede escribir, los comentarios, y la corrección administrativa:
+  el admin salta etapas en ambos sentidos pero no a una etapa inexistente ni
+  cambiando la identidad; jefe, analista y contratista siguen sin poder saltar;
+  solo el admin elimina, y los comentarios solo se borran con el padre eliminado.
 - **`auditoria.test.ts`** — append-only, antedatado, suplantación, y todos los
   casos de escalamiento de privilegios sobre `usuarios`.

@@ -140,8 +140,8 @@ export function PaginaKanban() {
     )
     avisar.ok(
       confirmacion.tipo === 'avance'
-        ? `${confirmacion.sp.sitioId} avanzó a ${nombreGate(confirmacion.destino)}`
-        : `${confirmacion.sp.sitioId} volvió a ${nombreGate(confirmacion.destino)}`,
+        ? `${confirmacion.sp.sitioId} avanzó a ${nombreGate(confirmacion.destino, etapas)}`
+        : `${confirmacion.sp.sitioId} volvió a ${nombreGate(confirmacion.destino, etapas)}`,
     )
     setConfirmacion(null)
   }
@@ -252,12 +252,12 @@ export function PaginaKanban() {
         onCerrar={() => setConfirmacion(null)}
         titulo={
           confirmacion?.tipo === 'avance'
-            ? `Avanzar ${confirmacion.sp.sitioId} a ${nombreGate(confirmacion.destino)}`
-            : `Retroceder ${confirmacion?.sp.sitioId ?? ''} a ${confirmacion ? nombreGate(confirmacion.destino) : ''}`
+            ? `Avanzar ${confirmacion.sp.sitioId} a ${nombreGate(confirmacion.destino, etapas)}`
+            : `Retroceder ${confirmacion?.sp.sitioId ?? ''} a ${confirmacion ? nombreGate(confirmacion.destino, etapas) : ''}`
         }
         descripcion={
           confirmacion?.tipo === 'avance'
-            ? `Se cerrara ${nombreGate(confirmacion.sp.gateActual)} con la fecha real que indiques.`
+            ? `Se cerrara ${nombreGate(confirmacion.sp.gateActual, etapas)} con la fecha real que indiques.`
             : 'El gate anterior se reabre y pierde su fecha real.'
         }
         pie={

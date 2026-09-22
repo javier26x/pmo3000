@@ -18,7 +18,7 @@ import {
 } from '@/components/ui'
 import { formatearFecha } from '@/domain/fechas'
 import { NOMBRES_SEMAFORO, semaforo, textoAtraso } from '@/domain/gates/atraso'
-import { CERRADO, claseGate, nombreGate } from '@/domain/gates/catalogo'
+import { CERRADO, claseGate, nombreGate, type EtapaCatalogo } from '@/domain/gates/catalogo'
 import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { usarTema } from '@/app/tema'
@@ -56,15 +56,23 @@ function DetectorDeTeselas({ onFallar }: { onFallar: () => void }) {
   return null
 }
 
+/**
+ * Un solo lienzo para todos los puntos. Con SVG cada sitio es un nodo del DOM y
+ * mover el mapa con 4.500 de ellos se traba; en canvas es un solo elemento.
+ */
+const LIENZO = L.canvas({ padding: 0.5 })
+
 function CapaSeguimientos({
   datos,
   modo,
   hoy,
+  etapas,
   onElegir,
 }: {
   datos: SitioProyecto[]
   modo: ModoColor
   hoy: string
+  etapas: readonly EtapaCatalogo[]
   onElegir: (sp: SitioProyecto) => void
 }) {
   const mapa = useMap()
@@ -75,9 +83,11 @@ function CapaSeguimientos({
     // Clustering obligatorio: 4.500 marcadores sueltos dejan el mapa inservible.
     const grupo = L.markerClusterGroup({
       chunkedLoading: true,
+      chunkInterval: 120,
       maxClusterRadius: 55,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
+      removeOutsideVisibleBounds: true,
     })
     grupoRef.current = grupo
     mapa.addLayer(grupo)
@@ -91,7 +101,10 @@ function CapaSeguimientos({
     const grupo = grupoRef.current
     if (!grupo) return
 
-    const paleta = leerPaleta()
+    // Las etapas vienen de la plantilla de cada programa: sin ellas, todo codigo
+    // que no fuera CERRADO caia en el gris por defecto y el mapa entero salia
+    // de un solo color.
+    const paleta = leerPaleta(etapas)
     grupo.clearLayers()
 
     const marcadores = datos
@@ -101,10 +114,11 @@ function CapaSeguimientos({
         const estado = semaforo(gate?.fechaPlan ?? null, gate?.fechaReal ?? null, hoy)
         const color =
           modo === 'gate'
-            ? (paleta.gate[sp.gateActual] ?? '#888')
+            ? (paleta.gate[sp.gateActual] ?? paleta.gate[CERRADO] ?? '#888')
             : (paleta.semaforo[estado] ?? '#888')
 
         const marcador = L.circleMarker([sp.lat, sp.lon], {
+          renderer: LIENZO,
           radius: 6,
           weight: 1.5,
           color: '#ffffff',
@@ -112,7 +126,13 @@ function CapaSeguimientos({
           fillOpacity: 0.95,
         })
 
-        marcador.bindTooltip(`${sp.sitioId} — ${sp.sitioNombre}`, { direction: 'top' })
+        // El tooltip se arma recien al pasar el cursor: crearlo por adelantado
+        // eran miles de objetos que casi nadie llega a ver.
+        marcador.once('mouseover', () => {
+          marcador
+            .bindTooltip(`${sp.sitioId} — ${sp.sitioNombre}`, { direction: 'top' })
+            .openTooltip()
+        })
         // El detalle se muestra en un panel de React (no en un popup de Leaflet)
         // para poder navegar con el router y que funcione bien en celular.
         marcador.on('click', () => onElegir(sp))
@@ -120,7 +140,7 @@ function CapaSeguimientos({
       })
 
     grupo.addLayers(marcadores)
-  }, [datos, modo, hoy, tema, onElegir])
+  }, [datos, modo, hoy, tema, etapas, onElegir])
 
   return null
 }
@@ -195,7 +215,13 @@ export default function PaginaMapa() {
             attribution='&copy; colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             maxZoom={19}
           />
-          <CapaSeguimientos datos={conCoordenadas} modo={modo} hoy={hoy} onElegir={setElegido} />
+          <CapaSeguimientos
+            datos={conCoordenadas}
+            modo={modo}
+            hoy={hoy}
+            etapas={etapas}
+            onElegir={setElegido}
+          />
           <DetectorDeTeselas onFallar={marcarSinTeselas} />
         </MapContainer>
 
@@ -285,7 +311,7 @@ export default function PaginaMapa() {
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-texto-3">Gate actual</dt>
-                <dd>{nombreGate(elegido.gateActual)}</dd>
+                <dd>{nombreGate(elegido.gateActual, etapas)}</dd>
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-texto-3">Fecha plan</dt>

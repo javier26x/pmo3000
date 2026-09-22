@@ -78,6 +78,29 @@ function normalizar(texto: string): string {
   return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
+/**
+ * Comparador unico para textos en espanol. `a.localeCompare(b, 'es')` arma un
+ * comparador nuevo en cada llamada y ordenar 4.500 filas hace ~55.000: con un
+ * Collator reutilizado el mismo orden cuesta una fraccion.
+ */
+export const compararTexto = new Intl.Collator('es').compare
+
+/**
+ * Texto de busqueda de cada seguimiento, normalizado una sola vez por objeto:
+ * antes se recorrian 4.500 strings con NFD + regex en cada tecla. El WeakMap se
+ * vacia solo cuando un objeto deja de usarse.
+ */
+const HENO = new WeakMap<SitioProyecto, string>()
+
+function henoDe(sp: SitioProyecto): string {
+  let heno = HENO.get(sp)
+  if (heno === undefined) {
+    heno = normalizar(`${sp.sitioId} ${sp.sitioNombre} ${sp.comuna} ${sp.region}`)
+    HENO.set(sp, heno)
+  }
+  return heno
+}
+
 /** Atraso del gate en curso. null si no hay compromiso cargado. */
 export function atrasoDeSeguimiento(
   sp: SitioProyecto,
@@ -108,10 +131,7 @@ export function filtrarSeguimientos(
     if (filtros.soloBloqueados && !sp.bloqueado) return false
     if (filtros.soloAtrasados && !estaAtrasado(sp, hoy)) return false
 
-    if (buscado !== '') {
-      const heno = normalizar(`${sp.sitioId} ${sp.sitioNombre} ${sp.comuna} ${sp.region}`)
-      if (!heno.includes(buscado)) return false
-    }
+    if (buscado !== '' && !henoDe(sp).includes(buscado)) return false
 
     return true
   })
@@ -146,44 +166,44 @@ export type DireccionOrden = 'asc' | 'desc'
 
 const PESO_PRIORIDAD: Record<Prioridad, number> = { baja: 0, media: 1, alta: 2, critica: 3 }
 
-/**
- * Un registro sin el dato por el que se ordena queda SIEMPRE al final, en ambas
- * direcciones: un sitio sin fecha plan no es "el mas proximo a vencer" ni "el
- * mas lejano", simplemente no tiene compromiso cargado.
- */
-function faltaDato(sp: SitioProyecto, campo: CampoOrden, hoy: FechaISO): boolean {
-  if (campo === 'plan') return !sp.fechaPlanGateActual
-  if (campo === 'atraso') return atrasoDeSeguimiento(sp, hoy) === null
-  return false
-}
-
 /** Posicion de la etapa actual dentro de la secuencia del propio sitio. */
 function ordenDeSitio(sp: SitioProyecto): number {
   if (sp.gateActual === CERRADO) return Number.MAX_SAFE_INTEGER
   return sp.gates[sp.gateActual]?.orden ?? Number.MAX_SAFE_INTEGER - 1
 }
 
-function comparar(a: SitioProyecto, b: SitioProyecto, campo: CampoOrden, hoy: FechaISO): number {
+/**
+ * Clave por la que se ordena cada fila, calculada UNA vez por fila y no en cada
+ * comparacion (el atraso, por ejemplo, sale de las fechas del gate). null es
+ * "sin el dato".
+ */
+function claveOrden(sp: SitioProyecto, campo: CampoOrden, hoy: FechaISO): string | number | null {
   switch (campo) {
     case 'sitio':
-      return a.sitioId.localeCompare(b.sitioId, 'es')
+      return sp.sitioId
     case 'nombre':
-      return a.sitioNombre.localeCompare(b.sitioNombre, 'es')
+      return sp.sitioNombre
     case 'region':
-      return a.region.localeCompare(b.region, 'es') || a.comuna.localeCompare(b.comuna, 'es')
+      return sp.region
     case 'gate':
       // Cada documento lleva el orden de sus propias etapas, asi que una lista
       // que mezcla programas con procesos distintos igual ordena bien.
-      return ordenDeSitio(a) - ordenDeSitio(b)
+      return ordenDeSitio(sp)
     case 'plan':
-      return (a.fechaPlanGateActual ?? '').localeCompare(b.fechaPlanGateActual ?? '')
+      return sp.fechaPlanGateActual || null
     case 'atraso':
-      return (atrasoDeSeguimiento(a, hoy) ?? 0) - (atrasoDeSeguimiento(b, hoy) ?? 0)
+      return atrasoDeSeguimiento(sp, hoy)
     case 'prioridad':
-      return PESO_PRIORIDAD[a.prioridad] - PESO_PRIORIDAD[b.prioridad]
+      return PESO_PRIORIDAD[sp.prioridad]
     default:
       return 0
   }
+}
+
+function compararClaves(a: string | number, b: string | number): number {
+  return typeof a === 'number' && typeof b === 'number'
+    ? a - b
+    : compararTexto(String(a), String(b))
 }
 
 export function ordenarSeguimientos(
@@ -193,13 +213,22 @@ export function ordenarSeguimientos(
   hoy: FechaISO = hoyEnChile(),
 ): SitioProyecto[] {
   const signo = direccion === 'asc' ? 1 : -1
-  return [...lista].sort((a, b) => {
-    const faltaA = faltaDato(a, campo, hoy)
-    const faltaB = faltaDato(b, campo, hoy)
-    if (faltaA !== faltaB) return faltaA ? 1 : -1
+  const filas = lista.map((sp) => ({ sp, clave: claveOrden(sp, campo, hoy) }))
+  filas.sort((a, b) => {
+    // Un registro sin el dato por el que se ordena queda SIEMPRE al final, en
+    // ambas direcciones: un sitio sin fecha plan no es "el mas proximo a vencer"
+    // ni "el mas lejano", simplemente no tiene compromiso cargado.
+    if (a.clave === null || b.clave === null) {
+      if (a.clave !== b.clave) return a.clave === null ? 1 : -1
+      return compararTexto(a.sp.sitioId, b.sp.sitioId)
+    }
+    const principal =
+      compararClaves(a.clave, b.clave) ||
+      (campo === 'region' ? compararTexto(a.sp.comuna, b.sp.comuna) : 0)
     // Desempate estable por ID: dos vistas del mismo dato se ven igual siempre.
-    return comparar(a, b, campo, hoy) * signo || a.sitioId.localeCompare(b.sitioId, 'es')
+    return principal * signo || compararTexto(a.sp.sitioId, b.sp.sitioId)
   })
+  return filas.map((f) => f.sp)
 }
 
 /** Valores distintos de un campo, ordenados, para poblar los selectores. */
@@ -221,7 +250,7 @@ export function valoresDistintos<T>(lista: readonly T[], extraer: (item: T) => s
     const valor = extraer(item)
     if (valor) conjunto.add(valor)
   }
-  return [...conjunto].sort((a, b) => a.localeCompare(b, 'es'))
+  return [...conjunto].sort(compararTexto)
 }
 
 export interface ResumenGates {

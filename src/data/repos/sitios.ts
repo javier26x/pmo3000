@@ -8,6 +8,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  where,
   writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore'
@@ -15,6 +16,13 @@ import { COLECCIONES, db } from '../firebase'
 import { crearConvertidor } from '../convertidores'
 import { normalizarSitio } from '../normalizadores'
 import { agregarEventos } from '../auditoria'
+import { contarReferencias } from './catalogos'
+import {
+  CAMPOS_SITIO_DESNORMALIZADOS,
+  parcheDesnormalizado,
+  totalReferencias,
+  type ConteoReferencias,
+} from '@/domain/catalogos/referencias'
 import { aTextoAuditoria } from '@/domain/tipos/auditoria'
 import type { Sitio, SitioNuevo } from '@/domain/tipos/sitio'
 import type { Actor } from '@/domain/tipos/comunes'
@@ -81,6 +89,11 @@ export async function guardarSitio(
   actor: Actor,
   anterior: Sitio | null,
 ): Promise<void> {
+  // Una edicion tiene que arrastrar la copia desnormalizada de sus seguimientos.
+  if (anterior) {
+    await actualizarSitio(anterior, datos, actor)
+    return
+  }
   const batch = writeBatch(db)
   const { id, ...campos } = datos
 
@@ -88,44 +101,32 @@ export async function guardarSitio(
     doc(db, COLECCIONES.sitios, id),
     {
       ...campos,
-      ...(anterior ? {} : { creadoEn: serverTimestamp(), creadoPor: actor.uid }),
+      creadoEn: serverTimestamp(),
+      creadoPor: actor.uid,
       actualizadoEn: serverTimestamp(),
       actualizadoPor: actor.uid,
     },
     { merge: true },
   )
 
-  const eventos = anterior
-    ? (Object.keys(campos) as (keyof typeof campos)[])
-        .filter((clave) => aTextoAuditoria(anterior[clave]) !== aTextoAuditoria(campos[clave]))
-        .map((clave) => ({
-          entidadTipo: 'sitio' as const,
-          entidadId: id,
-          sitioId: id,
-          proyectoId: null,
-          programaId: null,
-          accion: 'actualizar' as const,
-          campo: String(clave),
-          valorAnterior: aTextoAuditoria(anterior[clave]),
-          valorNuevo: aTextoAuditoria(campos[clave]),
-          detalle: null,
-        }))
-    : [
-        {
-          entidadTipo: 'sitio' as const,
-          entidadId: id,
-          sitioId: id,
-          proyectoId: null,
-          programaId: null,
-          accion: 'crear' as const,
-          campo: null,
-          valorAnterior: null,
-          valorNuevo: datos.nombre,
-          detalle: `${datos.comuna}, ${datos.region}`,
-        },
-      ]
-
-  agregarEventos(batch, eventos, actor)
+  agregarEventos(
+    batch,
+    [
+      {
+        entidadTipo: 'sitio',
+        entidadId: id,
+        sitioId: id,
+        proyectoId: null,
+        programaId: null,
+        accion: 'crear',
+        campo: null,
+        valorAnterior: null,
+        valorNuevo: datos.nombre,
+        detalle: `${datos.comuna}, ${datos.region}`,
+      },
+    ],
+    actor,
+  )
   await batch.commit()
 }
 
@@ -160,6 +161,105 @@ export async function actualizarCarpeta(
     actor,
   )
   await batch.commit()
+}
+
+/**
+ * Edita un sitio del maestro y, en el mismo batch, reescribe la copia de
+ * nombre/region/comuna/lat/lon que llevan sus sitioProyectos. Sin eso la tabla,
+ * el kanban y el mapa seguirian mostrando el valor viejo. Un sitio participa en
+ * pocos proyectos, asi que el batch queda muy por debajo del tope de 500.
+ *
+ * Devuelve cuantos seguimientos se reescribieron. Si la consulta de
+ * seguimientos no alcanza al servidor, se usa lo que haya en la cache local.
+ */
+export async function actualizarSitio(
+  anterior: Sitio,
+  datos: SitioNuevo,
+  actor: Actor,
+): Promise<number> {
+  if (datos.id !== anterior.id) throw new Error('El ID de un sitio no se puede cambiar')
+
+  const parche = parcheDesnormalizado(anterior, datos)
+  const seguimientos = parche
+    ? (
+        await getDocs(
+          query(collection(db, COLECCIONES.sitioProyectos), where('sitioId', '==', anterior.id)),
+        )
+      ).docs
+    : []
+
+  const batch = writeBatch(db)
+  const { id, ...campos } = datos
+  batch.set(
+    doc(db, COLECCIONES.sitios, id),
+    { ...campos, actualizadoEn: serverTimestamp(), actualizadoPor: actor.uid },
+    { merge: true },
+  )
+
+  for (const sp of seguimientos) {
+    batch.update(sp.ref, { ...parche, actualizadoEn: serverTimestamp(), actualizadoPor: actor.uid })
+  }
+
+  const eventos = (Object.keys(campos) as (keyof typeof campos)[])
+    .filter((clave) => aTextoAuditoria(anterior[clave]) !== aTextoAuditoria(campos[clave]))
+    .map((clave) => ({
+      entidadTipo: 'sitio' as const,
+      entidadId: id,
+      sitioId: id,
+      proyectoId: null,
+      programaId: null,
+      accion: 'actualizar' as const,
+      campo: String(clave),
+      valorAnterior: aTextoAuditoria(anterior[clave]),
+      valorNuevo: aTextoAuditoria(campos[clave]),
+      detalle:
+        seguimientos.length > 0 && clave in CAMPOS_SITIO_DESNORMALIZADOS
+          ? `Copiado a ${seguimientos.length} seguimiento(s)`
+          : null,
+    }))
+
+  agregarEventos(batch, eventos, actor)
+  await batch.commit()
+  return seguimientos.length
+}
+
+export type ResultadoEliminacionSitio =
+  { eliminado: true } | { eliminado: false; referencias: ConteoReferencias }
+
+/**
+ * Borra un sitio del maestro SOLO si no participa en ningun proyecto ni tiene
+ * tareas. Si participa, borrarlo dejaria seguimientos apuntando a un sitio que
+ * no existe: en ese caso se desactiva (activo=false) en vez de borrarse.
+ */
+export async function eliminarSitio(
+  sitio: Sitio,
+  actor: Actor,
+): Promise<ResultadoEliminacionSitio> {
+  const referencias = await contarReferencias('sitio', sitio.id)
+  if (totalReferencias(referencias) > 0) return { eliminado: false, referencias }
+
+  const batch = writeBatch(db)
+  batch.delete(doc(db, COLECCIONES.sitios, sitio.id))
+  agregarEventos(
+    batch,
+    [
+      {
+        entidadTipo: 'sitio',
+        entidadId: sitio.id,
+        sitioId: sitio.id,
+        proyectoId: null,
+        programaId: null,
+        accion: 'eliminar',
+        campo: null,
+        valorAnterior: sitio.nombre,
+        valorNuevo: null,
+        detalle: `${sitio.comuna}, ${sitio.region}`,
+      },
+    ],
+    actor,
+  )
+  await batch.commit()
+  return { eliminado: true }
 }
 
 export async function existeSitio(id: string): Promise<boolean> {

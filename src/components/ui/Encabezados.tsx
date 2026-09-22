@@ -23,7 +23,7 @@ export function CabeceraPantalla({
   children?: ReactNode | undefined
 }) {
   return (
-    <div className="shrink-0 border-b border-borde bg-superficie px-3 py-2.5">
+    <div className="shrink-0 border-b border-[var(--vidrio-divisor)] px-4 py-3">
       {migas.length > 0 && (
         <nav
           aria-label="Ruta de navegacion"

@@ -4,6 +4,7 @@ import {
   ClipboardList,
   CornerDownLeft,
   History,
+  House,
   LayoutGrid,
   Map as MapaIcono,
   Moon,
@@ -35,7 +36,7 @@ interface Comando {
   ejecutar: () => void
 }
 
-function leerRecientes(): string[] {
+export function leerRecientes(): string[] {
   try {
     const crudo = JSON.parse(localStorage.getItem(CLAVE_RECIENTES) ?? '[]')
     return Array.isArray(crudo) ? crudo.filter((x): x is string => typeof x === 'string') : []
@@ -81,6 +82,15 @@ export function PaletaComandos({ onCerrar }: { onCerrar: () => void }) {
 
   const comandos: Comando[] = useMemo(
     () => [
+      {
+        id: 'ir-inicio',
+        titulo: 'Ir al Inicio',
+        grupo: 'Navegación',
+        icono: <House aria-hidden className="size-4" />,
+        atajo: 'G H',
+        requiere: ['sitioProyectos', 'ver'],
+        ejecutar: () => navegar('/'),
+      },
       {
         id: 'ir-sitios',
         titulo: 'Ir a Sitios',

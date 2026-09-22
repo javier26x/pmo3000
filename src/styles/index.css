@@ -350,6 +350,142 @@
     }
   }
 
+  /* ---- lente: el cromo flotante de la app --------------------------------
+     Ver el bloque --lente-* de tokens.css. Tres piezas:
+       .lente   barra y panel: vidrio con desenfoque y filo especular
+       .hoja    donde vive el contenido: casi opaca, sin desenfoque
+       .gota    la seleccion activa del panel: una gota de luz sobre el vidrio */
+  .campo-app {
+    background: var(--campo);
+  }
+
+  .lente {
+    position: relative;
+    isolation: isolate;
+    background: var(--lente);
+    -webkit-backdrop-filter: blur(var(--lente-blur)) saturate(170%);
+    backdrop-filter: blur(var(--lente-blur)) saturate(170%);
+    box-shadow: var(--lente-brillo), var(--lente-sombra);
+  }
+
+  .lente::before,
+  .hoja::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--lente-filo);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .hoja {
+    position: relative;
+    isolation: isolate;
+    background: var(--hoja);
+    box-shadow: var(--lente-brillo), var(--lente-sombra);
+  }
+
+  .gota {
+    background: var(--gota);
+    box-shadow: var(--gota-sombra);
+    color: var(--acento);
+  }
+
+  .boton-gota {
+    background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.2), transparent 60%);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.3),
+      0 1px 2px rgb(30 30 80 / 0.15),
+      0 4px 12px -6px var(--acento);
+  }
+
+  /* Inicio */
+  .cifra-inicio {
+    transition: background-color var(--ms-rapido) var(--curva);
+  }
+  .cifra-inicio:hover {
+    background: var(--gota);
+  }
+  .cifra-inicio + .cifra-inicio {
+    border-left: 1px solid var(--vidrio-divisor);
+  }
+  @media (max-width: 639px) {
+    .cifra-inicio:nth-child(3) {
+      border-left: 0;
+    }
+    .cifra-inicio:nth-child(n + 3) {
+      border-top: 1px solid var(--vidrio-divisor);
+    }
+  }
+
+  .tramo-franja {
+    background: var(--gate-punto);
+    transition:
+      flex-grow var(--ms-normal) var(--curva),
+      filter var(--ms-rapido) var(--curva);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.35);
+  }
+  .tramo-franja:hover,
+  .tramo-franja:focus-visible {
+    filter: brightness(1.08) saturate(1.15);
+  }
+
+  .fila-inicio {
+    transition: color var(--ms-instante) var(--curva);
+  }
+  .fila-inicio:hover {
+    color: var(--acento);
+  }
+
+  .enlace-sutil {
+    color: var(--texto-3);
+    border-radius: var(--radio-sm);
+  }
+  .enlace-sutil:hover {
+    color: var(--acento);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .lente {
+      background: var(--superficie);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .campo-app {
+      background: var(--fondo);
+    }
+    .lente,
+    .hoja {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background: var(--superficie);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .lente,
+    .hoja,
+    .gota {
+      background: Canvas;
+      border: 1px solid CanvasText;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .lente::before,
+    .hoja::before {
+      display: none;
+    }
+  }
+
   /* Contenedor con desplazamiento que no arrastra la pagina completa. */
   .panel-scroll {
     overscroll-behavior: contain;

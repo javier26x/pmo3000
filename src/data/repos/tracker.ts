@@ -11,7 +11,7 @@
  * del sitio es el del tracker, el del seguimiento es proyecto__sitio), asi que
  * volver a importar el mismo archivo actualiza en vez de duplicar.
  */
-import { doc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { COLECCIONES, db } from '../firebase'
 import { agregarEventos } from '../auditoria'
 import { idSitioProyecto } from '@/domain/tipos/sitioProyecto'
@@ -55,13 +55,39 @@ export interface AvanceTracker {
   total: number
 }
 
-/** Escribe la plantilla del tracker. Documento propio, lote propio. */
+/** Que paso con la plantilla al importar. */
+export type ResultadoPlantilla = 'escrita' | 'existente'
+
+/**
+ * Escribe la plantilla del tracker. Documento propio, lote propio.
+ *
+ * Las plantillas son de administracion (firestore.rules: gateTemplates solo
+ * admin), pero importar un tracker lo pueden hacer jefe y analista. Para que
+ * eso no falle a mitad de camino:
+ *
+ * - un admin la crea o la actualiza, como siempre;
+ * - un no admin que re-importa sobre una plantilla que YA existe la reutiliza
+ *   tal cual (no la reescribe) y la importacion sigue;
+ * - un no admin que necesitaria crear una plantilla nueva recibe un error claro
+ *   ANTES de escribir nada.
+ */
 export async function guardarPlantillaTracker(
   plantilla: Record<string, unknown> & { id: string },
   actor: Actor,
-): Promise<void> {
-  const lote = writeBatch(db)
+): Promise<ResultadoPlantilla> {
   const { id, ...resto } = plantilla
+
+  if (actor.rol !== 'admin') {
+    const existente = await getDoc(doc(db, COLECCIONES.gateTemplates, id))
+    if (existente.exists()) return 'existente'
+    throw new Error(
+      `La plantilla "${String(plantilla.nombre ?? id)}" no existe y solo un administrador puede ` +
+        'crear plantillas. Pide a un administrador que haga la primera importacion de este ' +
+        'tracker; despues podras re-importarlo tu.',
+    )
+  }
+
+  const lote = writeBatch(db)
   lote.set(
     doc(db, COLECCIONES.gateTemplates, id),
     {
@@ -90,8 +116,10 @@ export async function guardarPlantillaTracker(
       },
     ],
     actor,
+    'import',
   )
   await lote.commit()
+  return 'escrita'
 }
 
 export async function ejecutarImportacionTracker(
@@ -228,10 +256,22 @@ export async function ejecutarImportacionTracker(
         },
       ],
       actor,
+      'import',
     )
     await cierre.commit()
   } catch (e) {
     resultado.error = e instanceof Error ? e.message : String(e)
+    // Re-importar sobre seguimientos que ya existen es una actualizacion, y las
+    // reglas solo dejan a jefe y analista mover cada sitio UNA etapa. Si el
+    // tracker trae un sitio que salto varias, el lote completo se rechaza.
+    if (actor.rol !== 'admin' && /permission|permisos|insufficient/i.test(resultado.error)) {
+      resultado.error =
+        'El servidor rechazo un lote. Lo mas probable es que algun sitio ya cargado avance o ' +
+        'retroceda mas de una etapa respecto de lo que dice el tracker: eso solo lo puede ' +
+        're-importar un administrador (o corregirse sitio por sitio). Lo escrito antes del ' +
+        'error quedo guardado. Detalle: ' +
+        resultado.error
+    }
   }
 
   return resultado

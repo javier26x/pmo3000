@@ -56,7 +56,7 @@ export function Layout() {
   const enVistaDespliegue = VISTAS_DESPLIEGUE.has(ubicacion.pathname)
 
   return (
-    <div className="flex h-dvh flex-col bg-fondo">
+    <div className="campo-app flex h-dvh flex-col gap-2 p-2 max-md:gap-1.5 max-md:p-1.5">
       <a
         href="#contenido"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-superficie focus:px-3 focus:py-2 focus:shadow-[var(--sombra-flotante)]"
@@ -65,7 +65,7 @@ export function Layout() {
       </a>
 
       {/* Barra superior */}
-      <header className="vidrio flex h-[var(--alto-barra)] shrink-0 items-center gap-2 border-b border-borde px-3">
+      <header className="lente relative z-30 flex h-[var(--alto-barra)] shrink-0 items-center gap-2 rounded-[var(--radio-lente)] px-2.5">
         <Boton
           variante="fantasma"
           tamano="sm"
@@ -83,8 +83,13 @@ export function Layout() {
           }
         />
 
-        <Link to="/sitios" className="flex items-center gap-2 rounded pr-2">
-          <Radio aria-hidden className="size-4 text-[var(--acento)]" />
+        <Link to="/" className="flex items-center gap-2 rounded-lg pr-2">
+          <span
+            aria-hidden
+            className="gota grid size-7 place-items-center rounded-full text-[var(--acento)]"
+          >
+            <Radio className="size-4" />
+          </span>
           <span className="font-semibold tracking-tight">PMO3000</span>
           <span className="hidden text-xs text-texto-3 lg:inline">Despliegue de red móvil</span>
         </Link>
@@ -97,14 +102,14 @@ export function Layout() {
           type="button"
           onClick={() => setPaletaAbierta(true)}
           className={cn(
-            'hidden h-7 items-center gap-2 rounded border border-borde bg-superficie-2 px-2',
+            'hidden h-8 min-w-56 items-center gap-2 rounded-full border border-[var(--vidrio-divisor)] bg-[var(--gota)] px-3',
             'text-xs text-texto-3 transition-colors duration-[var(--ms-instante)]',
-            'hover:border-borde-fuerte hover:text-texto-2 sm:flex',
+            'hover:text-texto-2 sm:flex',
           )}
         >
           <Command aria-hidden className="size-3" />
           Buscar o ejecutar
-          <kbd className="tecla">Ctrl K</kbd>
+          <kbd className="tecla ml-auto">Ctrl K</kbd>
         </button>
 
         <Boton
@@ -176,7 +181,7 @@ export function Layout() {
           )}
         </Menu>
 
-        <div className="flex items-center gap-2 border-l border-borde pl-2">
+        <div className="flex items-center gap-2 border-l border-[var(--vidrio-divisor)] pl-2">
           <div
             aria-hidden
             className="grid size-7 place-items-center rounded-full bg-[var(--acento-suave)] text-xs font-semibold text-[var(--acento)]"
@@ -190,17 +195,16 @@ export function Layout() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 gap-2">
         {/* Panel lateral */}
         <nav
           aria-label="Navegación principal"
           className={cn(
-            'vidrio w-[var(--ancho-panel)] shrink-0 border-r border-borde p-2',
+            'lente flex w-[var(--ancho-panel)] shrink-0 flex-col overflow-y-auto rounded-[var(--radio-lente)] p-2',
             // En movil el panel se abre ENCIMA del contenido: ahi el vidrio deja ver
             // que hay debajo, que es lo que evita la sensacion de cambiar de pantalla.
-            'max-md:fixed max-md:inset-y-0 max-md:top-[var(--alto-barra)] max-md:z-40',
-            'max-md:shadow-[var(--vidrio-filo),var(--sombra-flotante)]',
-            panelAbierto ? 'max-md:block' : 'max-md:hidden',
+            'max-md:fixed max-md:bottom-1.5 max-md:left-1.5 max-md:top-[calc(var(--alto-barra)+0.75rem)] max-md:z-40',
+            panelAbierto ? 'max-md:flex' : 'max-md:hidden',
           )}
         >
           <ul className="flex flex-col gap-0.5">
@@ -216,14 +220,13 @@ export function Layout() {
                       search: conservaFiltros ? ubicacion.search : '',
                     }}
                     viewTransition
+                    end={item.ruta === '/'}
                     onClick={() => setPanelAbierto(false)}
                     className={({ isActive }) =>
                       cn(
-                        'flex h-8 items-center gap-2 rounded px-2 text-sm font-medium',
-                        'transition-colors duration-[var(--ms-instante)]',
-                        isActive
-                          ? 'bg-[var(--acento-suave)] text-[var(--acento)]'
-                          : 'text-texto-2 hover:bg-superficie-2 hover:text-texto',
+                        'flex h-9 items-center gap-2.5 rounded-xl px-2.5 text-sm font-medium',
+                        'transition-[background-color,color,box-shadow] duration-[var(--ms-rapido)]',
+                        isActive ? 'gota' : 'text-texto-2 hover:bg-[var(--gota)] hover:text-texto',
                       )
                     }
                   >
@@ -247,23 +250,18 @@ export function Layout() {
           <button
             type="button"
             onClick={() => setAyudaAbierta(true)}
-            className="mt-4 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-texto-3 hover:bg-superficie-2 hover:text-texto-2"
+            className="mt-auto flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-texto-3 hover:bg-[var(--gota)] hover:text-texto-2"
           >
             <Keyboard aria-hidden className="size-3.5 shrink-0" />
             Atajos de teclado
             <kbd className="tecla ml-auto">?</kbd>
           </button>
-
-          <p className="mt-2 px-2 text-[11px] leading-relaxed text-texto-3">
-            Fase 1: maestro de sitios, gates, kanban y auditoría. Gantt, RAID y reportes llegan en
-            la Fase 2.
-          </p>
         </nav>
 
         <main
           id="contenido"
           style={{ viewTransitionName: 'contenido' }}
-          className="flex min-w-0 flex-1 flex-col overflow-hidden"
+          className="hoja flex min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radio-lente)]"
         >
           <Outlet />
         </main>

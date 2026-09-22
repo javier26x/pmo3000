@@ -253,7 +253,8 @@ service cloud.firestore {
       function origen() { return resource.data.gateActual; }
 
       // El gate solo se mueve al inmediatamente siguiente. Retroceder esta
-      // reservado a admin y jefe de celula.
+      // reservado a admin y jefe de celula. (El admin, ademas, puede saltar:
+      // ver la correccion administrativa en el allow update.)
       // La secuencia se lee del propio documento. Se usa el mapa de gates que
       // queda DESPUES del cambio, porque es el que tiene que ser coherente.
       function gates() { return request.resource.data.gates; }
@@ -323,13 +324,24 @@ service cloud.firestore {
         && request.resource.data.gateActual is string
         && ordenEn(request.resource.data.gates, request.resource.data.gateActual) >= 0;
 
+      // Correccion administrativa: el admin puede llevar el sitio a CUALQUIER
+      // etapa de su secuencia (saltando hacia adelante o hacia atras) sin la
+      // exigencia de cierre. Existe para que un admin arregle el dato desde la
+      // app —un tracker desfasado, una re-importacion que salta varias
+      // etapas— sin que un desarrollador edite la base a mano. Sigue exigiendo
+      // que el destino sea una etapa del propio documento (o CERRADO), y la
+      // identidad del seguimiento no cambia ni para el admin.
+      function destinoValido() {
+        return ordenEn(gates(), destino()) >= 0;
+      }
+
       allow update: if puedeGestionar()
         && noCambia('sitioId')
         && noCambia('proyectoId')
         && noCambia('programaId')
         && noCambia('portafolioId')
-        && gateSecuencial()
-        && cierreConsistente();
+        && ((esAdmin() && destinoValido())
+            || (gateSecuencial() && cierreConsistente()));
 
       allow update: if esContratista()
         && resource.data.proveedorId == miProveedor()
@@ -355,8 +367,15 @@ service cloud.firestore {
           && request.resource.data.texto.size() > 0
           && request.resource.data.texto.size() <= 4000;
 
-        // Un comentario es parte del historial: no se edita ni se borra.
-        allow update, delete: if false;
+        // Un comentario es parte del historial: no se edita, y no se borra
+        // suelto. La unica excepcion es el admin eliminando el seguimiento
+        // completo: el comentario solo se borra si su padre ya no existe
+        // DESPUES de la escritura (en el mismo lote o en uno posterior). Asi
+        // eliminar un seguimiento no deja comentarios huerfanos, y nadie puede
+        // ir borrando comentarios incomodos de un sitio vivo.
+        allow update: if false;
+        allow delete: if esAdmin()
+          && !existsAfter(/databases/$(database)/documents/sitioProyectos/$(spId));
       }
     }
 

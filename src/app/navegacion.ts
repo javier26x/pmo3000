@@ -2,6 +2,7 @@ import {
   FileSpreadsheet,
   ClipboardList,
   History,
+  House,
   LayoutGrid,
   Map as MapaIcono,
   SlidersHorizontal,
@@ -20,6 +21,7 @@ export interface ItemNavegacion {
 }
 
 export const NAVEGACION: ItemNavegacion[] = [
+  { ruta: '/', etiqueta: 'Inicio', icono: House, requiere: ['sitioProyectos', 'ver'] },
   { ruta: '/sitios', etiqueta: 'Sitios', icono: ClipboardList, requiere: ['sitios', 'ver'] },
   { ruta: '/mapa', etiqueta: 'Mapa', icono: MapaIcono, requiere: ['sitios', 'ver'] },
   { ruta: '/kanban', etiqueta: 'Kanban', icono: LayoutGrid, requiere: ['sitioProyectos', 'ver'] },

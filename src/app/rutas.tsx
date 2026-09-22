@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import { Cargando, EstadoVacio } from '@/components/ui'
 import { PaginaLogin } from '@/features/auth/PaginaLogin'
 import { RutaProtegida } from '@/features/auth/RutaProtegida'
@@ -13,6 +13,7 @@ const PaginaMapa = lazy(() => import('@/features/sitios/PaginaMapa'))
 const PaginaImportar = lazy(() => import('@/features/importacion/PaginaImportar'))
 const PaginaImportarTracker = lazy(() => import('@/features/tracker/PaginaImportarTracker'))
 
+import { PaginaInicio } from '@/features/inicio/PaginaInicio'
 import { PaginaSitios } from '@/features/sitios/PaginaSitios'
 import { PaginaSitio } from '@/features/sitios/PaginaSitio'
 import { PaginaSeguimiento } from '@/features/gates/PaginaSeguimiento'
@@ -41,7 +42,7 @@ export function Rutas() {
         <Route path="/login" element={<PaginaLogin />} />
 
         <Route element={<AppProtegida />}>
-          <Route index element={<Navigate to="/sitios" replace />} />
+          <Route index element={<PaginaInicio />} />
           <Route path="/sitios" element={<PaginaSitios />} />
           <Route path="/sitios/:sitioId" element={<PaginaSitio />} />
           <Route path="/seguimiento/:seguimientoId" element={<PaginaSeguimiento />} />

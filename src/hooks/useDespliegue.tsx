@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   observarSeguimientos,
   TOPE_PRIMERA_TANDA,
@@ -52,6 +60,25 @@ const Contexto = createContext<ValorDespliegue | null>(null)
 
 const SIN_SEGUIMIENTOS: SitioProyecto[] = []
 
+const CLAVE_CACHE = 'pmo3000.cacheSeguimiento'
+
+/** Hubo en este navegador una carga completa que dejó la cache local poblada. */
+function cacheCompletaPrevia(): boolean {
+  try {
+    return localStorage.getItem(CLAVE_CACHE) === '1'
+  } catch {
+    return false
+  }
+}
+
+function marcarCacheCompleta(): void {
+  try {
+    localStorage.setItem(CLAVE_CACHE, '1')
+  } catch {
+    // Sin almacenamiento solo se pierde el atajo; la carga funciona igual.
+  }
+}
+
 /**
  * Una sola suscripción al seguimiento para toda la app: la tabla, el mapa, el
  * kanban y la paleta leen de aquí. Abrir un listener por pantalla multiplicaría
@@ -95,13 +122,39 @@ export function ProveedorDespliegue({ children }: { children: ReactNode }) {
   const activo = actor !== null && !pausado
   // Dos suscripciones a la misma consulta con topes distintos. Las 150 lecturas
   // extra de la tanda corta son un precio barato por pintar 8 segundos antes.
-  const resRapido = useSuscripcion(activo ? suscribirPrimeraTanda : null, SIN_SEGUIMIENTOS)
-  const resCompleto = useSuscripcion(activo ? suscribirTodo : null, SIN_SEGUIMIENTOS)
+  //
+  // La completa arranca recien cuando la corta ya pinto: si salen juntas, el SDK
+  // procesa las dos respuestas en el mismo hilo y la corta llega casi al mismo
+  // tiempo que la larga, que es justo lo que se queria evitar. Con cache local
+  // la corta responde en milisegundos, asi que la espera no se nota.
+  //
+  // Con la cache ya poblada conviene lo contrario: el SDK lee las dos del disco
+  // en paralelo mas rapido que en serie (medido: 2,6 s contra 4,5 s con CPU
+  // lenta). Por eso se recuerda, por navegador, si ya hubo una carga completa.
+  const [completoArmado, setCompletoArmado] = useState(cacheCompletaPrevia)
+  const resCompleto = useSuscripcion(
+    activo && completoArmado ? suscribirTodo : null,
+    SIN_SEGUIMIENTOS,
+  )
+  // Apenas llega la consulta completa, la tanda corta se cierra. Dejarla abierta
+  // obligaba al SDK a mantener dos vistas de los mismos documentos y a procesar
+  // cada cambio dos veces: medido, era la mitad del trabajo del hilo principal.
+  const completoListo = completoArmado && (resCompleto.datos.length > 0 || !resCompleto.cargando)
+  const resRapido = useSuscripcion(
+    activo && !completoListo ? suscribirPrimeraTanda : null,
+    SIN_SEGUIMIENTOS,
+  )
+  // Se ajusta durante el render (no en un efecto) para no pintar un cuadro
+  // intermedio: React re-ejecuta este componente al tiro con el valor nuevo.
+  if (activo && !resRapido.cargando && !completoArmado) setCompletoArmado(true)
+  useEffect(() => {
+    if (resCompleto.datos.length > 0) marcarCacheCompleta()
+  }, [resCompleto.datos.length])
 
   const valor = useMemo<ValorDespliegue>(() => {
     const hoy = hoyEnChile()
     // Mientras la consulta completa no llegue, se trabaja sobre la tanda corta.
-    const completo = resCompleto.datos.length > 0 || !resCompleto.cargando
+    const completo = completoListo
     const datos = completo ? resCompleto.datos : resRapido.datos
     const filtrados = filtrarSeguimientos(datos, vista, hoy)
     const sinFiltroGate = vista.gateActual
@@ -122,7 +175,9 @@ export function ProveedorDespliegue({ children }: { children: ReactNode }) {
     }
 
     return {
-      cargando: resRapido.cargando && resCompleto.cargando,
+      // "Cargando" es no tener nada que mostrar: con la tanda corta en pantalla ya
+      // no lo es, aunque la completa siga en camino (eso es `completando`).
+      cargando: !completo && (resRapido.cargando || !completoArmado),
       completando: !completo,
       error: resCompleto.error ?? resRapido.error,
       sitios: [...sitios.values()],
@@ -138,7 +193,7 @@ export function ProveedorDespliegue({ children }: { children: ReactNode }) {
       ),
       hoy,
     }
-  }, [resRapido, resCompleto, vista, orden])
+  }, [resRapido, resCompleto, completoListo, completoArmado, vista, orden])
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>
 }
