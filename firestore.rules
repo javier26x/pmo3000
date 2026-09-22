@@ -61,9 +61,7 @@ service cloud.firestore {
 
     function esAdmin() { return habilitado() && rol() == 'admin'; }
     function esJefe() { return habilitado() && rol() == 'jefe_celula'; }
-    function esAnalista() { return habilitado() && rol() == 'analista'; }
     function esContratista() { return habilitado() && rol() == 'contratista'; }
-    function esLector() { return habilitado() && rol() == 'lector'; }
 
     /** Roles que ven el despliegue completo. */
     function esInterno() {

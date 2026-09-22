@@ -19,9 +19,9 @@ export default defineConfig({
     // app, asi que se cachea aparte en el navegador.
     rolldownOptions: {
       output: {
-        advancedChunks: {
-          // Solo Firebase. Un grupo "vendor" generico arrastraria Leaflet y
-          // SheetJS al trozo inicial y perderiamos la carga bajo demanda.
+        codeSplitting: {
+          // Solo Firebase. Un grupo "vendor" genérico arrastraría Leaflet y
+          // SheetJS al trozo inicial y perderíamos la carga bajo demanda.
           groups: [{ name: 'firebase', test: /node_modules[\\/]@?firebase/ }],
         },
       },
