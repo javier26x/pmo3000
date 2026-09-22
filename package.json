@@ -26,7 +26,8 @@
     "dev:full": "concurrently -k -n emuladores,app -c blue,green \"npm:emu\" \"npm:dev\"",
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes --project produccion",
     "deploy:hosting": "npm run build && firebase deploy --only hosting --project produccion",
-    "deploy": "npm run build && firebase deploy --only firestore:rules,firestore:indexes,hosting --project produccion"
+    "deploy": "npm run build && firebase deploy --only firestore:rules,firestore:indexes,hosting --project produccion",
+    "env:produccion": "tsx scripts/env-produccion.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

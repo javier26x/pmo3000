@@ -115,21 +115,39 @@ por accidente:
 `npm run dev` lee `.env` (emuladores) y `npm run build` lee `.env.production`
 (proyecto real). Nunca se mezclan.
 
-### 3.1 Recrear `.env.production`
+### 3.1 Crear `.env.production`
 
-Está en `.gitignore`, así que en una máquina nueva hay que crearlo. La
-configuración web de Firebase **no es secreta** —viaja en el bundle de cualquier
-app web y así está diseñada; lo que protege los datos son las reglas de
-Firestore— pero se deja fuera del repositorio para que nadie la confunda con una
-credencial.
+Está en `.gitignore`, así que en una máquina nueva hay que crearlo. La forma
+recomendada es pedirle los valores al proyecto, no copiarlos:
+
+```bash
+npm run env:produccion
+```
+
+Eso lee la configuración del alias `produccion` con la CLI de Firebase y escribe
+el archivo. Conserva `VITE_DOMINIO_PERMITIDO` y `VITE_CORREOS_ADMIN` si ya
+existían, porque esos dos son decisión nuestra y no del proyecto.
+
+> **Por qué un comando y no un bloque para copiar.** La configuración web de
+> Firebase **no es secreta** —viaja en el bundle de cualquier app web y así está
+> diseñada; lo que protege los datos son las reglas de Firestore— pero _parece_
+> secreta, y las herramientas por donde suele pasar (chats, tickets, capturas)
+> enmascaran lo que parece una credencial. Una `apiKey` que llega como
+> `AIzaSyDs•••••` se ve razonable, compila, se despliega y recién falla al
+> intentar entrar con `auth/api-key-not-valid`, un error que no apunta a la
+> causa. Pasó de verdad. Por eso `npm run build` ahora valida el **formato** de
+> las cuatro variables y aborta si alguna no calza.
+
+Si lo escribes a mano, estos son los campos; los valores salen de la consola de
+Firebase, en Configuración del proyecto → Tus aplicaciones → SDK setup:
 
 ```bash
 cat > .env.production << 'EOF'
 VITE_USAR_EMULADORES=false
 VITE_FIREBASE_PROJECT_ID=pmoclr
-VITE_FIREBASE_API_KEY=AIzaSyDsYXf-hL7i0bc78RPPePD1VMf5spJjPhs
+VITE_FIREBASE_API_KEY=            # "AIza" + 35 caracteres
 VITE_FIREBASE_AUTH_DOMAIN=pmoclr.firebaseapp.com
-VITE_FIREBASE_APP_ID=1:311927873870:web:9f01dafcd4307ee7593e1f
+VITE_FIREBASE_APP_ID=             # 1:311927873870:web:...
 VITE_FIREBASE_STORAGE_BUCKET=pmoclr.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=311927873870
 VITE_DOMINIO_PERMITIDO=clarovtr.cl
@@ -142,11 +160,6 @@ administradores. **Tiene que decir lo mismo que `correosAdministradores()` en
 `firestore.rules`**: el cliente decide qué rol se escribe al crear el perfil y
 las reglas deciden si aceptan ese rol; si las dos listas no coinciden, el ingreso
 falla con un error de permisos.
-
-Si falta este archivo, `npm run build` **falla a propósito** con un mensaje que
-dice qué variable falta. Antes no fallaba: se publicaba un sitio que compilaba
-bien y recién al intentar entrar respondía
-`auth/api-key-not-valid`, porque el bundle se llevaba los valores de ejemplo.
 
 ### 3.2 Autenticarse
 

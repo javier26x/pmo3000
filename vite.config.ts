@@ -32,27 +32,64 @@ function exigirCredenciales(modo: string): void {
     )
   }
 
-  const obligatorias = [
-    'VITE_FIREBASE_API_KEY',
-    'VITE_FIREBASE_AUTH_DOMAIN',
-    'VITE_FIREBASE_PROJECT_ID',
-    'VITE_FIREBASE_APP_ID',
+  // Cada variable trae la forma que debe tener. No es purismo: un valor copiado
+  // desde un chat o un ticket que enmascara secretos llega con caracteres que no
+  // existen en una credencial de Google ("AIzaSyDs•••••"), pasa cualquier chequeo
+  // de "no esta vacio" y recien falla en el navegador con auth/api-key-not-valid,
+  // que no dice nada de la causa.
+  const esperadas = [
+    {
+      clave: 'VITE_FIREBASE_API_KEY',
+      forma: /^AIza[0-9A-Za-z_-]{35}$/,
+      descripcion: '"AIza" y 35 caracteres mas (39 en total)',
+    },
+    {
+      clave: 'VITE_FIREBASE_AUTH_DOMAIN',
+      forma: /^[a-z0-9-]+\.(firebaseapp\.com|web\.app)$/,
+      descripcion: 'algo.firebaseapp.com',
+    },
+    {
+      clave: 'VITE_FIREBASE_PROJECT_ID',
+      forma: /^[a-z][a-z0-9-]{4,29}$/,
+      descripcion: 'el id del proyecto en minusculas',
+    },
+    {
+      clave: 'VITE_FIREBASE_APP_ID',
+      forma: /^\d+:\d+:web:[0-9a-f]+$/,
+      descripcion: '1:123456789:web:abc123',
+    },
   ]
-  const faltan = obligatorias.filter((clave) => {
-    const valor = entorno[clave]
-    return valor === undefined || valor === '' || valor.startsWith('demo-')
-  })
-  if (faltan.length === 0) return
+
+  const faltan = esperadas
+    .filter(({ clave }) => {
+      const valor = entorno[clave]
+      return valor === undefined || valor === '' || valor.startsWith('demo-')
+    })
+    .map(({ clave }) => clave)
+
+  const deformes = esperadas
+    .filter(({ clave, forma }) => {
+      const valor = entorno[clave]
+      return valor !== undefined && valor !== '' && !valor.startsWith('demo-') && !forma.test(valor)
+    })
+    .map(({ clave, descripcion }) => `  ${clave}: se esperaba ${descripcion}`)
+
+  if (faltan.length === 0 && deformes.length === 0) return
+
+  const detalle = [
+    ...(faltan.length > 0 ? [`Faltan: ${faltan.join(', ')}.`] : []),
+    ...(deformes.length > 0 ? ['Tienen un valor que no calza:', ...deformes] : []),
+  ]
 
   throw new Error(
     [
-      `Build de produccion sin configuracion de Firebase. Faltan: ${faltan.join(', ')}.`,
+      'Build de produccion con la configuracion de Firebase incompleta o invalida.',
       '',
-      `Crea el archivo .env.${modo} con los datos del proyecto (los saca la consola de`,
-      'Firebase en Configuracion del proyecto > Tus aplicaciones > SDK setup) o, si lo que',
-      'querias era un build contra los emuladores, agrega VITE_USAR_EMULADORES=true.',
+      ...detalle,
       '',
-      'El README lo explica en la seccion "Desplegar a la nube".',
+      `Lo mas seguro es generar .env.${modo} desde el proyecto mismo en vez de copiar`,
+      'los valores a mano: el README lo explica en la seccion "Desplegar a la nube",',
+      'y el comando es "npm run env:produccion".',
     ].join('\n'),
   )
 }
