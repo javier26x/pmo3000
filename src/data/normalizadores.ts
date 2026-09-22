@@ -23,6 +23,7 @@ import {
   TIPOS_DEPENDENCIA,
   TIPOS_ENTIDAD,
   TIPOS_RAID,
+  type Area,
   type Celula,
   type Dependencia,
   type EventoAuditoria,
@@ -78,6 +79,23 @@ export function normalizarCelula(id: string, d: DocumentData): Celula {
     descripcion: texto(d.descripcion),
     liderUid: textoNulo(d.liderUid),
     color: texto(d.color, 'neutro'),
+    activa: booleano(d.activa, true),
+    ...sellos(d),
+  }
+}
+
+export function normalizarArea(id: string, d: DocumentData): Area {
+  const porProyecto: Record<string, string[]> = {}
+  for (const [proyecto, uids] of Object.entries(objeto(d.porProyecto))) {
+    const lista = listaTexto(uids)
+    if (lista.length > 0) porProyecto[proyecto] = lista
+  }
+  return {
+    id,
+    nombre: texto(d.nombre, id),
+    alias: listaTexto(d.alias),
+    responsables: listaTexto(d.responsables),
+    porProyecto,
     activa: booleano(d.activa, true),
     ...sellos(d),
   }

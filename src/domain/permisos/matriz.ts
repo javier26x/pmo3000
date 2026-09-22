@@ -20,6 +20,7 @@ export const RECURSOS = [
   'gateTemplates',
   'proveedores',
   'celulas',
+  'areas',
   'raid',
   'config',
 ] as const
@@ -76,6 +77,9 @@ const MATRIZ: Record<Rol, readonly (Permiso | typeof TODO)[]> = {
     'gateTemplates:ver',
     'proveedores:ver',
     'celulas:ver',
+    'areas:ver',
+    'areas:crear',
+    'areas:editar',
     'config:ver',
   ],
 
@@ -105,6 +109,7 @@ const MATRIZ: Record<Rol, readonly (Permiso | typeof TODO)[]> = {
     'gateTemplates:ver',
     'proveedores:ver',
     'celulas:ver',
+    'areas:ver',
     'config:ver',
   ],
 
@@ -134,6 +139,7 @@ const MATRIZ: Record<Rol, readonly (Permiso | typeof TODO)[]> = {
     'gateTemplates:ver',
     'proveedores:ver',
     'celulas:ver',
+    'areas:ver',
     'usuarios:ver',
     'config:ver',
   ],

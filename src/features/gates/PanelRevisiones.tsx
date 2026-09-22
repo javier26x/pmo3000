@@ -22,10 +22,13 @@ export function PanelRevisiones({
   gate,
   definicion,
   homologacion,
+  responde,
 }: {
   gate: GateSitio
   definicion: GatePlantilla | undefined
   homologacion: Readonly<Record<string, EstadoSemantico>>
+  /** Quienes responden por el area de esa revision, o null si no hay area. */
+  responde?: (revision: { id: string; nombre: string }) => string | null
 }) {
   const definidas = definicion?.revisiones ?? []
   // Se muestran las de la plantilla, y ademas cualquiera que el documento traiga
@@ -67,6 +70,11 @@ export function PanelRevisiones({
               </span>
               {rev?.fecha != null && (
                 <span className="text-xs text-texto-3">{formatearFecha(rev.fecha)}</span>
+              )}
+              {responde && (
+                <span className="ml-auto text-xs text-texto-3">
+                  {responde({ id, nombre }) ?? ''}
+                </span>
               )}
             </div>
             {rev?.comentario !== undefined && rev.comentario !== '' && (

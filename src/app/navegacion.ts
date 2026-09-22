@@ -3,6 +3,7 @@ import {
   ClipboardList,
   History,
   House,
+  Inbox,
   LayoutGrid,
   Map as MapaIcono,
   SlidersHorizontal,
@@ -25,6 +26,7 @@ export const NAVEGACION: ItemNavegacion[] = [
   { ruta: '/sitios', etiqueta: 'Sitios', icono: ClipboardList, requiere: ['sitios', 'ver'] },
   { ruta: '/mapa', etiqueta: 'Mapa', icono: MapaIcono, requiere: ['sitios', 'ver'] },
   { ruta: '/kanban', etiqueta: 'Kanban', icono: LayoutGrid, requiere: ['sitioProyectos', 'ver'] },
+  { ruta: '/pendientes', etiqueta: 'Pendientes', icono: Inbox, requiere: ['areas', 'ver'] },
   { ruta: '/importar', etiqueta: 'Importar', icono: Upload, requiere: ['sitios', 'importar'] },
   {
     ruta: '/tracker',
@@ -38,6 +40,6 @@ export const NAVEGACION: ItemNavegacion[] = [
     ruta: '/configuracion',
     etiqueta: 'Configuración',
     icono: SlidersHorizontal,
-    requiere: ['gateTemplates', 'editar'],
+    requiere: ['proyectos', 'editar'],
   },
 ]

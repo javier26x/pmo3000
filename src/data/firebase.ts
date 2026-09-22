@@ -85,6 +85,7 @@ if (AJUSTES.usarEmuladores) {
 export const COLECCIONES = {
   usuarios: 'usuarios',
   celulas: 'celulas',
+  areas: 'areas',
   proveedores: 'proveedores',
   portafolios: 'portafolios',
   programas: 'programas',

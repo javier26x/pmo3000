@@ -59,6 +59,7 @@ import { AdministrarSeguimiento } from './AdministrarSeguimiento'
 import { EsqueletoFicha } from './EsqueletoFicha'
 import { Historial } from './Historial'
 import { useMedidorSla } from '@/hooks/useSla'
+import { areaDeRevision, indiceAreas, responsablesDe } from '@/domain/areas'
 import { textoSla } from '@/domain/sla'
 import { LineaGates } from './LineaGates'
 import { PanelChecklist, type AccionChecklist } from './PanelChecklist'
@@ -80,7 +81,10 @@ export function PaginaSeguimiento() {
     proveedores,
     usuarios,
     etapas,
+    areas,
+    nombreUsuario,
   } = useCatalogos()
+  const indice = useMemo(() => indiceAreas(areas), [areas])
 
   const { datos: sp, cargando, error } = useSeguimiento(seguimientoId)
   const historial = useHistorial(seguimientoId)
@@ -367,6 +371,18 @@ export function PaginaSeguimiento() {
                   gate={sp.gates[gateVisible]!}
                   definicion={plantilla.gates.find((g) => g.codigo === gateVisible)}
                   homologacion={plantilla.homologacion}
+                  {...(indice.size > 0
+                    ? {
+                        responde: (revision: { id: string; nombre: string }) => {
+                          const area = areaDeRevision(indice, revision)
+                          if (!area) return null
+                          const uids = responsablesDe(area, sp.proyectoId)
+                          return uids.length === 0
+                            ? 'Sin responsable'
+                            : uids.map((u) => nombreUsuario(u)).join(', ')
+                        },
+                      }
+                    : {})}
                 />
               </div>
             )}

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import {
   Building2,
   Check,
+  ClipboardCheck,
   Copy,
   FolderTree,
   Layers,
@@ -67,6 +68,9 @@ import { DialogoEliminar } from './DialogoEliminar'
 import { EditorPlantilla } from './EditorPlantilla'
 import { ProtegerSecuencias } from './ProtegerSecuencias'
 import { EditorSla } from './EditorSla'
+import { EditorArea } from './EditorArea'
+import { crearAreasSemilla } from '@/data/repos/areas'
+import { AREAS_SEMILLA, type Area } from '@/domain/tipos/area'
 
 /** Plantilla abierta en el editor. `original` null es un alta o un duplicado. */
 interface EdicionPlantilla {
@@ -160,8 +164,18 @@ export function PaginaConfiguracion() {
   const actor = useActor()
   const { puedeHacer } = useSesion()
   useTituloPagina('Configuración')
-  const { cargando, celulas, proveedores, portafolios, programas, proyectos, plantillas } =
-    useCatalogos()
+  const {
+    cargando,
+    celulas,
+    proveedores,
+    portafolios,
+    programas,
+    proyectos,
+    plantillas,
+    areas,
+    usuarios,
+    nombreUsuario,
+  } = useCatalogos()
 
   const [edicion, setEdicion] = useState<Edicion | null>(null)
   const [eliminando, setEliminando] = useState<Elemento | null>(null)
@@ -169,6 +183,11 @@ export function PaginaConfiguracion() {
   const [editandoPlantilla, setEditandoPlantilla] = useState<EdicionPlantilla | null>(null)
   const [eliminandoPlantilla, setEliminandoPlantilla] = useState<GateTemplate | null>(null)
   const [slaDe, setSlaDe] = useState<Proyecto | null>(null)
+  /** Area abierta en el editor: null es un alta. undefined, cerrado. */
+  const [editandoArea, setEditandoArea] = useState<Area | null | undefined>(undefined)
+  const [creandoAreas, setCreandoAreas] = useState(false)
+  const puedeEditarAreas = puedeHacer('areas', 'editar')
+  const faltanSemilla = AREAS_SEMILLA.some((a) => !areas.some((x) => x.id === a.id))
 
   const puedeEditarPlantillas = puedeHacer('gateTemplates', 'editar')
   const plantillaEstandar = plantillas.find((p) => p.id === PLANTILLA_ESTANDAR.id)
@@ -448,6 +467,57 @@ export function PaginaConfiguracion() {
           </Seccion>
 
           <Seccion
+            icono={<ClipboardCheck aria-hidden className="size-4" />}
+            titulo="Áreas que revisan"
+            descripcion="OOCC, ECE, RF, Implementación y MMOO revisan TSS, Ingeniería y As Built. Aquí se asigna quién responde por cada área, en general o por proyecto; cada persona ve lo suyo en Pendientes."
+            accion={
+              puedeEditarAreas ? (
+                <span className="flex flex-wrap gap-2">
+                  {faltanSemilla && (
+                    <Boton
+                      disabled={cargando || creandoAreas}
+                      onClick={() => {
+                        setCreandoAreas(true)
+                        crearAreasSemilla(areas, actor)
+                          .then((n) => avisar.ok(`Se crearon ${n} área(s)`))
+                          .catch((e) => avisar.error(mensajeDeError(e)))
+                          .finally(() => setCreandoAreas(false))
+                      }}
+                    >
+                      {creandoAreas ? 'Creando…' : 'Crear las de los trackers'}
+                    </Boton>
+                  )}
+                  <Boton
+                    onClick={() => setEditandoArea(null)}
+                    disabled={cargando}
+                    icono={<Plus aria-hidden className="size-4" />}
+                  >
+                    Agregar
+                  </Boton>
+                </span>
+              ) : null
+            }
+          >
+            <Lista
+              cargando={cargando}
+              items={areas.map((a) => ({
+                id: a.id,
+                titulo: a.nombre,
+                detalle:
+                  a.responsables.length === 0
+                    ? 'Sin responsables'
+                    : a.responsables.map((u) => nombreUsuario(u)).join(', ') +
+                      (Object.keys(a.porProyecto).length > 0
+                        ? ` · ${Object.keys(a.porProyecto).length} proyecto(s) con otras personas`
+                        : ''),
+                insignia: insigniaActivo(a.activa, true),
+                ...(puedeEditarAreas ? { onEditar: () => setEditandoArea(a) } : {}),
+              }))}
+              vacio="Sin áreas. Crea las de los trackers para empezar."
+            />
+          </Seccion>
+
+          <Seccion
             icono={<Truck aria-hidden className="size-4" />}
             titulo="Proveedores"
             descripcion="Las empresas contratistas. Un usuario con rol contratista solo ve los sitios de su proveedor."
@@ -515,6 +585,18 @@ export function PaginaConfiguracion() {
           generarId={editandoPlantilla.idDesdeNombre ? idNuevaPlantilla : undefined}
           actor={actor}
           onCerrar={() => setEditandoPlantilla(null)}
+        />
+      )}
+
+      {editandoArea !== undefined && (
+        <EditorArea
+          key={editandoArea?.id ?? 'nueva'}
+          area={editandoArea}
+          areas={areas}
+          usuarios={usuarios}
+          proyectos={proyectos}
+          actor={actor}
+          onCerrar={() => setEditandoArea(undefined)}
         />
       )}
 

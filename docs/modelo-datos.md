@@ -50,6 +50,16 @@ ver [reglas-seguridad.md](reglas-seguridad.md#perfiles-acotados-alcance).
 
 `nombre`, `descripcion`, `liderUid`, `color`, `activa`.
 
+### `areas/{id}` [F1]
+
+Las áreas que revisan etapas (OOCC, ECE, RF, Implementación, MMOO): `nombre`,
+`alias` (cómo aparecen en los trackers, para calzar las revisiones importadas),
+`responsables` (uids por defecto), `porProyecto` (`{proyectoId: uids}`, manda
+sobre el defecto) y `activa`. Una revisión de la etapa actual de un sitio que
+su área aún no aprueba es un **pendiente** de esas personas (pantalla
+Pendientes; ver `domain/areas`). El tracker sigue siendo la fuente: la app no
+escribe el estado de las revisiones. La mantienen admin y jefe.
+
 ### `proveedores/{id}` [F1]
 
 `nombre`, `contactoNombre`, `contactoEmail`, `activo`.

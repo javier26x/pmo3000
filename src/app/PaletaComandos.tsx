@@ -150,7 +150,7 @@ export function PaletaComandos({ onCerrar }: { onCerrar: () => void }) {
         titulo: 'Configuración: gates, programas y proyectos',
         grupo: 'Navegación',
         icono: <SlidersHorizontal aria-hidden className="size-4" />,
-        requiere: ['gateTemplates', 'editar'],
+        requiere: ['proyectos', 'editar'],
         ejecutar: () => navegar('/configuracion'),
       },
       {

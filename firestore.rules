@@ -244,6 +244,14 @@ service cloud.firestore {
       allow write: if esAdmin();
     }
 
+    // Areas que revisan etapas (OOCC, ECE, RF...) y quienes responden por
+    // ellas. Las mantienen admin y jefe, igual que los proyectos: la asignacion
+    // de personas cambia seguido y no deberia esperar a un administrador.
+    match /areas/{id} {
+      allow get, list: if esInterno();
+      allow write: if esAdmin() || esJefe();
+    }
+
     match /proveedores/{id} {
       allow get, list: if habilitado();
       allow write: if esAdmin();

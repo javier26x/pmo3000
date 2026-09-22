@@ -8,9 +8,11 @@ import {
   observarProyectos,
 } from '@/data/repos/catalogos'
 import { observarUsuarios } from '@/data/repos/usuarios'
+import { observarAreas } from '@/data/repos/areas'
 import { mensajeDeError } from '@/app/avisos'
 import type { EtapaCatalogo } from '@/domain/gates/catalogo'
 import type {
+  Area,
   Celula,
   GateTemplate,
   Portafolio,
@@ -33,6 +35,8 @@ interface ValorCatalogos {
   /** Etapas de todas las plantillas activas, en orden. Ver domain/gates/catalogo.ts. */
   etapas: EtapaCatalogo[]
   usuarios: Usuario[]
+  /** Areas que revisan etapas, con quienes responden por ellas. */
+  areas: Area[]
   nombreCelula: (id: string | null) => string
   nombreProveedor: (id: string | null) => string
   nombrePrograma: (id: string | null) => string
@@ -63,6 +67,7 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [plantillas, setPlantillas] = useState<GateTemplate[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [areas, setAreas] = useState<Area[]>([])
   const [error, setError] = useState<string | null>(null)
   /**
    * Colecciones cuyo primer snapshot ya llego. Se usa para saber si seguimos
@@ -99,6 +104,7 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
             observarProgramas(recibir('programas', setProgramas), alFallar),
             observarProyectos(recibir('proyectos', setProyectos), alFallar),
             observarUsuarios(recibir('usuarios', setUsuarios), alFallar),
+            observarAreas(recibir('areas', setAreas), alFallar),
           ]
         : []),
     ]
@@ -106,7 +112,7 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
     return () => cancelaciones.forEach((cancelar) => cancelar())
   }, [rol])
 
-  const esperadas = rol === null ? 0 : rol === 'contratista' ? 3 : 7
+  const esperadas = rol === null ? 0 : rol === 'contratista' ? 3 : 8
 
   const valor = useMemo<ValorCatalogos>(() => {
     const indice = <T extends { id: string; nombre: string }>(lista: T[]) =>
@@ -160,6 +166,7 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
       plantillas,
       etapas,
       usuarios,
+      areas,
       nombreCelula: resolver(celulasPorId),
       nombreProveedor: resolver(proveedoresPorId),
       nombrePrograma: resolver(programasPorId),
@@ -175,6 +182,7 @@ export function ProveedorCatalogos({ children }: { children: ReactNode }) {
     proyectos,
     plantillas,
     usuarios,
+    areas,
     error,
     recibidas,
     esperadas,

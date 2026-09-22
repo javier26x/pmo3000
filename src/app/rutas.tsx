@@ -70,6 +70,7 @@ import { PaginaInicio } from '@/features/inicio/PaginaInicio'
 import { PaginaSitios } from '@/features/sitios/PaginaSitios'
 import { PaginaSitio } from '@/features/sitios/PaginaSitio'
 import { PaginaSeguimiento } from '@/features/gates/PaginaSeguimiento'
+import { PaginaPendientes } from '@/features/pendientes/PaginaPendientes'
 
 /** Envuelve las rutas de la app con los proveedores de datos compartidos. */
 function AppProtegida() {
@@ -104,6 +105,7 @@ export function Rutas() {
             }
           />
           <Route path="/kanban" element={<PaginaKanban />} />
+          <Route path="/pendientes" element={<PaginaPendientes />} />
           <Route
             path="/importar"
             element={
@@ -143,7 +145,7 @@ export function Rutas() {
           <Route
             path="/configuracion"
             element={
-              <RutaProtegida requiere={['gateTemplates', 'editar']}>
+              <RutaProtegida requiere={['proyectos', 'editar']}>
                 <PaginaConfiguracion />
               </RutaProtegida>
             }

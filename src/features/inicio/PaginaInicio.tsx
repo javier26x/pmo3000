@@ -11,6 +11,7 @@ import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useDespliegue } from '@/hooks/useDespliegue'
 import { useMedidorSla, type MedidorSla } from '@/hooks/useSla'
+import { usePendientes } from '@/hooks/usePendientes'
 import { useSesion } from '@/hooks/useSesion'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 
@@ -104,6 +105,8 @@ export function PaginaInicio() {
   const { etapas, proyectos } = useCatalogos()
 
   const medirSla = useMedidorSla()
+  const { pendientes } = usePendientes()
+  const misPendientes = pendientes.filter((p) => perfil && p.responsables.includes(perfil.id))
   const conSla = proyectos.some((p) => p.sla !== null)
   const r = useMemo(() => resumir(seguimientos, hoy, medirSla), [seguimientos, hoy, medirSla])
 
@@ -146,6 +149,15 @@ export function PaginaInicio() {
               </>
             )}
           </p>
+          {misPendientes.length > 0 && (
+            <Link
+              to="/pendientes"
+              className="mt-2 inline-flex items-center gap-1 rounded text-sm text-[var(--acento)] hover:underline"
+            >
+              Tienes {numero(misPendientes.length)} revisiones pendientes
+              <ArrowRight aria-hidden className="size-3.5" />
+            </Link>
+          )}
         </header>
 
         {/* Cifras: cada una abre la tabla con ese recorte. */}

@@ -106,17 +106,19 @@ export function EditorSla({
     etiqueta: string,
     heredado?: string,
   ) => (
-    <Entrada
-      type="number"
-      inputMode="numeric"
-      min={1}
-      step={1}
-      value={valor}
-      placeholder={heredado ?? '—'}
-      aria-label={etiqueta}
-      className="h-7 w-16 text-right tabular-nums"
-      onChange={(e) => onCambio(e.target.value)}
-    />
+    <div className="w-16">
+      <Entrada
+        type="number"
+        inputMode="numeric"
+        min={1}
+        step={1}
+        value={valor}
+        placeholder={heredado ?? '—'}
+        aria-label={etiqueta}
+        className="h-7 text-right tabular-nums"
+        onChange={(e) => onCambio(e.target.value)}
+      />
+    </div>
   )
 
   return (
