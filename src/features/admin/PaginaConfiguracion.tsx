@@ -8,6 +8,7 @@ import {
   ListChecks,
   Pencil,
   Plus,
+  ShieldCheck,
   Trash2,
   Truck,
   Users2,
@@ -63,6 +64,7 @@ import { useCatalogos } from '@/hooks/useCatalogos'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { DialogoEliminar } from './DialogoEliminar'
 import { EditorPlantilla } from './EditorPlantilla'
+import { ProtegerSecuencias } from './ProtegerSecuencias'
 
 /** Plantilla abierta en el editor. `original` null es un alta o un duplicado. */
 interface EdicionPlantilla {
@@ -460,6 +462,17 @@ export function PaginaConfiguracion() {
               vacio="Sin proveedores."
             />
           </Seccion>
+
+          {actor.rol === 'admin' && (
+            <Seccion
+              icono={<ShieldCheck aria-hidden className="size-4" />}
+              titulo="Seguridad de la secuencia"
+              descripcion="Mantenimiento de una vez para los seguimientos anteriores a la protección de etapas."
+              accion={null}
+            >
+              <ProtegerSecuencias actor={actor} />
+            </Seccion>
+          )}
         </div>
       </div>
 

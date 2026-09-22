@@ -114,6 +114,26 @@ export function secuenciaDeGates(
     .map(([codigo]) => codigo)
 }
 
+/**
+ * La secuencia en la forma que leen las reglas de Firestore: cada etapa
+ * secuencial apunta a la que le sigue (null en la ultima, que cierra el sitio).
+ * Las paralelas no aparecen.
+ *
+ * Va en su propio campo (`pasos`) porque las reglas no pueden recorrer el mapa
+ * de gates para comprobar que nadie lo altero, y un campo aparte si se puede
+ * congelar entero: solo el admin lo cambia. Ver firestore.rules.
+ */
+export function pasosDeGates(
+  gates: Readonly<Record<string, { orden: number; tipo?: TipoEtapa | undefined } | undefined>>,
+): Record<CodigoGate, CodigoGate | null> {
+  const secuencia = secuenciaDeGates(gates)
+  const pasos: Record<CodigoGate, CodigoGate | null> = {}
+  secuencia.forEach((codigo, i) => {
+    pasos[codigo] = secuencia[i + 1] ?? null
+  })
+  return pasos
+}
+
 /** Posicion en la secuencia; CERRADO va al final y lo desconocido, fuera. */
 export function ordenGate(gate: GateActual, secuencia: readonly CodigoGate[]): number {
   if (gate === CERRADO) return secuencia.length

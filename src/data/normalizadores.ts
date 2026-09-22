@@ -349,11 +349,22 @@ export function normalizarSitioProyecto(id: string, d: DocumentData): SitioProye
     prioridad: enumerado(d.prioridad, PRIORIDADES, 'media'),
     fechaPlanGateActual: fechaISO(d.fechaPlanGateActual),
     gates,
+    pasos: normalizarPasos(d.pasos),
     valores: normalizarValores(d.valores),
     gateTemplateId: texto(d.gateTemplateId, 'estandar-despliegue'),
     gateTemplateVersion: numero(d.gateTemplateVersion, 1),
     ...sellos(d),
   }
+}
+
+/** null si el documento es anterior al campo (o lo trae roto). */
+function normalizarPasos(valor: unknown): Record<string, string | null> | null {
+  if (valor === null || typeof valor !== 'object' || Array.isArray(valor)) return null
+  const pasos: Record<string, string | null> = {}
+  for (const [codigo, siguiente] of Object.entries(valor as Record<string, unknown>)) {
+    pasos[codigo] = typeof siguiente === 'string' ? siguiente : null
+  }
+  return pasos
 }
 
 function normalizarDependencia(valor: unknown): Dependencia | null {

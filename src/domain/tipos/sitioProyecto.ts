@@ -104,6 +104,14 @@ const esquemaSitioProyectoBase = z
     gates: z.record(z.string(), esquemaGateSitio),
 
     /**
+     * La secuencia congelada que leen las reglas: etapa -> la que sigue (null
+     * en la ultima). Solo el admin la cambia. null en los documentos anteriores
+     * a este campo, hasta que un admin los complete desde Configuracion. Ver
+     * pasosDeGates().
+     */
+    pasos: z.record(z.string(), z.string().nullable()).nullable().default(null),
+
+    /**
      * Valores de los campos declarados en la plantilla, por id de campo. Aca
      * vive todo lo que el tracker tiene y la app no codifica: "Concurso 5G",
      * "Responsable Gabinete", "Prioridad RF" y las otras ciento treinta.

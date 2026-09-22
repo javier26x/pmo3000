@@ -35,6 +35,7 @@ import { crearConvertidor } from '../convertidores'
 import { normalizarComentario, normalizarSitioProyecto, type Comentario } from '../normalizadores'
 import { agregarEventos } from '../auditoria'
 import { crearGatesDesdePlantilla, type Parche } from '@/domain/gates/maquina'
+import { pasosDeGates } from '@/domain/gates/catalogo'
 import { filtroObligatorio } from '@/domain/permisos/matriz'
 import { planAlcance } from '@/domain/permisos/alcance'
 import { FILTROS_SERVIDOR_VACIOS, type FiltrosSeguimiento } from '@/domain/vistas/filtrado'
@@ -283,10 +284,66 @@ export function prepararSeguimiento(datos: DatosSeguimientoNuevo): {
       prioridad: datos.prioridad,
       fechaPlanGateActual: inicial.fechaPlanGateActual,
       gates: inicial.gates,
+      pasos: pasosDeGates(inicial.gates),
       gateTemplateId: datos.plantilla.id,
       gateTemplateVersion: datos.plantilla.version,
     },
   }
+}
+
+/**
+ * Completa `pasos` (la secuencia congelada que leen las reglas) en los
+ * seguimientos anteriores a ese campo. Solo admin: nadie mas puede escribirlo.
+ *
+ * Mientras un seguimiento no lo tenga, las reglas validan los avances con el
+ * enlace `siguiente` del mapa de gates, que quien avanza puede reescribir en la
+ * misma escritura. Correrlo una vez cierra eso para todos los existentes; los
+ * nuevos ya nacen con `pasos`. Volver a correrlo es seguro: solo toca los que
+ * falten.
+ */
+export async function completarPasos(
+  actor: Actor,
+  onAvance?: (hechos: number, total: number) => void,
+): Promise<{ revisados: number; completados: number }> {
+  const snap = await getDocs(collection(db, COLECCIONES.sitioProyectos).withConverter(convertidor))
+  const faltan = snap.docs.map((d) => d.data()).filter((sp) => sp.pasos === null)
+
+  for (let i = 0; i < faltan.length; i += MAX_OPERACIONES) {
+    const lote = writeBatch(db)
+    for (const sp of faltan.slice(i, i + MAX_OPERACIONES)) {
+      lote.update(doc(db, COLECCIONES.sitioProyectos, sp.id), {
+        pasos: pasosDeGates(sp.gates),
+        actualizadoEn: serverTimestamp(),
+        actualizadoPor: actor.uid,
+      })
+    }
+    await lote.commit()
+    onAvance?.(Math.min(i + MAX_OPERACIONES, faltan.length), faltan.length)
+  }
+
+  if (faltan.length > 0) {
+    const cierre = writeBatch(db)
+    agregarEventos(
+      cierre,
+      [
+        {
+          entidadTipo: 'sitioProyecto',
+          entidadId: 'secuencias',
+          sitioId: null,
+          proyectoId: null,
+          programaId: null,
+          accion: 'actualizar',
+          campo: 'pasos',
+          valorAnterior: null,
+          valorNuevo: String(faltan.length),
+          detalle: `Secuencia congelada en ${faltan.length} seguimiento(s) anteriores al campo`,
+        },
+      ],
+      actor,
+    )
+    await cierre.commit()
+  }
+  return { revisados: snap.size, completados: faltan.length }
 }
 
 /**

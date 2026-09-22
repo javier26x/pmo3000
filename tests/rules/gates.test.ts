@@ -370,6 +370,76 @@ describe('secuencia con una plantilla propia', () => {
     await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'TSS' }))
   })
 
+  describe('con la secuencia congelada en `pasos`', () => {
+    const PASOS = { TSS: 'INGENIERIA', INGENIERIA: 'AS_BUILT', AS_BUILT: 'ON_AIR', ON_AIR: null }
+
+    async function ponerConPasos(gateActual: string): Promise<void> {
+      await entorno.withSecurityRulesDisabled(async (ctx) => {
+        await ctx
+          .firestore()
+          .doc(RUTA)
+          .set(seguimientoDePrueba({ gateActual, gates: gatesPropios(gateActual), pasos: PASOS }))
+      })
+    }
+
+    it('avanza, retrocede y cierra igual que antes', async () => {
+      await ponerConPasos('TSS')
+      await assertSucceeds(
+        como(entorno, PERFILES.analista!).doc(RUTA).update(avance('TSS', 'INGENIERIA')),
+      )
+      await ponerConPasos('AS_BUILT')
+      await assertSucceeds(
+        como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'INGENIERIA' }),
+      )
+      await ponerConPasos('ON_AIR')
+      await assertSucceeds(
+        como(entorno, PERFILES.analista!).doc(RUTA).update(avance('ON_AIR', 'CERRADO')),
+      )
+    })
+
+    it('reescribir `siguiente` en la misma escritura no sirve para saltar', async () => {
+      await ponerConPasos('TSS')
+      const db = como(entorno, PERFILES.analista!)
+      await assertFails(
+        db.doc(RUTA).update({ ...avance('TSS', 'ON_AIR'), 'gates.TSS.siguiente': 'ON_AIR' }),
+      )
+      await assertFails(
+        db.doc(RUTA).update({ ...avance('TSS', 'CERRADO'), 'gates.TSS.siguiente': null }),
+      )
+    })
+
+    it('ni prepararlo en una escritura previa', async () => {
+      await ponerConPasos('TSS')
+      const db = como(entorno, PERFILES.analista!)
+      // Tocar el mapa no cambia nada: la secuencia se lee de `pasos`.
+      await assertSucceeds(db.doc(RUTA).update({ 'gates.TSS.siguiente': 'ON_AIR' }))
+      await assertFails(db.doc(RUTA).update(avance('TSS', 'ON_AIR')))
+    })
+
+    it('`pasos` no lo cambia nadie mas que el admin', async () => {
+      await ponerConPasos('TSS')
+      for (const perfil of [PERFILES.analista!, PERFILES.jefe!, PERFILES.contratista!]) {
+        await assertFails(
+          como(entorno, perfil).doc(RUTA).update({ 'pasos.TSS': 'ON_AIR' }),
+        )
+      }
+      await assertSucceeds(
+        como(entorno, PERFILES.admin!).doc(RUTA).update({ 'pasos.TSS': 'AS_BUILT' }),
+      )
+    })
+
+    it('una paralela nunca es destino de un retroceso', async () => {
+      await ponerConPasos('CERRADO')
+      await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'FC' }))
+    })
+
+    it('a un documento sin `pasos` solo el admin se los agrega', async () => {
+      await ponerEn('TSS')
+      await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ pasos: PASOS }))
+      await assertSucceeds(como(entorno, PERFILES.admin!).doc(RUTA).update({ pasos: PASOS }))
+    })
+  })
+
   it('una etapa paralela nunca es destino, ni para el jefe ni para el admin', async () => {
     await ponerEn('CERRADO')
     await assertFails(como(entorno, PERFILES.jefe!).doc(RUTA).update({ gateActual: 'FC' }))

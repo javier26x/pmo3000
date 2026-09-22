@@ -79,6 +79,25 @@ Además, **el cierre tiene que ser real**: al avanzar, el gate que se deja atrá
 debe quedar con `estado == 'completado'` **y** `fechaReal != null`. Sin esta
 regla se podría «avanzar» sin cerrar nada.
 
+**La secuencia sale de un campo que solo el admin escribe.** Cada seguimiento
+guarda `pasos` (etapa → la que sigue, `null` en la última; las paralelas no
+están) y las reglas validan el movimiento contra el `pasos` **guardado**, que
+nadie más que el admin puede crear ni cambiar. Antes la secuencia se leía del
+enlace `siguiente` del mapa de gates tal como quedaba *después* de la
+escritura: un analista podía reescribir ese enlace en el mismo update y
+saltarse etapas, o dejarlo preparado para que otro avanzara sin darse cuenta.
+
+No se revisa que el mapa de gates conserve su estructura porque las reglas no
+recorren mapas y hacerlo etapa por etapa pasa el tope de 1.000 expresiones por
+escritura (medido). Un campo aparte se congela con un solo `noCambia`.
+
+Los seguimientos anteriores a `pasos` siguen validándose con el enlace del mapa
+hasta que un admin corra **Configuración → Seguridad de la secuencia → Proteger
+secuencias**, que lo completa en todos (se puede repetir; solo toca los que
+falten). Los nuevos nacen con él. Al crear un seguimiento no se puede comprobar
+que `pasos` calce con la plantilla, pero crear ya permite fijar cualquier etapa
+actual, así que eso no abre nada nuevo.
+
 ### Corrección administrativa (solo admin)
 
 La app tiene que poder administrarse sin que un desarrollador toque la base. Por

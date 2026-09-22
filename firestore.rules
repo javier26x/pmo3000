@@ -310,9 +310,39 @@ service cloud.firestore {
       // El gate solo se mueve al inmediatamente siguiente. Retroceder esta
       // reservado a admin y jefe de celula. (El admin, ademas, puede saltar:
       // ver la correccion administrativa en el allow update.)
-      // La secuencia se lee del propio documento. Se usa el mapa de gates que
-      // queda DESPUES del cambio, porque es el que tiene que ser coherente.
       function gates() { return request.resource.data.gates; }
+
+      /**
+       * De donde sale la secuencia.
+       *
+       * Con `pasos` (etapa -> la que sigue, null en la ultima; las paralelas no
+       * estan) se lee de ahi, del documento GUARDADO. Quien no es admin no
+       * puede cambiar `pasos` (noCambia en el allow update), asi que nadie
+       * puede alterar la secuencia para saltarse etapas: ni reescribiendo el
+       * enlace en la misma escritura del avance, ni preparandolo antes.
+       *
+       * Sin `pasos` (documentos anteriores al campo, hasta que un admin los
+       * complete desde Configuracion) se lee el enlace `siguiente` de cada gate
+       * en el mapa que queda despues de la escritura, como antes. Eso deja la
+       * puerta abierta a reescribir el enlace, por eso hay que completarlos.
+       *
+       * Por que un campo aparte y no revisar que el mapa de gates no cambie de
+       * estructura: las reglas no recorren mapas, y revisarlo etapa por etapa
+       * pasa el tope de 1.000 expresiones por escritura.
+       */
+      function tienePasos() { return resource.data.get('pasos', null) != null; }
+      function pasos() { return resource.data.pasos; }
+      function conoce(codigo) {
+        return tienePasos() ? codigo in pasos() : codigo in gates();
+      }
+      function siguienteDe(codigo) {
+        return tienePasos() ? pasos()[codigo] : gates()[codigo].siguiente;
+      }
+      // Una etapa que puede ser la actual: las paralelas no estan en `pasos`.
+      function esEtapaSecuencial(codigo) {
+        return tienePasos() ? codigo in pasos() : (codigo in gates() && noEsParalela(codigo));
+      }
+
       function gateSecuencial() {
         return destino() == origen()
           || esSiguiente()
@@ -320,30 +350,28 @@ service cloud.firestore {
       }
 
       /**
-       * Cada gate guarda el codigo del que le sigue (campo `siguiente`, null en
-       * el ultimo). Sin ese enlace no habria forma de exigir "la etapa
-       * inmediatamente siguiente": las reglas no recorren mapas, asi que lo
-       * unico expresable seria "hacia adelante", y un salto de la primera etapa
-       * a la ultima pasaria. Con el enlace la comprobacion es exacta y de una
-       * sola lectura, para cualquier plantilla.
+       * Cada etapa sabe cual le sigue. Sin ese enlace no habria forma de exigir
+       * "la etapa inmediatamente siguiente": las reglas no recorren mapas, asi
+       * que lo unico expresable seria "hacia adelante", y un salto de la
+       * primera etapa a la ultima pasaria. Con el enlace la comprobacion es
+       * exacta y de una sola lectura, para cualquier plantilla.
        */
       function esSiguiente() {
         return origen() != 'CERRADO'
-          && origen() in gates()
-          && (gates()[origen()].siguiente == null
+          && conoce(origen())
+          && (siguienteDe(origen()) == null
                 ? destino() == 'CERRADO'
-                : destino() == gates()[origen()].siguiente);
+                : destino() == siguienteDe(origen()));
       }
 
-      // Retroceder es el movimiento inverso: el destino es el gate cuyo
-      // `siguiente` es el origen (o el ultimo, si se vuelve desde CERRADO).
+      // Retroceder es el movimiento inverso: el destino es la etapa cuyo
+      // siguiente es el origen (o la ultima, si se vuelve desde CERRADO).
       function esAnterior() {
         return destino() != 'CERRADO'
-          && destino() in gates()
-          && noEsParalela(destino())
+          && esEtapaSecuencial(destino())
           && (origen() == 'CERRADO'
-                ? gates()[destino()].siguiente == null
-                : gates()[destino()].siguiente == origen());
+                ? siguienteDe(destino()) == null
+                : siguienteDe(destino()) == origen());
       }
 
       // Al avanzar, el gate que se deja atras queda cerrado de verdad: estado
@@ -423,7 +451,7 @@ service cloud.firestore {
         && noCambia('programaId')
         && noCambia('portafolioId')
         && ((esAdmin() && destinoValido())
-            || (gateSecuencial() && cierreConsistente()));
+            || (noCambia('pasos') && gateSecuencial() && cierreConsistente()));
 
       allow update: if esContratista()
         && resource.data.proveedorId == miProveedor()

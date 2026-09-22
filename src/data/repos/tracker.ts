@@ -15,6 +15,7 @@ import { doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { COLECCIONES, db } from '../firebase'
 import { agregarEventos } from '../auditoria'
 import { seguimientosExistentes } from './sitioProyectos'
+import { pasosDeGates, type TipoEtapa } from '@/domain/gates/catalogo'
 import { idSitioProyecto } from '@/domain/tipos/sitioProyecto'
 import {
   avanceFueraDeOrden,
@@ -261,7 +262,15 @@ export async function ejecutarImportacionTracker(
       // decide en la app —celula, responsable, proveedor, prioridad— y el sello
       // de creacion solo se escriben la primera vez: reimportar no debe deshacer
       // una correccion ni una asignacion hecha despues.
-      const soloAlCrear = existentes.has(idSeguimiento)
+      const existe = existentes.has(idSeguimiento)
+      // La secuencia congelada (`pasos`) solo la cambia el admin: en un
+      // seguimiento que ya existe, quien no es admin la deja como esta (las
+      // reglas rechazarian el lote completo si la tocara).
+      const pasos =
+        !existe || actor.rol === 'admin'
+          ? { pasos: pasosDeGates(gates as Record<string, { orden: number; tipo?: TipoEtapa }>) }
+          : {}
+      const soloAlCrear = existe
         ? {}
         : {
             celulaId: destino.celulaId,
@@ -292,6 +301,7 @@ export async function ejecutarImportacionTracker(
           vigente,
           fechaPlanGateActual: (actual?.fechaPlan as string | null) ?? null,
           gates,
+          ...pasos,
           valores,
           gateTemplateId: destino.plantillaId,
           gateTemplateVersion: destino.plantillaVersion,
