@@ -1,0 +1,185 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Variante para los pocos casos en que el token no alcanza. */
+@custom-variant oscuro (&:where(:root[data-tema='oscuro'] *));
+
+@theme inline {
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
+  --color-superficie-3: var(--superficie-3);
+  --color-borde: var(--borde);
+  --color-borde-fuerte: var(--borde-fuerte);
+  --color-texto: var(--texto);
+  --color-texto-2: var(--texto-2);
+  --color-texto-3: var(--texto-3);
+  --color-acento: var(--acento);
+  --color-acento-hover: var(--acento-hover);
+  --color-acento-suave: var(--acento-suave);
+  --color-acento-borde: var(--acento-borde);
+  --color-acento-texto: var(--acento-texto);
+
+  --font-sans:
+    'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  --radius-DEFAULT: var(--radio);
+  --radius-lg: var(--radio-lg);
+
+  --text-xs: 0.6875rem; /* 11px - etiquetas y metadatos */
+  --text-sm: 0.75rem; /* 12px - tablas y controles */
+  --text-base: 0.8125rem; /* 13px - cuerpo */
+  --text-md: 0.875rem; /* 14px - titulos de seccion */
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-variant-numeric: tabular-nums;
+  }
+
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Foco siempre visible: requisito de accesibilidad, no decoracion. */
+  :focus-visible {
+    outline: 2px solid var(--acento);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: var(--acento-suave);
+    color: var(--texto);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Respeta a quien pidio menos movimiento en su sistema. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Barras de desplazamiento discretas, acordes al tema. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--borde-fuerte) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--borde-fuerte);
+    border: 3px solid transparent;
+    border-radius: 8px;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Colores por gate, resueltos desde los tokens. */
+  .gate-TCSR {
+    --gate-bg: var(--g-tcsr-bg);
+    --gate-fg: var(--g-tcsr-fg);
+    --gate-punto: var(--g-tcsr-punto);
+  }
+  .gate-FC {
+    --gate-bg: var(--g-fc-bg);
+    --gate-fg: var(--g-fc-fg);
+    --gate-punto: var(--g-fc-punto);
+  }
+  .gate-RFI {
+    --gate-bg: var(--g-rfi-bg);
+    --gate-fg: var(--g-rfi-fg);
+    --gate-punto: var(--g-rfi-punto);
+  }
+  .gate-IMP {
+    --gate-bg: var(--g-imp-bg);
+    --gate-fg: var(--g-imp-fg);
+    --gate-punto: var(--g-imp-punto);
+  }
+  .gate-D1 {
+    --gate-bg: var(--g-d1-bg);
+    --gate-fg: var(--g-d1-fg);
+    --gate-punto: var(--g-d1-punto);
+  }
+  .gate-D7 {
+    --gate-bg: var(--g-d7-bg);
+    --gate-fg: var(--g-d7-fg);
+    --gate-punto: var(--g-d7-punto);
+  }
+  .gate-SSV {
+    --gate-bg: var(--g-ssv-bg);
+    --gate-fg: var(--g-ssv-fg);
+    --gate-punto: var(--g-ssv-punto);
+  }
+  .gate-CERRADO {
+    --gate-bg: var(--g-cerrado-bg);
+    --gate-fg: var(--g-cerrado-fg);
+    --gate-punto: var(--g-cerrado-punto);
+  }
+
+  .insignia-gate {
+    background: var(--gate-bg);
+    color: var(--gate-fg);
+  }
+
+  .punto-gate {
+    background: var(--gate-punto);
+  }
+
+  /* Contenedor con desplazamiento que no arrastra la pagina completa. */
+  .panel-scroll {
+    overscroll-behavior: contain;
+  }
+}

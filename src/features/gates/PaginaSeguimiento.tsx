@@ -1,0 +1,661 @@
+import { useMemo, useState } from 'react'
+import { useParams } from 'react-router'
+import {
+  ArrowRight,
+  ArrowLeft,
+  ExternalLink,
+  Lock,
+  MapPin,
+  MessageSquare,
+  Send,
+  Unlock,
+} from 'lucide-react'
+import {
+  AreaTexto,
+  Aviso,
+  BarraProgreso,
+  Boton,
+  CabeceraPantalla,
+  Campo,
+  Cargando,
+  Dialogo,
+  EnlaceBoton,
+  Entrada,
+  EstadoVacio,
+  Insignia,
+  InsigniaGate,
+  Metrica,
+  Selector,
+  Tabs,
+} from '@/components/ui'
+import { avisar, mensajeDeError } from '@/app/avisos'
+import { agregarComentario, aplicarParche, asignarResponsable } from '@/data/repos/sitioProyectos'
+import { formatearFecha, formatearFechaHora, hoyEnChile } from '@/domain/fechas'
+import { diasAtraso, textoAtraso } from '@/domain/gates/atraso'
+import { CERRADO, nombreGate, type CodigoGate } from '@/domain/gates/catalogo'
+import {
+  contextoDe,
+  evaluarAvance,
+  planAvanzarGate,
+  planBloqueo,
+  planMarcarChecklist,
+  planRegistrarFecha,
+  planRetrocederGate,
+  porcentajeAvance,
+  type Parche,
+  type Resultado,
+} from '@/domain/gates/maquina'
+import { NOMBRES_PRIORIDAD, PRIORIDADES, type Prioridad } from '@/domain/tipos/comunes'
+import { useActor, useSesion } from '@/hooks/useSesion'
+import { useCatalogos } from '@/hooks/useCatalogos'
+import { Historial } from './Historial'
+import { LineaGates } from './LineaGates'
+import { PanelChecklist, type AccionChecklist } from './PanelChecklist'
+import { useComentarios, useHistorial, useSeguimiento } from './useSeguimiento'
+
+type PestanaLateral = 'comentarios' | 'historial'
+
+export function PaginaSeguimiento() {
+  const { seguimientoId } = useParams<{ seguimientoId: string }>()
+  const actor = useActor()
+  const { puedeHacer } = useSesion()
+  const { plantillaPorId, nombrePrograma, nombreProyecto, nombreProveedor, proveedores, usuarios } =
+    useCatalogos()
+
+  const { datos: sp, cargando, error } = useSeguimiento(seguimientoId)
+  const historial = useHistorial(seguimientoId)
+  const comentarios = useComentarios(seguimientoId)
+
+  const [gateElegido, setGateElegido] = useState<CodigoGate | null>(null)
+  const [pestana, setPestana] = useState<PestanaLateral>('historial')
+  const [dialogo, setDialogo] = useState<'avanzar' | 'retroceder' | 'bloquear' | null>(null)
+  const [fechaCierre, setFechaCierre] = useState(hoyEnChile())
+  const [comentarioCierre, setComentarioCierre] = useState('')
+  const [motivo, setMotivo] = useState('')
+  const [nuevoComentario, setNuevoComentario] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const plantilla = sp ? plantillaPorId(sp.gateTemplateId) : null
+  const hoy = hoyEnChile()
+
+  const gateVisible: CodigoGate | null = useMemo(() => {
+    if (!sp) return null
+    if (gateElegido) return gateElegido
+    return sp.gateActual === CERRADO ? 'SSV' : sp.gateActual
+  }, [sp, gateElegido])
+
+  const evaluacion = useMemo(
+    () => (sp && plantilla ? evaluarAvance(sp, plantilla, actor) : null),
+    [sp, plantilla, actor],
+  )
+
+  if (cargando && !sp) return <Cargando texto="Cargando la ficha del sitio…" />
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <Aviso tono="error" titulo="No pudimos cargar este sitio">
+          {error}
+        </Aviso>
+      </div>
+    )
+  }
+
+  if (!sp) {
+    return (
+      <EstadoVacio
+        titulo="Ese seguimiento no existe"
+        descripcion="Puede que el sitio se haya quitado del proyecto o que el enlace este mal."
+      />
+    )
+  }
+
+  if (!plantilla) {
+    return (
+      <div className="p-4">
+        <Aviso tono="error" titulo="Falta la plantilla de gates">
+          Este sitio referencia la plantilla <code>{sp.gateTemplateId}</code>, que no existe o no
+          puedes leerla. Pide a un administrador que la revise.
+        </Aviso>
+      </div>
+    )
+  }
+
+  /** Aplica un plan del dominio y avisa del resultado. */
+  const ejecutar = async (resultado: Resultado<Parche>, mensajeOk: string) => {
+    if (!resultado.ok) {
+      avisar.error(resultado.motivo)
+      return false
+    }
+    setGuardando(true)
+    try {
+      await aplicarParche(sp, resultado.valor, actor)
+      avisar.ok(mensajeOk)
+      return true
+    } catch (e) {
+      avisar.error(mensajeDeError(e))
+      return false
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const ctx = contextoDe(actor)
+  const gateActual = sp.gateActual === CERRADO ? null : sp.gates[sp.gateActual]
+  const dias = diasAtraso(gateActual?.fechaPlan ?? null, gateActual?.fechaReal ?? null, hoy)
+  const avance = porcentajeAvance(sp, plantilla)
+  const puedeEditar =
+    puedeHacer('sitioProyectos', 'editarChecklist') &&
+    (actor.rol !== 'contratista' || sp.proveedorId === actor.proveedorId)
+
+  const marcar = (accion: AccionChecklist) =>
+    void ejecutar(
+      planMarcarChecklist(sp, plantilla, ctx, {
+        codigo: accion.codigo,
+        itemId: accion.itemId,
+        ok: accion.ok,
+        ...(accion.evidenciaUrl !== undefined ? { evidenciaUrl: accion.evidenciaUrl } : {}),
+        ...(accion.obs !== undefined ? { obs: accion.obs } : {}),
+      }),
+      'Entregable actualizado',
+    )
+
+  return (
+    <>
+      <CabeceraPantalla
+        migas={[
+          { etiqueta: 'Sitios', ruta: '/sitios' },
+          { etiqueta: sp.sitioId, ruta: `/sitios/${encodeURIComponent(sp.sitioId)}` },
+          { etiqueta: nombreProyecto(sp.proyectoId) },
+        ]}
+        titulo={
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-sm text-texto-2">{sp.sitioId}</span>
+            {sp.sitioNombre}
+            <InsigniaGate gate={sp.gateActual} estado={sp.estadoGate} />
+            {sp.bloqueado && (
+              <Insignia tono="riesgo">
+                <Lock aria-hidden className="size-3" />
+                Bloqueado
+              </Insignia>
+            )}
+          </span>
+        }
+        descripcion={
+          <span className="flex flex-wrap items-center gap-x-3">
+            <span>{nombrePrograma(sp.programaId)}</span>
+            <span>{nombreProyecto(sp.proyectoId)}</span>
+            <span className="flex items-center gap-1">
+              <MapPin aria-hidden className="size-3" />
+              {sp.comuna}, {sp.region}
+            </span>
+            <span>Proveedor: {nombreProveedor(sp.proveedorId)}</span>
+          </span>
+        }
+        acciones={
+          <>
+            {puedeHacer('sitioProyectos', 'editar') && (
+              <Boton
+                variante={sp.bloqueado ? 'secundario' : 'peligro'}
+                icono={
+                  sp.bloqueado ? (
+                    <Unlock aria-hidden className="size-4" />
+                  ) : (
+                    <Lock aria-hidden className="size-4" />
+                  )
+                }
+                onClick={() => {
+                  setMotivo('')
+                  setDialogo('bloquear')
+                }}
+              >
+                {sp.bloqueado ? 'Desbloquear' : 'Bloquear'}
+              </Boton>
+            )}
+            {puedeHacer('sitioProyectos', 'retrocederGate') && sp.gateActual !== 'TCSR' && (
+              <Boton
+                icono={<ArrowLeft aria-hidden className="size-4" />}
+                onClick={() => {
+                  setMotivo('')
+                  setDialogo('retroceder')
+                }}
+              >
+                Retroceder
+              </Boton>
+            )}
+            {puedeHacer('sitioProyectos', 'avanzarGate') && sp.gateActual !== CERRADO && (
+              <Boton
+                variante="primario"
+                icono={<ArrowRight aria-hidden className="size-4" />}
+                onClick={() => {
+                  setFechaCierre(hoy)
+                  setComentarioCierre('')
+                  setDialogo('avanzar')
+                }}
+              >
+                Avanzar gate
+              </Boton>
+            )}
+          </>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="min-w-44 flex-1 sm:max-w-64">
+            <div className="mb-1 flex items-center justify-between text-[11px] text-texto-3">
+              <span>Avance del sitio</span>
+              <span className="tabular-nums">{avance}%</span>
+            </div>
+            <BarraProgreso valor={avance} etiqueta={`Avance del sitio: ${avance}%`} />
+          </div>
+          <Metrica etiqueta="Gate actual" valor={nombreGate(sp.gateActual)} />
+          <Metrica etiqueta="Plan" valor={formatearFecha(gateActual?.fechaPlan ?? null)} />
+          <Metrica
+            etiqueta="Desviacion"
+            valor={textoAtraso(dias)}
+            tono={dias !== null && dias > 0 ? 'error' : 'neutro'}
+          />
+          <Metrica etiqueta="Prioridad" valor={NOMBRES_PRIORIDAD[sp.prioridad]} />
+        </div>
+      </CabeceraPantalla>
+
+      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto p-3">
+        {sp.bloqueado && sp.motivoBloqueo && (
+          <Aviso tono="riesgo" titulo="Sitio bloqueado" className="mb-3">
+            {sp.motivoBloqueo}
+          </Aviso>
+        )}
+
+        {evaluacion && !evaluacion.permitido && evaluacion.itemsFaltantes.length > 0 && (
+          <Aviso tono="info" titulo="Para avanzar al siguiente gate falta:" className="mb-3">
+            <ul className="mt-1 list-inside list-disc">
+              {evaluacion.itemsFaltantes.map((item) => (
+                <li key={item.id}>{item.texto}</li>
+              ))}
+            </ul>
+          </Aviso>
+        )}
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)_minmax(260px,340px)]">
+          <section
+            aria-label="Secuencia de gates"
+            className="rounded border border-borde bg-superficie p-2"
+          >
+            <h2 className="px-2 pb-1 text-xs font-semibold text-texto-2">Secuencia de gates</h2>
+            {gateVisible && (
+              <LineaGates
+                sp={sp}
+                plantilla={plantilla}
+                seleccionado={gateVisible}
+                onSeleccionar={setGateElegido}
+                hoy={hoy}
+              />
+            )}
+          </section>
+
+          <section
+            aria-label="Entregables del gate"
+            className="rounded border border-borde bg-superficie p-3"
+          >
+            <h2 className="mb-2 text-xs font-semibold text-texto-2">
+              Entregables de {gateVisible ? nombreGate(gateVisible) : ''}
+            </h2>
+            {gateVisible && (
+              <PanelChecklist
+                sp={sp}
+                plantilla={plantilla}
+                codigo={gateVisible}
+                editable={puedeEditar && !guardando}
+                onMarcar={marcar}
+                onEditarFecha={(campo, valor) =>
+                  void ejecutar(
+                    planRegistrarFecha(sp, plantilla, ctx, {
+                      codigo: gateVisible,
+                      campo,
+                      fecha: valor,
+                    }),
+                    'Fecha actualizada',
+                  )
+                }
+              />
+            )}
+          </section>
+
+          <div className="flex flex-col gap-3">
+            <section
+              aria-label="Asignacion"
+              className="rounded border border-borde bg-superficie p-3"
+            >
+              <h2 className="mb-2 text-xs font-semibold text-texto-2">Asignacion</h2>
+              <div className="flex flex-col gap-2">
+                <Campo etiqueta="Responsable" htmlFor="responsable">
+                  <Selector
+                    id="responsable"
+                    value={sp.responsableUid ?? ''}
+                    disabled={!puedeHacer('sitioProyectos', 'editar')}
+                    onChange={(e) =>
+                      void asignarResponsable(
+                        sp,
+                        {
+                          responsableUid: e.target.value || null,
+                          proveedorId: sp.proveedorId,
+                          prioridad: sp.prioridad,
+                        },
+                        actor,
+                      )
+                        .then(() => avisar.ok('Responsable actualizado'))
+                        .catch((err) => avisar.error(mensajeDeError(err)))
+                    }
+                  >
+                    <option value="">Sin asignar</option>
+                    {usuarios
+                      .filter((u) => u.activo && u.rol !== 'contratista')
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.nombre}
+                        </option>
+                      ))}
+                  </Selector>
+                </Campo>
+
+                <Campo etiqueta="Proveedor" htmlFor="proveedor">
+                  <Selector
+                    id="proveedor"
+                    value={sp.proveedorId ?? ''}
+                    disabled={!puedeHacer('sitioProyectos', 'editar')}
+                    onChange={(e) =>
+                      void asignarResponsable(
+                        sp,
+                        {
+                          responsableUid: sp.responsableUid,
+                          proveedorId: e.target.value || null,
+                          prioridad: sp.prioridad,
+                        },
+                        actor,
+                      )
+                        .then(() => avisar.ok('Proveedor actualizado'))
+                        .catch((err) => avisar.error(mensajeDeError(err)))
+                    }
+                  >
+                    <option value="">Sin proveedor</option>
+                    {proveedores.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </Selector>
+                </Campo>
+
+                <Campo etiqueta="Prioridad" htmlFor="prioridad">
+                  <Selector
+                    id="prioridad"
+                    value={sp.prioridad}
+                    disabled={!puedeHacer('sitioProyectos', 'editar')}
+                    onChange={(e) =>
+                      void asignarResponsable(
+                        sp,
+                        {
+                          responsableUid: sp.responsableUid,
+                          proveedorId: sp.proveedorId,
+                          prioridad: e.target.value as Prioridad,
+                        },
+                        actor,
+                      )
+                        .then(() => avisar.ok('Prioridad actualizada'))
+                        .catch((err) => avisar.error(mensajeDeError(err)))
+                    }
+                  >
+                    {PRIORIDADES.map((p) => (
+                      <option key={p} value={p}>
+                        {NOMBRES_PRIORIDAD[p]}
+                      </option>
+                    ))}
+                  </Selector>
+                </Campo>
+
+                <EnlaceBoton to={`/sitios/${encodeURIComponent(sp.sitioId)}`} tamano="sm">
+                  <ExternalLink aria-hidden className="size-3.5" />
+                  Ver ficha del sitio
+                </EnlaceBoton>
+              </div>
+            </section>
+
+            <section
+              aria-label="Comentarios e historial"
+              className="flex min-h-64 flex-col rounded border border-borde bg-superficie"
+            >
+              <div className="border-b border-borde p-2">
+                <Tabs
+                  pestanas={[
+                    { id: 'historial', etiqueta: 'Historial', conteo: historial.datos.length },
+                    {
+                      id: 'comentarios',
+                      etiqueta: 'Comentarios',
+                      conteo: comentarios.datos.length,
+                    },
+                  ]}
+                  activa={pestana}
+                  onCambiar={setPestana}
+                />
+              </div>
+
+              <div className="panel-scroll max-h-96 flex-1 overflow-y-auto px-2">
+                {pestana === 'historial' ? (
+                  <Historial
+                    eventos={historial.datos}
+                    cargando={historial.cargando}
+                    error={historial.error}
+                  />
+                ) : comentarios.datos.length === 0 ? (
+                  <EstadoVacio
+                    icono={<MessageSquare aria-hidden className="size-6" />}
+                    titulo="Sin comentarios"
+                    descripcion="Deja aqui el contexto que no cabe en una fecha."
+                  />
+                ) : (
+                  <ul className="flex flex-col divide-y divide-borde">
+                    {comentarios.datos.map((c) => (
+                      <li key={c.id} className="py-2">
+                        <div className="flex items-center gap-2 text-[11px] text-texto-3">
+                          <span className="font-medium text-texto-2">{c.nombre}</span>
+                          {c.gateCodigo && <InsigniaGate gate={c.gateCodigo} />}
+                          <span className="flex-1" />
+                          {formatearFechaHora(c.ts)}
+                        </div>
+                        <p className="mt-0.5 text-sm whitespace-pre-wrap">{c.texto}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {pestana === 'comentarios' && puedeHacer('sitioProyectos', 'comentar') && (
+                <form
+                  className="flex items-end gap-2 border-t border-borde p-2"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (!nuevoComentario.trim()) return
+                    void agregarComentario(sp.id, nuevoComentario, gateVisible, actor)
+                      .then(() => {
+                        setNuevoComentario('')
+                        avisar.ok('Comentario publicado')
+                      })
+                      .catch((err) => avisar.error(mensajeDeError(err)))
+                  }}
+                >
+                  <AreaTexto
+                    rows={2}
+                    value={nuevoComentario}
+                    onChange={(e) => setNuevoComentario(e.target.value)}
+                    placeholder="Escribe un comentario…"
+                    aria-label="Nuevo comentario"
+                  />
+                  <Boton
+                    type="submit"
+                    variante="primario"
+                    soloIcono
+                    aria-label="Publicar comentario"
+                    disabled={!nuevoComentario.trim()}
+                    icono={<Send aria-hidden className="size-4" />}
+                  />
+                </form>
+              )}
+            </section>
+          </div>
+        </div>
+      </div>
+
+      {/* --- Dialogo: avanzar gate --- */}
+      <Dialogo
+        abierto={dialogo === 'avanzar'}
+        onCerrar={() => setDialogo(null)}
+        titulo={`Cerrar ${nombreGate(sp.gateActual)} y avanzar`}
+        descripcion={
+          evaluacion?.destino ? `El sitio pasara a ${nombreGate(evaluacion.destino)}.` : undefined
+        }
+        pie={
+          <>
+            <Boton onClick={() => setDialogo(null)}>Cancelar</Boton>
+            <Boton
+              variante="primario"
+              cargando={guardando}
+              disabled={!evaluacion?.permitido}
+              onClick={() =>
+                void ejecutar(
+                  planAvanzarGate(sp, plantilla, ctx, {
+                    fechaReal: fechaCierre,
+                    ...(comentarioCierre.trim() ? { comentario: comentarioCierre } : {}),
+                  }),
+                  'Gate avanzado',
+                ).then((ok) => ok && setDialogo(null))
+              }
+            >
+              Confirmar avance
+            </Boton>
+          </>
+        }
+      >
+        {!evaluacion?.permitido ? (
+          <Aviso tono="riesgo" titulo="Todavia no se puede avanzar">
+            {evaluacion?.motivo}
+            {evaluacion && evaluacion.itemsFaltantes.length > 0 && (
+              <ul className="mt-1 list-inside list-disc">
+                {evaluacion.itemsFaltantes.map((item) => (
+                  <li key={item.id}>{item.texto}</li>
+                ))}
+              </ul>
+            )}
+          </Aviso>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <Campo
+              etiqueta="Fecha real de cierre"
+              htmlFor="fecha-cierre"
+              obligatorio
+              ayuda="No puede ser una fecha futura ni anterior al cierre del gate previo."
+            >
+              <Entrada
+                id="fecha-cierre"
+                type="date"
+                max={hoy}
+                value={fechaCierre}
+                onChange={(e) => setFechaCierre(e.target.value)}
+              />
+            </Campo>
+            <Campo
+              etiqueta="Comentario"
+              htmlFor="comentario-cierre"
+              ayuda="Opcional. Queda en la auditoria."
+            >
+              <AreaTexto
+                id="comentario-cierre"
+                value={comentarioCierre}
+                onChange={(e) => setComentarioCierre(e.target.value)}
+                placeholder="Ej: cierre con observaciones menores levantadas en terreno."
+              />
+            </Campo>
+          </div>
+        )}
+      </Dialogo>
+
+      {/* --- Dialogo: retroceder gate --- */}
+      <Dialogo
+        abierto={dialogo === 'retroceder'}
+        onCerrar={() => setDialogo(null)}
+        titulo="Retroceder el gate"
+        descripcion="El gate anterior se reabre y pierde su fecha real. Queda registrado en la auditoria."
+        pie={
+          <>
+            <Boton onClick={() => setDialogo(null)}>Cancelar</Boton>
+            <Boton
+              variante="peligro"
+              cargando={guardando}
+              disabled={!motivo.trim()}
+              onClick={() =>
+                void ejecutar(
+                  planRetrocederGate(sp, plantilla, ctx, motivo),
+                  'Gate retrocedido',
+                ).then((ok) => ok && setDialogo(null))
+              }
+            >
+              Retroceder
+            </Boton>
+          </>
+        }
+      >
+        <Campo etiqueta="Motivo del retroceso" htmlFor="motivo-retroceso" obligatorio>
+          <AreaTexto
+            id="motivo-retroceso"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej: el acta de recepcion fue rechazada por calidad."
+          />
+        </Campo>
+      </Dialogo>
+
+      {/* --- Dialogo: bloquear / desbloquear --- */}
+      <Dialogo
+        abierto={dialogo === 'bloquear'}
+        onCerrar={() => setDialogo(null)}
+        titulo={sp.bloqueado ? 'Desbloquear el sitio' : 'Bloquear el sitio'}
+        descripcion={
+          sp.bloqueado
+            ? 'El sitio vuelve a poder avanzar de gate.'
+            : 'Un sitio bloqueado no puede avanzar de gate hasta que se desbloquee.'
+        }
+        pie={
+          <>
+            <Boton onClick={() => setDialogo(null)}>Cancelar</Boton>
+            <Boton
+              variante={sp.bloqueado ? 'primario' : 'peligro'}
+              cargando={guardando}
+              disabled={!sp.bloqueado && !motivo.trim()}
+              onClick={() =>
+                void ejecutar(
+                  planBloqueo(sp, ctx, { bloqueado: !sp.bloqueado, motivo }),
+                  sp.bloqueado ? 'Sitio desbloqueado' : 'Sitio bloqueado',
+                ).then((ok) => ok && setDialogo(null))
+              }
+            >
+              {sp.bloqueado ? 'Desbloquear' : 'Bloquear'}
+            </Boton>
+          </>
+        }
+      >
+        {sp.bloqueado ? (
+          <p className="text-sm text-texto-2">
+            Motivo actual: <strong>{sp.motivoBloqueo ?? 'sin registrar'}</strong>
+          </p>
+        ) : (
+          <Campo etiqueta="Motivo del bloqueo" htmlFor="motivo-bloqueo" obligatorio>
+            <AreaTexto
+              id="motivo-bloqueo"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ej: sin permiso municipal, obra detenida por la comunidad."
+            />
+          </Campo>
+        )}
+      </Dialogo>
+    </>
+  )
+}

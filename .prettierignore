@@ -1,0 +1,6 @@
+dist
+coverage
+.emulator-data
+node_modules
+datos-ejemplo
+package-lock.json

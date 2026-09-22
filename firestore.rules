@@ -1,0 +1,311 @@
+rules_version = '2';
+
+// ===========================================================================
+// PMO3000 - Reglas de seguridad de Firestore
+//
+// Estas reglas son la AUTORIDAD. La matriz de src/domain/permisos/matriz.ts
+// describe lo mismo para que la UI no ofrezca botones que van a fallar, pero un
+// cliente manipulado no gana nada saltandose la matriz: aqui se decide.
+//
+// Limite conocido de la Fase 1: el lenguaje de reglas no recorre arreglos, asi
+// que NO puede verificar que todos los entregables obligatorios de un gate esten
+// cumplidos antes de avanzar. Eso lo valida la maquina de dominio en el cliente;
+// en Fase 2 una Cloud Function lo valida del lado del servidor. Lo que si
+// garantizan estas reglas es la secuencia de gates, los permisos por rol, la
+// visibilidad acotada del contratista y que la auditoria sea inmutable.
+// ===========================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+
+    function autenticado() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function correo() {
+      return request.auth.token.email;
+    }
+
+    // Solo correos corporativos, y con el correo verificado. El enlace por
+    // correo de Firebase deja email_verified en true; el seed crea los usuarios
+    // de prueba igual de verificados.
+    function dominioValido() {
+      return autenticado()
+        && correo() is string
+        && correo().matches('^[^@]+@claro[.]cl$')
+        && request.auth.token.email_verified == true;
+    }
+
+    function rutaPerfil() {
+      return /databases/$(database)/documents/usuarios/$(request.auth.uid);
+    }
+
+    function existePerfil() {
+      return exists(rutaPerfil());
+    }
+
+    function perfil() {
+      return get(rutaPerfil()).data;
+    }
+
+    // Piso comun: corporativo, con perfil creado y no desactivado.
+    function habilitado() {
+      return dominioValido() && existePerfil() && perfil().activo == true;
+    }
+
+    function rol() {
+      return perfil().rol;
+    }
+
+    function esAdmin() { return habilitado() && rol() == 'admin'; }
+    function esJefe() { return habilitado() && rol() == 'jefe_celula'; }
+    function esAnalista() { return habilitado() && rol() == 'analista'; }
+    function esContratista() { return habilitado() && rol() == 'contratista'; }
+    function esLector() { return habilitado() && rol() == 'lector'; }
+
+    /** Roles que ven el despliegue completo. */
+    function esInterno() {
+      return habilitado() && rol() in ['admin', 'jefe_celula', 'analista', 'lector'];
+    }
+
+    /** Roles que pueden editar el avance. */
+    function puedeGestionar() {
+      return habilitado() && rol() in ['admin', 'jefe_celula', 'analista'];
+    }
+
+    function miProveedor() {
+      return perfil().proveedorId;
+    }
+
+    function claves() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function soloCambia(permitidas) {
+      return claves().hasOnly(permitidas);
+    }
+
+    function noCambia(campo) {
+      return !(campo in claves());
+    }
+
+    // ------------------------------------------------------------- auditoria
+    // Append-only: nadie, ni un admin, edita o borra un evento. El unico camino
+    // para corregir el historial es agregar un evento nuevo.
+
+    match /auditoria/{eventoId} {
+      allow get, list: if esInterno();
+
+      allow create: if habilitado()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == correo()
+        && request.resource.data.ts == request.time
+        && request.resource.data.entidadTipo is string
+        && request.resource.data.entidadId is string
+        && request.resource.data.accion is string
+        && request.resource.data.origen in ['ui', 'import', 'seed'];
+
+      allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------------- usuarios
+
+    match /usuarios/{uid} {
+      // Cada uno lee su propio perfil (lo necesita para saber su rol).
+      allow get: if autenticado() && request.auth.uid == uid;
+      allow get, list: if esInterno();
+
+      // Alta en el primer ingreso: entra como lector y nunca como algo mas.
+      // Promover a otro rol es tarea exclusiva de un administrador.
+      allow create: if dominioValido()
+        && request.auth.uid == uid
+        && request.resource.data.email == correo()
+        && request.resource.data.rol == 'lector'
+        && request.resource.data.activo == true
+        && request.resource.data.proveedorId == null;
+
+      // El propio usuario solo puede refrescar su marca de ultimo acceso.
+      allow update: if autenticado()
+        && request.auth.uid == uid
+        && soloCambia(['ultimoAcceso']);
+
+      // Un admin administra roles, pero no se quita a si mismo el suyo por
+      // accidente: eso dejaria la instalacion sin administrador.
+      allow update: if esAdmin()
+        && (request.auth.uid != uid || request.resource.data.rol == 'admin')
+        && (request.resource.data.rol != 'contratista'
+            || request.resource.data.proveedorId is string);
+
+      // Los usuarios se desactivan (activo=false), no se borran: si no, su
+      // rastro en la auditoria queda apuntando a la nada.
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------- catalogos
+
+    match /celulas/{id} {
+      allow get, list: if habilitado();
+      allow write: if esAdmin();
+    }
+
+    match /proveedores/{id} {
+      allow get, list: if habilitado();
+      allow write: if esAdmin();
+    }
+
+    match /portafolios/{id} {
+      allow get, list: if esInterno();
+      allow write: if esAdmin();
+    }
+
+    match /programas/{id} {
+      allow get, list: if esInterno();
+      allow write: if esAdmin();
+    }
+
+    match /proyectos/{id} {
+      allow get, list: if esInterno();
+      allow create, update: if esAdmin() || esJefe();
+      allow delete: if esAdmin();
+    }
+
+    match /gateTemplates/{id} {
+      allow get, list: if habilitado();
+      allow write: if esAdmin();
+    }
+
+    match /config/{id} {
+      allow get, list: if esInterno();
+      allow write: if esAdmin();
+    }
+
+    // ---------------------------------------------------------------- sitios
+
+    match /sitios/{sitioId} {
+      allow get, list: if habilitado();
+      allow create, update: if puedeGestionar();
+      allow delete: if esAdmin();
+    }
+
+    // ------------------------------------------------------- sitioProyectos
+
+    function ordenGate(g) {
+      return g == 'TCSR' ? 0
+        : g == 'FC' ? 1
+        : g == 'RFI' ? 2
+        : g == 'IMP' ? 3
+        : g == 'D1' ? 4
+        : g == 'D7' ? 5
+        : g == 'SSV' ? 6
+        : g == 'CERRADO' ? 7
+        : -1;
+    }
+
+    match /sitioProyectos/{spId} {
+
+      function destino() { return request.resource.data.gateActual; }
+      function origen() { return resource.data.gateActual; }
+
+      // El gate solo se mueve al inmediatamente siguiente. Retroceder esta
+      // reservado a admin y jefe de celula.
+      function gateSecuencial() {
+        return destino() == origen()
+          || (ordenGate(destino()) == ordenGate(origen()) + 1)
+          || (ordenGate(destino()) == ordenGate(origen()) - 1
+              && (esAdmin() || esJefe()));
+      }
+
+      // Al avanzar, el gate que se deja atras queda cerrado de verdad: estado
+      // completado y con fecha real. Sin esto se podria "avanzar" sin cerrar.
+      function cierreConsistente() {
+        return destino() == origen()
+          || ordenGate(destino()) < ordenGate(origen())
+          || (request.resource.data.gates[origen()].estado == 'completado'
+              && request.resource.data.gates[origen()].fechaReal != null);
+      }
+
+      // El contratista puede reportar avance, pero no cambiar el compromiso ni
+      // declarar cerrado el gate. Las reglas no recorren arreglos, asi que esto
+      // fija el gate en curso (el que importa); el resto se valida en el
+      // dominio y pasa al servidor en Fase 2.
+      function contratistaNoTocaCompromiso() {
+        let g = origen();
+        return g == 'CERRADO'
+          || (request.resource.data.gates[g].estado == resource.data.gates[g].estado
+              && request.resource.data.gates[g].fechaPlan == resource.data.gates[g].fechaPlan
+              && request.resource.data.gates[g].completadoPor == resource.data.gates[g].completadoPor);
+      }
+
+      // El contratista solo ve los sitios de su empresa. Firestore evalua esto
+      // documento por documento, asi que sus consultas DEBEN traer el
+      // where('proveedorId','==',...) o fallan completas (por diseno).
+      allow get, list: if esInterno()
+        || (esContratista() && resource.data.proveedorId == miProveedor());
+
+      allow create: if puedeGestionar()
+        && request.resource.data.sitioId is string
+        && request.resource.data.proyectoId is string
+        && request.resource.data.programaId is string
+        && ordenGate(request.resource.data.gateActual) >= 0;
+
+      allow update: if puedeGestionar()
+        && noCambia('sitioId')
+        && noCambia('proyectoId')
+        && noCambia('programaId')
+        && noCambia('portafolioId')
+        && gateSecuencial()
+        && cierreConsistente();
+
+      allow update: if esContratista()
+        && resource.data.proveedorId == miProveedor()
+        && request.resource.data.proveedorId == miProveedor()
+        && soloCambia(['gates', 'actualizadoEn', 'actualizadoPor'])
+        && contratistaNoTocaCompromiso();
+
+      allow delete: if esAdmin();
+
+      match /comentarios/{comentarioId} {
+        function padre() {
+          return get(/databases/$(database)/documents/sitioProyectos/$(spId)).data;
+        }
+
+        allow get, list: if esInterno()
+          || (esContratista() && padre().proveedorId == miProveedor());
+
+        allow create: if habilitado()
+          && rol() != 'lector'
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.ts == request.time
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 4000;
+
+        // Un comentario es parte del historial: no se edita ni se borra.
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------------------------------------------------------------- tareas
+
+    match /tareas/{tareaId} {
+      allow get, list: if habilitado();
+      allow create, update: if puedeGestionar();
+      allow delete: if esAdmin() || esJefe();
+    }
+
+    // ------------------------------------------------------------ RAID (F2)
+
+    match /raid/{raidId} {
+      allow get, list: if esInterno();
+      allow create, update: if puedeGestionar();
+      allow delete: if esAdmin();
+    }
+
+    // Todo lo que no este declarado arriba queda cerrado.
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}

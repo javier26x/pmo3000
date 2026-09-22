@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es-CL">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="PMO de despliegue de red movil" />
+    <title>PMO3000</title>
+    <script>
+      // Aplica el tema antes del primer pintado para evitar el parpadeo blanco.
+      ;(function () {
+        try {
+          var guardado = localStorage.getItem('pmo3000.tema')
+          var tema =
+            guardado === 'claro' || guardado === 'oscuro'
+              ? guardado
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'oscuro'
+                : 'claro'
+          document.documentElement.dataset.tema = tema
+        } catch (_) {
+          document.documentElement.dataset.tema = 'claro'
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
