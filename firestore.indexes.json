@@ -4,70 +4,141 @@
       "collectionGroup": "auditoria",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "entidadId", "order": "ASCENDING" },
-        { "fieldPath": "ts", "order": "DESCENDING" }
+        {
+          "fieldPath": "entidadId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "auditoria",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "sitioId", "order": "ASCENDING" },
-        { "fieldPath": "ts", "order": "DESCENDING" }
+        {
+          "fieldPath": "sitioId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "auditoria",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "programaId", "order": "ASCENDING" },
-        { "fieldPath": "ts", "order": "DESCENDING" }
+        {
+          "fieldPath": "programaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "auditoria",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "uid", "order": "ASCENDING" },
-        { "fieldPath": "ts", "order": "DESCENDING" }
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ts",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "sitioProyectos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "programaId", "order": "ASCENDING" },
-        { "fieldPath": "gateActual", "order": "ASCENDING" },
-        { "fieldPath": "fechaPlanGateActual", "order": "ASCENDING" }
+        {
+          "fieldPath": "programaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "gateActual",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fechaPlanGateActual",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "sitioProyectos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "proveedorId", "order": "ASCENDING" },
-        { "fieldPath": "gateActual", "order": "ASCENDING" },
-        { "fieldPath": "fechaPlanGateActual", "order": "ASCENDING" }
+        {
+          "fieldPath": "proveedorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "gateActual",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fechaPlanGateActual",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "celulaId", "order": "ASCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "orden", "order": "ASCENDING" }
+        {
+          "fieldPath": "celulaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tareas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "asignadoUid", "order": "ASCENDING" },
-        { "fieldPath": "estado", "order": "ASCENDING" },
-        { "fieldPath": "orden", "order": "ASCENDING" }
+        {
+          "fieldPath": "asignadoUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "sitioProyectos",
+      "fieldPath": "gates",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "sitioProyectos",
+      "fieldPath": "valores",
+      "indexes": []
+    }
+  ]
 }

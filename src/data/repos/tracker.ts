@@ -36,7 +36,10 @@ import type { Actor, Prioridad } from '@/domain/tipos/comunes'
 export const VALOR_TECNOLOGIA = 'tecnologia'
 export const VALOR_ESTADO_SITIO = '_estado-sitio'
 
-const MAX_OPERACIONES = 450
+// Firestore admite 500 operaciones por lote, pero tambien limita el tamano
+// total, que incluye las entradas de indice: con seguimientos que traen todas
+// sus etapas embebidas, 450 escrituras pueden pasarse ("Transaction too big").
+const MAX_OPERACIONES = 200
 
 export interface DestinoTracker {
   programaId: string

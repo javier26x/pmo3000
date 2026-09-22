@@ -458,50 +458,76 @@ function eventoEliminacion(
  * no quepan van en lotes posteriores, cuando el padre ya no esta.
  */
 class Lotes {
-  private lote: WriteBatch = writeBatch(db)
-  private operaciones = 0
-  private readonly pendientes: WriteBatch[] = []
+  /**
+   * Unidades que tienen que viajar juntas en un mismo lote: el borrado de un
+   * seguimiento con su evento de auditoria, o un comentario suelto. Se guardan
+   * como operaciones y no como WriteBatch armados, para poder repartirlas de
+   * nuevo si Firestore rechaza un lote por grande.
+   */
+  private readonly unidades: { ops: number; aplicar: (lote: WriteBatch) => void }[] = []
 
   constructor(private readonly actor: Actor) {}
 
-  private asegurarEspacio(necesarias: number) {
-    if (this.operaciones > 0 && this.operaciones + necesarias > MAX_OPERACIONES) this.cortar()
-  }
-
-  private cortar() {
-    if (this.operaciones === 0) return
-    this.pendientes.push(this.lote)
-    this.lote = writeBatch(db)
-    this.operaciones = 0
-  }
-
   eliminar(ref: DocumentReference, evento: EventoAuditoriaNuevo, comentarios: DocumentReference[]) {
-    // Seguimiento + evento, y tantos comentarios como quepan en el mismo lote.
-    this.asegurarEspacio(2 + Math.min(comentarios.length, MAX_OPERACIONES - 2))
-    this.lote.delete(ref)
-    agregarEventos(this.lote, [evento], this.actor)
-    this.operaciones += 2
-    for (const c of comentarios) {
-      if (this.operaciones >= MAX_OPERACIONES) this.cortar()
-      this.lote.delete(c)
-      this.operaciones++
-    }
+    // El seguimiento va antes que sus comentarios: las reglas solo dejan borrar
+    // un comentario cuyo padre ya no existe despues de la escritura, y como los
+    // lotes se confirman en orden, un comentario nunca queda en un lote anterior.
+    this.unidades.push({
+      ops: 2,
+      aplicar: (lote) => {
+        lote.delete(ref)
+        agregarEventos(lote, [evento], this.actor)
+      },
+    })
+    for (const c of comentarios) this.unidades.push({ ops: 1, aplicar: (lote) => lote.delete(c) })
   }
 
   evento(evento: EventoAuditoriaNuevo) {
-    this.asegurarEspacio(1)
-    agregarEventos(this.lote, [evento], this.actor)
-    this.operaciones++
+    this.unidades.push({ ops: 1, aplicar: (lote) => agregarEventos(lote, [evento], this.actor) })
   }
 
-  /** Confirma en orden. Si uno falla, los anteriores ya quedaron y los siguientes no. */
-  async confirmar(onLote?: (hechos: number, total: number) => void): Promise<void> {
-    this.cortar()
-    for (const [i, lote] of this.pendientes.entries()) {
-      await lote.commit()
-      onLote?.(i + 1, this.pendientes.length)
+  /**
+   * Confirma en orden. Si un lote falla, los anteriores ya quedaron y nada del
+   * que fallo se escribio (un lote es atomico).
+   *
+   * Firestore limita un lote a 500 operaciones y ademas a un tamano total que
+   * incluye las entradas de indice que se borran. Un seguimiento con sus etapas
+   * embebidas mueve muchas, asi que 450 borrados pueden pasarse aunque el conteo
+   * de operaciones este bien ("Transaction too big"). En ese caso el lote se
+   * parte a la mitad y se reintenta, sin cortar la eliminacion.
+   */
+  async confirmar(onAvance?: (hechos: number, total: number) => void): Promise<void> {
+    const total = this.unidades.length
+    let i = 0
+    let tope = MAX_OPERACIONES
+    while (i < total) {
+      // Arma el lote que cabe desde la unidad i con el tope actual.
+      let fin = i
+      let ops = 0
+      while (fin < total && (ops === 0 || ops + (this.unidades[fin]?.ops ?? 0) <= tope)) {
+        ops += this.unidades[fin]?.ops ?? 0
+        fin++
+      }
+      const lote = writeBatch(db)
+      for (let k = i; k < fin; k++) this.unidades[k]?.aplicar(lote)
+      try {
+        await lote.commit()
+      } catch (e) {
+        if (esLoteDemasiadoGrande(e) && fin - i > 1) {
+          tope = Math.max(2, Math.floor(ops / 2))
+          continue
+        }
+        throw e
+      }
+      i = fin
+      onAvance?.(i, total)
     }
   }
+}
+
+function esLoteDemasiadoGrande(e: unknown): boolean {
+  const texto = e instanceof Error ? e.message : String(e)
+  return /too big|too large|exceeds the maximum|demasiado grande/i.test(texto)
 }
 
 /**

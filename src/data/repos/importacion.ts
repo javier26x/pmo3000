@@ -16,7 +16,10 @@ import type { FilaImportacion } from '@/domain/importacion/validacion'
 import type { GateTemplate } from '@/domain/tipos/gate'
 import type { Actor, Prioridad } from '@/domain/tipos/comunes'
 
-const MAX_OPERACIONES = 450
+// Firestore admite 500 operaciones por lote, pero tambien limita el tamano
+// total, que incluye las entradas de indice: con seguimientos que traen todas
+// sus etapas embebidas, 450 escrituras pueden pasarse ("Transaction too big").
+const MAX_OPERACIONES = 200
 
 /** Destino al que se incorpora un sitio cuando la fila trae columna Programa. */
 export interface DestinoPrograma {
