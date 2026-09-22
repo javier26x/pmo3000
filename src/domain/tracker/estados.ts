@@ -168,7 +168,12 @@ function corregirPalabra(palabra: string): string | null {
   if (palabra.length < 5 || EN_VOCABULARIO.has(palabra) || !/^[a-z]+$/.test(palabra)) return null
   // Un infinitivo no es una errata del participio: "Por integrar" no es
   // "integrado", y corregirlo convertiria un pendiente en un hecho.
-  if (/(ar|er|ir)$/.test(palabra)) return null
+  // Tampoco otra forma del verbo: "Instalando" o "se instalara" es trabajo en
+  // curso o futuro, y "se instalaron", "aprobamos" o "se observan" no son
+  // erratas de un participio.
+  if (/(ar|er|ir|ando|iendo|ara|era|ira|aron|ieron|amos|emos|imos|an|en)$/.test(palabra)) {
+    return null
+  }
   const cache = CORRECCIONES.get(palabra)
   if (cache !== undefined) return cache
   // Una letra de tolerancia en palabras cortas y dos en las largas: "apobada"
@@ -180,6 +185,10 @@ function corregirPalabra(palabra: string): string | null {
   for (const canonica of VOCABULARIO) {
     // La primera letra casi nunca es la errata, y exigirla evita saltos raros.
     if (canonica[0] !== palabra[0]) continue
+    // Ni el final: es lo que distingue la clase de palabra ("integral" no es
+    // una errata de "integrado", "instalaron" no es "instalado"). Se tolera una
+    // letra de mas pegada al final ("instaladoi"), que si es una errata.
+    if (canonica.at(-1) !== palabra.at(-1) && palabra.slice(0, -1) !== canonica) continue
     const d = distancia(palabra, canonica, tope)
     if (d < mejorDistancia) {
       mejor = canonica
@@ -252,7 +261,7 @@ const REGLAS: { estado: EstadoSemantico; prueba: (t: string) => boolean }[] = [
   // falta nada ahora, asi que no debe frenar ni contar como pendiente.
   { estado: 'no_aplica', prueba: (t) => /\bpost rfi\b/.test(t) },
   { estado: 'detenido', prueba: (t) => /detenid|on hold|congelad|paraliz/.test(t) },
-  { estado: 'rechazado', prueba: (t) => /rechaz|\bnok\b|no aprobad/.test(t) },
+  { estado: 'rechazado', prueba: (t) => /rechaz|\bnok\b|no aprobad|\b(no|sin) ok\b/.test(t) },
   // Un aprobado que ademas menciona observaciones es aprobado con peros, no
   // observado: el sitio sigue avanzando. El caso inverso (observado sin
   // aprobacion) cae en la regla siguiente.
@@ -263,7 +272,12 @@ const REGLAS: { estado: EstadoSemantico; prueba: (t: string) => boolean }[] = [
   { estado: 'observado', prueba: (t) => /observ/.test(t) },
   {
     estado: 'no_recibido',
-    prueba: (t) => /no recibid|no entregad|no enviad|no iniciad|no firmad/.test(t),
+    // Cualquier hecho negado ("No Instalado", "Sin firmar") es un pendiente:
+    // si no, la regla de aprobado de mas abajo lo daria por hecho.
+    prueba: (t) =>
+      /\b(no|sin) (aun |todavia )?(recibid|entregad|enviad|iniciad|firmad|finalizad|integrad|instalad|conectad|terminad|construid)/.test(
+        t,
+      ),
   },
   // "En Etapa de TSS 4G", "En Implementacion 4G": la columna consolidada del
   // sitio dice en que etapa va, no si algo se aprobo.
@@ -318,11 +332,20 @@ export function clasificarEstado(
 
   if (esFechaDeEstado(texto)) return 'aprobado'
 
-  const corregido = corregirErratas(texto).texto
+  // "Sin observaciones" es lo contrario de observado: se quita antes de las
+  // reglas para que "Aprobado sin observaciones" sea un aprobado limpio. Si no
+  // queda nada que diga otra cosa ("TSS sin observaciones"), la celda dice que
+  // se reviso y estaba bien.
+  const conErratas = corregirErratas(texto).texto
+  const corregido = conErratas
+    .replace(/\bsin (observ\w*|obs)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const sinObservaciones = corregido !== conErratas
   for (const regla of REGLAS) {
     if (regla.prueba(corregido)) return regla.estado
   }
-  return 'desconocido'
+  return sinObservaciones ? 'aprobado' : 'desconocido'
 }
 
 // --------------------------------------------------------------- tecnologia

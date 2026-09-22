@@ -36,6 +36,7 @@ import { PaletaComandos } from './PaletaComandos'
 import { AyudaAtajos } from './AyudaAtajos'
 import { IndicadorConexion } from './IndicadorConexion'
 import { useAtajosGlobales } from './atajos'
+import { LimiteError } from './LimiteError'
 
 /** Vistas que comparten los filtros de la URL: al saltar entre ellas se conservan. */
 const VISTAS_DESPLIEGUE = new Set(['/sitios', '/mapa', '/kanban'])
@@ -290,9 +291,11 @@ export function Layout() {
           className="hoja flex min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radio-lente)]"
         >
           {/* Red de seguridad para las pantallas que se cargan bajo demanda. */}
-          <Suspense fallback={<Cargando texto="Abriendo…" />}>
-            <Outlet />
-          </Suspense>
+          <LimiteError key={ubicacion.pathname}>
+            <Suspense fallback={<Cargando texto="Abriendo…" />}>
+              <Outlet />
+            </Suspense>
+          </LimiteError>
         </main>
       </div>
 

@@ -164,6 +164,16 @@ const ETAPA_ON_AIR = 'On Air'
  * Buscando solo el nombre bueno, media docena de columnas del bloque de
  * ingenieria se van a la etapa equivocada.
  */
+/**
+ * `token` aparece en `texto` como palabra entera: "Ing" no calza dentro de
+ * "Ingreso". Ambos ya normalizados. El token viene de un encabezado del
+ * archivo, asi que se escapa: "Status TSS (RF" no debe romper la importacion.
+ */
+export function calzaPalabra(texto: string, token: string): boolean {
+  const escapado = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|[^a-z0-9])${escapado}([^a-z0-9]|$)`).test(texto)
+}
+
 function tokensDeEtapa(nombre: string): string[] {
   const propio = normalizarTexto(nombre)
   const alias = Object.entries(ALIAS_ETAPA)
@@ -365,8 +375,7 @@ function etapaMencionada(
   const texto = normalizarTexto(encabezado)
   const calzan = etapas.filter((etapa) =>
     tokensDeEtapa(etapa).some((token) =>
-      // Límite de palabra a ambos lados: "Ing" no debe calzar dentro de "Ingreso".
-      new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`).test(texto),
+      calzaPalabra(texto, token),
     ),
   )
   if (calzan.length === 0) return null

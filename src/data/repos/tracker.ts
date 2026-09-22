@@ -14,6 +14,7 @@
 import { doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { COLECCIONES, db } from '../firebase'
 import { agregarEventos } from '../auditoria'
+import { seguimientosExistentes } from './sitioProyectos'
 import { idSitioProyecto } from '@/domain/tipos/sitioProyecto'
 import {
   avanceFueraDeOrden,
@@ -187,8 +188,18 @@ export async function ejecutarImportacionTracker(
   }
 
   try {
-    for (const [i, cruda] of filas.entries()) {
-      const fila: FilaTracker = convertirFila(cruda, propuesta, indice, homologacion)
+    const convertidas: FilaTracker[] = filas.map((cruda) =>
+      convertirFila(cruda, propuesta, indice, homologacion),
+    )
+    const existentes = await seguimientosExistentes([
+      ...new Set(
+        convertidas
+          .filter((f) => f.sitio.id !== '')
+          .map((f) => idSitioProyecto(destino.proyectoId, f.sitio.id)),
+      ),
+    ])
+
+    for (const [i, fila] of convertidas.entries()) {
 
       for (const p of fila.problemas) {
         const columna = p.split(':')[0] ?? p
@@ -245,16 +256,29 @@ export async function ejecutarImportacionTracker(
       })
       const actual = gates[fila.etapaActual]
 
+      const idSeguimiento = idSitioProyecto(destino.proyectoId, fila.sitio.id)
+      // El tracker manda en el avance (etapas, vigencia, bloqueo), pero lo que se
+      // decide en la app —celula, responsable, proveedor, prioridad— y el sello
+      // de creacion solo se escriben la primera vez: reimportar no debe deshacer
+      // una correccion ni una asignacion hecha despues.
+      const soloAlCrear = existentes.has(idSeguimiento)
+        ? {}
+        : {
+            celulaId: destino.celulaId,
+            proveedorId: destino.proveedorId,
+            responsableUid: null,
+            prioridad: destino.prioridad,
+            creadoEn: serverTimestamp(),
+            creadoPor: actor.uid,
+          }
       lote.set(
-        doc(db, COLECCIONES.sitioProyectos, idSitioProyecto(destino.proyectoId, fila.sitio.id)),
+        doc(db, COLECCIONES.sitioProyectos, idSeguimiento),
         {
           sitioId: fila.sitio.id,
           proyectoId: destino.proyectoId,
           programaId: destino.programaId,
           portafolioId: destino.portafolioId,
-          celulaId: destino.celulaId,
-          proveedorId: destino.proveedorId,
-          responsableUid: null,
+          ...soloAlCrear,
           sitioNombre: fila.sitio.nombre || fila.sitio.id,
           region: fila.sitio.region,
           comuna: fila.sitio.comuna,
@@ -266,14 +290,11 @@ export async function ejecutarImportacionTracker(
           bloqueado,
           motivoBloqueo: bloqueado ? (fila.condicion?.motivoBloqueo ?? 'On Hold (tracker)') : null,
           vigente,
-          prioridad: destino.prioridad,
           fechaPlanGateActual: (actual?.fechaPlan as string | null) ?? null,
           gates,
           valores,
           gateTemplateId: destino.plantillaId,
           gateTemplateVersion: destino.plantillaVersion,
-          creadoEn: serverTimestamp(),
-          creadoPor: actor.uid,
           ...sellos,
         },
         { merge: true },

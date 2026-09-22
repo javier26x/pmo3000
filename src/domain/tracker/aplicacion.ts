@@ -26,7 +26,12 @@ import {
   type EstadoSemantico,
   type Tecnologia,
 } from './estados'
-import type { ColumnaInferida, EtapaInferida, PlantillaInferida } from './inferencia'
+import {
+  calzaPalabra,
+  type ColumnaInferida,
+  type EtapaInferida,
+  type PlantillaInferida,
+} from './inferencia'
 import { condicionDelSitio, type CondicionSitio } from './estadoSitio'
 
 /** Un sitio del maestro, tal como sale de la fila. */
@@ -131,7 +136,7 @@ function llave(etapa: string, revision: string): string {
 function mencionaRevision(encabezado: string, revision: string): boolean {
   const limpio = encabezado.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const token = revision.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  return new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`).test(limpio)
+  return calzaPalabra(limpio, token)
 }
 
 export function indexarColumnas(plantilla: PlantillaInferida): IndiceColumnas {
@@ -253,7 +258,11 @@ export function convertirFila(
     return texto
   }
 
-  const etapas: EtapaDeFila[] = plantilla.etapas.map((etapa) => {
+  // Etapas reabiertas porque su aprobado era solo 4G, y la ultima etapa
+  // secuencial cerrada con 5G (ver la regla de tecnologia mas abajo).
+  const reabiertasPor4g: number[] = []
+  let ultimaCerrada5g = -1
+  const etapas: EtapaDeFila[] = plantilla.etapas.map((etapa, indiceEtapa) => {
     const revisiones: Record<string, RevisionDeFila> = {}
     const clasificaciones: EstadoSemantico[] = []
     let fechaMaxima: FechaISO | null = null
@@ -294,7 +303,17 @@ export function convertirFila(
     // "TSS Aprobado 4G" en un sitio del proyecto "5G" es el TSS del 4G que el
     // sitio ya tenia, y el de 5G sigue pendiente. Es lo que hace el tracker
     // Outdoor: 55 sitios 5G con "TSS Aprobado 4G" figuran "En Etapa de TSS".
-    if (cerrada && exige5g && tecnologiaDe(crudoConsolidado) === '4G') cerrada = false
+    const tecnologiaEtapa = tecnologiaDe(crudoConsolidado)
+    const soloPara4g = cerrada && exige5g && tecnologiaEtapa === '4G'
+    if (soloPara4g) cerrada = false
+    if (
+      cerrada &&
+      etapa.tipo !== 'paralela' &&
+      (tecnologiaEtapa === '4G/5G' || tecnologiaEtapa === '5G')
+    ) {
+      ultimaCerrada5g = indiceEtapa
+    }
+    if (soloPara4g) reabiertasPor4g.push(indiceEtapa)
 
     // On Air: la fecha de salida al aire basta, aunque la celda de estado este
     // vacia. Y es la fecha de la etapa, que no tiene revisiones de donde sacarla.
@@ -319,6 +338,19 @@ export function convertirFila(
       revisiones,
     }
   })
+
+  // Si alguna etapa quedo aprobada para 5G ("Ing Aprobada 4G/5G"), el sitio ya
+  // esta en su obra 5G: una etapa marcada "4G" con otra posterior cerrada es un
+  // rotulo que nadie actualizo, no un pendiente. En el tracker Outdoor la PMO
+  // da esos sitios por "On Air 4G/5G"; reabrirlas dejaba 80 sitios al aire
+  // clasificados en TSS y otros en As Built.
+  if (ultimaCerrada5g >= 0) {
+    const ultimaCerrada = etapas.findLastIndex((e) => e.tipo !== 'paralela' && e.cerrada)
+    for (const i of reabiertasPor4g) {
+      const etapa = etapas[i]
+      if (etapa && i < ultimaCerrada) etapa.cerrada = true
+    }
+  }
 
   const condicion = condicionDelSitio(textoCondicion(plantilla.condicion.vigencia), fase)
   const estadoSitioTracker =

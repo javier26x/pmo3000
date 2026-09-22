@@ -169,8 +169,10 @@ export function estadoSitioDesdeTexto(texto: string | null | undefined): EstadoS
   if (t === '') return null
   if (/\bno vigente\b/.test(t)) return 'no_vigente'
   if (/\bon ?air\b/.test(t)) return 'on_air'
-  if (/recibid.*\btx\b/.test(t)) return 'recibido_tx_ok'
-  if (/recibid/.test(t)) return 'recibido'
+  // "No Recibido" y "Recibido sin Tx" no son recibido ni recibido con Tx.
+  const recibido = /recibid/.test(t) && !/\bno recibid/.test(t)
+  if (recibido && /\btx\b/.test(t) && !/\bsin tx\b/.test(t)) return 'recibido_tx_ok'
+  if (recibido) return 'recibido'
   if (/construccion/.test(t)) return 'en_construccion'
   if (/ingenieria/.test(t)) return 'en_ingenieria'
   if (/\btss/.test(t)) return 'en_tss'

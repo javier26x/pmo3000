@@ -348,6 +348,9 @@ export function analizarCambios(original: GateTemplate, editada: GateTemplate): 
       cambios.etapasPresentacion.push(etapa)
     }
     if (vieja.slaDias !== nueva.slaDias) cambios.sla.push(etapa)
+    // Pasar una etapa de secuencial a paralela (o al reves) cambia la secuencia
+    // que siguen los sitios, igual que reordenarla.
+    if ((vieja.tipo ?? 'secuencial') !== (nueva.tipo ?? 'secuencial')) cambios.reordenada = true
 
     const itemsAntes = new Map(vieja.checklist.map((i) => [i.id, i]))
     const itemsDespues = new Map(nueva.checklist.map((i) => [i.id, i]))

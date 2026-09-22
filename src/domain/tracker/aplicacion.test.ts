@@ -255,3 +255,44 @@ describe('construirGates', () => {
     expect(gates.INGENIERIA?.fechaReal).toBeNull()
   })
 })
+
+describe('regla de tecnologia en sitios 5G', () => {
+  const encabezados = [...ENCABEZADOS, 'Proyecto']
+  const fila5g = (tss: string, ing: string) => [
+    '53_336',
+    'Sitio 5G',
+    'Biobío',
+    'CONCEPCION',
+    'BTS',
+    tss,
+    '',
+    F(2025, 3, 1),
+    tss,
+    '',
+    F(2025, 3, 1),
+    tss,
+    ing,
+    '',
+    null,
+    ing,
+    '5G',
+  ]
+
+  function convertir(tss: string, ing: string) {
+    const fila = fila5g(tss, ing)
+    const plantilla = inferirPlantilla([encabezados, fila])
+    return convertirFila(fila, plantilla, indexarColumnas(plantilla))
+  }
+
+  it('un aprobado solo 4G no cierra la etapa de un sitio 5G', () => {
+    expect(convertir('TSS Aprobado 4G', 'Ing No Recibida 4G').etapaActual).toBe('TSS')
+  })
+
+  it('pero si una etapa posterior quedo aprobada para 5G, lo anterior ya esta cubierto', () => {
+    // Tracker Outdoor: "TSS Aprobado 4G" + "Ing Aprobada 4G/5G" es un sitio que
+    // la PMO da por "On Air 4G/5G"; el rotulo del TSS nadie lo actualizo.
+    const fila = convertir('TSS Aprobado 4G', 'Ing Aprobada 4G/5G')
+    expect(fila.etapas.find((e) => e.codigo === 'TSS')?.cerrada).toBe(true)
+    expect(fila.etapaActual).toBe('CERRADO')
+  })
+})

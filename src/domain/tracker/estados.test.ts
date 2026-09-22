@@ -67,6 +67,27 @@ describe('clasificarEstado', () => {
     expect(clasificarEstado('FC No Enviado a OOII')).toBe('no_recibido')
   })
 
+  it('no da por hecho un hecho negado', () => {
+    for (const texto of ['No Instalado', 'No Integrado', 'No Conectado', 'Obras No Terminadas']) {
+      expect(clasificarEstado(texto)).toBe('no_recibido')
+    }
+    expect(clasificarEstado('No OK')).toBe('rechazado')
+    expect(clasificarEstado('Sin OK')).toBe('rechazado')
+  })
+
+  it('no corrige un gerundio ni otra palabra hacia un participio', () => {
+    expect(clasificarEstado('Instalando')).not.toBe('aprobado')
+    expect(clasificarEstado('Terminando obras')).not.toBe('aprobado')
+    expect(clasificarEstado('Solucion integral')).not.toBe('aprobado')
+  })
+
+  it('lee "sin observaciones" como aprobado limpio', () => {
+    expect(clasificarEstado('Sin observaciones')).toBe('aprobado')
+    expect(clasificarEstado('TSS sin observaciones')).toBe('aprobado')
+    expect(clasificarEstado('TSS Aprobado sin observaciones')).toBe('aprobado')
+    expect(clasificarEstado('TSS Aprobado con observaciones')).toBe('aprobado_con_obs')
+  })
+
   it('entiende que el FC enviado a OOII es el FC hecho', () => {
     // Antes esto se leia como "en revision". En el tracker Outdoor "FC Enviado
     // a OOII" es el estado final del FC (1.019 sitios); lo pendiente se escribe

@@ -94,19 +94,30 @@ export function hayFiltrosActivos(filtros: FiltrosVista): boolean {
  * IDs de sitio pegados en el buscador.
  *
  * Reemplaza la hoja SEARCH del tracker: se pega una columna de IDs sacada de un
- * correo o de otra planilla y la lista muestra exactamente esos sitios. Se
- * activa solo con dos o mas "palabras" y solo si TODAS parecen un ID (tienen un
- * digito y ningun espacio interno), para no confundir "cerro azul" con dos IDs.
+ * correo o de otra planilla y la lista muestra exactamente esos sitios.
+ *
+ * - Si el texto trae saltos de linea, tabs, comas o punto y coma, es una lista
+ *   pegada: se toma cada valor con un digito (sin comillas ni parentesis) y se
+ *   descarta el resto, como el encabezado "ID Sitio" de una columna copiada.
+ * - Si solo trae espacios, se activa con dos o mas palabras y solo si TODAS
+ *   parecen un ID (tienen un digito), para no confundir "cerro azul" con IDs.
+ *
  * Devuelve los IDs normalizados, o null si el texto es una busqueda comun.
  */
 export function idsDeBusqueda(texto: string): string[] | null {
+  const limpiar = (t: string) => t.replace(/^["'([]+|["')\].:]+$/g, '')
+  const pareceId = (t: string) => /\d/.test(t) && /^[\p{L}\p{N}_\-./]+$/u.test(t)
   const tokens = texto
     .split(/[\s,;]+/)
-    .map((t) => t.trim())
+    .map(limpiar)
     .filter(Boolean)
-  if (tokens.length < 2) return null
-  if (!tokens.every((t) => /\d/.test(t) && /^[\p{L}\p{N}_\-./]+$/u.test(t))) return null
-  return [...new Set(tokens.map((t) => normalizar(t)))]
+
+  if (/[\n\t,;]/.test(texto.trim())) {
+    const ids = tokens.filter(pareceId)
+    return ids.length > 0 ? [...new Set(ids.map(normalizar))] : null
+  }
+  if (tokens.length < 2 || !tokens.every(pareceId)) return null
+  return [...new Set(tokens.map(normalizar))]
 }
 
 function normalizar(texto: string): string {
@@ -161,7 +172,9 @@ export function filtrarSeguimientos(
   const conjuntoIds = ids === null ? null : new Set(ids)
   // Filtros armados antes de que existiera la vigencia (vistas guardadas, codigo
   // viejo) no la traen: se leen como el valor por defecto.
-  const vigencia = filtros.vigencia ?? 'vigentes'
+  // Una lista de IDs pegada pide exactamente esos sitios: si el filtro de
+  // vigencia por defecto escondiera los no vigentes, faltarian sin aviso.
+  const vigencia = conjuntoIds !== null ? 'todos' : (filtros.vigencia ?? 'vigentes')
 
   return lista.filter((sp) => {
     if (vigencia === 'vigentes' && sp.vigente === false) return false

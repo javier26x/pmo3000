@@ -489,15 +489,17 @@ export default function PaginaImportar() {
               </Aviso>
             ) : (
               <Aviso tono="ok" titulo="Importacion terminada">
-                Se escribieron {resultado.sitiosEscritos.toLocaleString('es-CL')} sitio(s) y se
-                crearon o actualizaron {resultado.seguimientosCreados.toLocaleString('es-CL')}{' '}
-                seguimiento(s).
+                Se escribieron {resultado.sitiosEscritos.toLocaleString('es-CL')} sitio(s), se
+                crearon {resultado.seguimientosCreados.toLocaleString('es-CL')} seguimiento(s) y se
+                actualizaron los datos de {resultado.seguimientosActualizados.toLocaleString('es-CL')}{' '}
+                que ya existian (sin tocar su avance).
               </Aviso>
             )}
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded border border-borde bg-superficie px-3 py-2">
               <Metrica etiqueta="Sitios escritos" valor={resultado.sitiosEscritos} tono="ok" />
-              <Metrica etiqueta="Seguimientos" valor={resultado.seguimientosCreados} />
+              <Metrica etiqueta="Seguimientos nuevos" valor={resultado.seguimientosCreados} />
+              <Metrica etiqueta="Seguimientos actualizados" valor={resultado.seguimientosActualizados} />
               <Metrica
                 etiqueta="Filas omitidas"
                 valor={resultado.filasOmitidas}

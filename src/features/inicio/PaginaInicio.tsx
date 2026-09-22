@@ -53,7 +53,12 @@ function resumir(lista: readonly SitioProyecto[], hoy: string): Resumen {
   let bloqueados = 0
   let cerrados = 0
 
+  let total = 0
   for (const sp of lista) {
+    // Igual que la tabla por defecto: un sitio fuera de plan no cuenta. Si no,
+    // cada cifra prometeria mas filas de las que muestra su enlace.
+    if (sp.vigente === false) continue
+    total += 1
     porGate.set(sp.gateActual, (porGate.get(sp.gateActual) ?? 0) + 1)
     if (sp.bloqueado) bloqueados += 1
     if (sp.gateActual === CERRADO) {
@@ -71,7 +76,7 @@ function resumir(lista: readonly SitioProyecto[], hoy: string): Resumen {
 
   urgentes.sort((a, b) => b.dias - a.dias)
   return {
-    total: lista.length,
+    total,
     atrasados,
     porVencer,
     bloqueados,

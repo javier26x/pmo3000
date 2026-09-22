@@ -145,13 +145,23 @@ export function parsearFechaFlexible(valor: unknown): FechaISO | null {
 
   if (valor instanceof Date) {
     if (Number.isNaN(valor.getTime())) return null
-    return desdeUTC(Date.UTC(valor.getUTCFullYear(), valor.getUTCMonth(), valor.getUTCDate()))
+    // Un Date armado desde texto ISO ("2025-09-03") es medianoche UTC: se lee
+    // en UTC. SheetJS, en cambio, arma las celdas de fecha en hora LOCAL, y una
+    // celda del 03-09 a las 22:48 en Chile ya es el 04-09 en UTC: se lee en
+    // hora local, que es la del navegador que abrio el archivo.
+    const medianocheUTC =
+      valor.getUTCHours() === 0 && valor.getUTCMinutes() === 0 && valor.getUTCSeconds() === 0
+    return medianocheUTC
+      ? desdeUTC(Date.UTC(valor.getUTCFullYear(), valor.getUTCMonth(), valor.getUTCDate()))
+      : desdeUTC(Date.UTC(valor.getFullYear(), valor.getMonth(), valor.getDate()))
   }
 
   if (typeof valor === 'number' && Number.isFinite(valor)) {
     // Numero de serie de Excel. El epoch es 1899-12-30 por el bug del ano 1900.
     if (valor <= 0 || valor > 2_958_465) return null
-    const iso = desdeUTC(Date.UTC(1899, 11, 30) + Math.round(valor) * 86_400_000)
+    // La parte decimal es la hora del dia: 45903.6 es el 03-09 a las 14:24, no
+    // el 04-09. Por eso floor y no round.
+    const iso = desdeUTC(Date.UTC(1899, 11, 30) + Math.floor(valor + 1e-6) * 86_400_000)
     return esFechaISO(iso) ? iso : null
   }
 

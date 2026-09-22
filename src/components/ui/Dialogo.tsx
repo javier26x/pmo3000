@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { Boton } from './Boton'
 import { cn } from './utilidades'
@@ -25,6 +25,11 @@ export function Dialogo({
   ancho?: 'sm' | 'md' | 'lg' | 'xl'
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const idTitulo = useId()
+  // Donde empezo el clic: un arrastre que empieza en un campo y se suelta
+  // sobre el fondo (al seleccionar texto) dispara un click en el <dialog>, y
+  // cerrar ahi botaria lo escrito.
+  const presionEnFondo = useRef(false)
 
   useEffect(() => {
     const dialogo = ref.current
@@ -59,20 +64,24 @@ export function Dialogo({
   return (
     <dialog
       ref={ref}
-      aria-labelledby="titulo-dialogo"
+      aria-labelledby={idTitulo}
       className={cn(
         'm-auto w-[calc(100vw-1.5rem)] rounded-lg border p-0 text-texto',
         'vidrio-denso vidrio-alzado',
         anchos[ancho],
       )}
+      onMouseDown={(e) => {
+        presionEnFondo.current = e.target === ref.current
+      }}
       onClick={(e) => {
-        // Clic en el fondo (fuera del contenido) cierra.
-        if (e.target === ref.current) onCerrar()
+        // Clic en el fondo (fuera del contenido) cierra, solo si tambien empezo ahi.
+        if (e.target === ref.current && presionEnFondo.current) onCerrar()
+        presionEnFondo.current = false
       }}
     >
       <div className="flex items-start justify-between gap-4 border-b border-borde px-4 py-3">
         <div className="min-w-0">
-          <h2 id="titulo-dialogo" className="text-md">
+          <h2 id={idTitulo} className="text-md">
             {titulo}
           </h2>
           {descripcion && <p className="mt-0.5 text-xs text-texto-2">{descripcion}</p>}

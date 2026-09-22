@@ -289,6 +289,24 @@ export function prepararSeguimiento(datos: DatosSeguimientoNuevo): {
   }
 }
 
+/**
+ * Cuales de esos seguimientos ya existen. Lee de a uno (en tandas paralelas):
+ * las reglas permiten leer un id inexistente, y una consulta por id no
+ * demostraria el alcance. Quien llama debe pasar solo ids dentro de su alcance.
+ */
+export async function seguimientosExistentes(ids: readonly string[]): Promise<Set<string>> {
+  const existentes = new Set<string>()
+  const TANDA = 50
+  for (let i = 0; i < ids.length; i += TANDA) {
+    const tanda = ids.slice(i, i + TANDA)
+    const snaps = await Promise.all(
+      tanda.map((id) => getDoc(doc(db, COLECCIONES.sitioProyectos, id))),
+    )
+    for (const s of snaps) if (s.exists()) existentes.add(s.id)
+  }
+  return existentes
+}
+
 export async function crearSeguimiento(
   datos: DatosSeguimientoNuevo,
   actor: Actor,
@@ -513,8 +531,11 @@ class Lotes {
       try {
         await lote.commit()
       } catch (e) {
+        // Con una sola unidad ya no hay que partir. Tope 1 deja pasar igual una
+        // unidad de 2 operaciones (la primera siempre entra), y como el lote
+        // siguiente siempre es menor que este, el ciclo termina.
         if (esLoteDemasiadoGrande(e) && fin - i > 1) {
-          tope = Math.max(2, Math.floor(ops / 2))
+          tope = Math.max(1, Math.floor(ops / 2))
           continue
         }
         throw e

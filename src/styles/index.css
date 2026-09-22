@@ -413,6 +413,10 @@
   .cifra-inicio:hover {
     background: var(--gota);
   }
+  /* La seccion recorta lo que sobresale: el anillo de foco va por dentro. */
+  .cifra-inicio:focus-visible {
+    outline-offset: -3px;
+  }
   .cifra-inicio + .cifra-inicio {
     border-left: 1px solid var(--vidrio-divisor);
   }

@@ -161,6 +161,17 @@ describe('busqueda de varios IDs', () => {
     expect(idsDeBusqueda('53I_379 28i_331')).toEqual(['53i_379', '28i_331'])
   })
 
+  it('acepta una columna copiada con su encabezado y valores entre comillas', () => {
+    expect(idsDeBusqueda('ID Sitio\n02_434\n02_435\n')).toEqual(['02_434', '02_435'])
+    expect(idsDeBusqueda('"02_434", "02_435"')).toEqual(['02_434', '02_435'])
+  })
+
+  it('muestra los IDs pegados aunque no esten vigentes', () => {
+    const conBaja = [...lista, sitioProyecto({ id: 'x', sitioId: '09_999', vigente: false })]
+    const r = filtrarSeguimientos(conBaja, { ...FILTROS_VISTA_VACIOS, texto: '09_999\n01_043' }, HOY)
+    expect(r.map((s) => s.sitioId).sort()).toEqual(['01_043', '09_999'])
+  })
+
   it('no confunde una busqueda comun con una lista de IDs', () => {
     expect(idsDeBusqueda('53i_379')).toBeNull()
     expect(idsDeBusqueda('cerro azul')).toBeNull()

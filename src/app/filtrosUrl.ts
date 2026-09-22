@@ -65,7 +65,10 @@ export function aParametros(estado: EstadoFiltros): URLSearchParams {
   poner(CLAVES.celulaId, estado.servidor.celulaId)
 
   poner(CLAVES.gateActual, estado.vista.gateActual)
-  poner(CLAVES.texto, estado.vista.texto.trim())
+  // Sin recortar: el buscador lee su valor de la URL mientras se escribe, y
+  // recortar aca se comia el espacio de "cerro " antes de la siguiente letra.
+  // El filtrado ya ignora los espacios de los extremos.
+  poner(CLAVES.texto, estado.vista.texto)
   poner(CLAVES.region, estado.vista.region)
   poner(CLAVES.comuna, estado.vista.comuna)
   poner(CLAVES.prioridad, estado.vista.prioridad)
@@ -109,7 +112,7 @@ export function desdeParametros(p: URLSearchParams): EstadoFiltros {
     },
     vista: {
       gateActual: gateDesdeTexto(texto(p, CLAVES.gateActual)),
-      texto: texto(p, CLAVES.texto) ?? '',
+      texto: texto(p, CLAVES.texto) === null ? '' : (p.get(CLAVES.texto) ?? ''),
       region: texto(p, CLAVES.region),
       comuna: texto(p, CLAVES.comuna),
       prioridad:

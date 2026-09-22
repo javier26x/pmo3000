@@ -102,8 +102,9 @@ export function PanelCalidadArchivo({ calidad }: { calidad: CalidadArchivo }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {calidad.ejemplos.map((e) => (
-                    <tr key={e.sitioId} className="border-t border-borde">
+                  {calidad.ejemplos.map((e, i) => (
+                    // El tracker puede repetir un ID: la posicion desempata.
+                    <tr key={`${e.sitioId}-${i}`} className="border-t border-borde">
                       <td className="py-0.5 pr-2 font-mono">{e.sitioId}</td>
                       <td className="py-0.5 pr-2">{e.tracker}</td>
                       <td className="py-0.5">{NOMBRES_ESTADO_SITIO[e.derivado]}</td>

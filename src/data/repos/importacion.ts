@@ -10,7 +10,8 @@
 import { doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { COLECCIONES, db } from '../firebase'
 import { agregarEventos } from '../auditoria'
-import { prepararSeguimiento } from './sitioProyectos'
+import { prepararSeguimiento, seguimientosExistentes } from './sitioProyectos'
+import { idSitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { estaEnAlcance } from '@/domain/permisos/alcance'
 import type { FilaImportacion } from '@/domain/importacion/validacion'
 import type { GateTemplate } from '@/domain/tipos/gate'
@@ -43,6 +44,8 @@ export interface ContextoImportacion {
 export interface ResultadoImportacion {
   sitiosEscritos: number
   seguimientosCreados: number
+  /** Seguimientos que ya existian: se actualizan los datos del sitio, no el avance. */
+  seguimientosActualizados: number
   /**
    * Seguimientos que no se escribieron porque su destino queda fuera del
    * alcance de quien importa. Las reglas los rechazarian y, con ellos, el lote
@@ -75,6 +78,7 @@ export async function ejecutarImportacion(
   const resultado: ResultadoImportacion = {
     sitiosEscritos: 0,
     seguimientosCreados: 0,
+    seguimientosActualizados: 0,
     seguimientosFueraDeAlcance: 0,
     filasOmitidas: filas.length - importables.length,
     programasNoEncontrados: [],
@@ -84,6 +88,9 @@ export async function ejecutarImportacion(
 
   const programasFaltantes = new Set<string>()
   const proveedoresFaltantes = new Set<string>()
+
+  const destinoDe = (fila: FilaImportacion) =>
+    fila.programa ? contexto.destinos.get(normalizar(fila.programa)) : contexto.destinoPorDefecto
 
   let batch = writeBatch(db)
   let operaciones = 0
@@ -97,6 +104,19 @@ export async function ejecutarImportacion(
   }
 
   try {
+    // Un seguimiento que ya existe no se vuelve a armar desde la plantilla: un
+    // set con merge pisaria gateActual y el mapa de gates, y el sitio volveria a
+    // la primera etapa. Se averigua antes cuales existen para tocarles solo los
+    // datos del sitio.
+    const candidatos = new Set<string>()
+    for (const fila of importables) {
+      const destino = destinoDe(fila)
+      if (fila.sitio && destino && estaEnAlcance(actor, destino)) {
+        candidatos.add(idSitioProyecto(destino.proyectoId, fila.sitio.id))
+      }
+    }
+    const existentes = await seguimientosExistentes([...candidatos])
+
     for (const fila of importables) {
       const sitio = fila.sitio
       if (!sitio) continue
@@ -117,9 +137,7 @@ export async function ejecutarImportacion(
       operaciones += 1
       resultado.sitiosEscritos += 1
 
-      const destino = fila.programa
-        ? contexto.destinos.get(normalizar(fila.programa))
-        : contexto.destinoPorDefecto
+      const destino = destinoDe(fila)
       if (fila.programa && !destino) programasFaltantes.add(fila.programa)
 
       let proveedorId: string | null = null
@@ -130,6 +148,20 @@ export async function ejecutarImportacion(
 
       if (destino && !estaEnAlcance(actor, destino)) {
         resultado.seguimientosFueraDeAlcance += 1
+      } else if (destino && existentes.has(idSitioProyecto(destino.proyectoId, id))) {
+        // Solo la copia desnormalizada del sitio: el avance y las asignaciones
+        // quedan como estan.
+        batch.update(doc(db, COLECCIONES.sitioProyectos, idSitioProyecto(destino.proyectoId, id)), {
+          sitioNombre: sitio.nombre,
+          region: sitio.region,
+          comuna: sitio.comuna,
+          lat: sitio.lat,
+          lon: sitio.lon,
+          actualizadoEn: serverTimestamp(),
+          actualizadoPor: actor.uid,
+        })
+        operaciones += 1
+        resultado.seguimientosActualizados += 1
       } else if (destino) {
         const preparado = prepararSeguimiento({
           sitio: {
@@ -151,19 +183,13 @@ export async function ejecutarImportacion(
           prioridad: contexto.prioridad,
         })
 
-        // merge deja intacto el avance de un seguimiento que ya exista: una
-        // reimportacion actualiza los datos del sitio sin pisar sus gates.
-        batch.set(
-          doc(db, COLECCIONES.sitioProyectos, preparado.id),
-          {
-            ...preparado.documento,
-            creadoEn: serverTimestamp(),
-            creadoPor: actor.uid,
-            actualizadoEn: serverTimestamp(),
-            actualizadoPor: actor.uid,
-          },
-          { merge: true },
-        )
+        batch.set(doc(db, COLECCIONES.sitioProyectos, preparado.id), {
+          ...preparado.documento,
+          creadoEn: serverTimestamp(),
+          creadoPor: actor.uid,
+          actualizadoEn: serverTimestamp(),
+          actualizadoPor: actor.uid,
+        })
         operaciones += 1
         resultado.seguimientosCreados += 1
       }
@@ -195,7 +221,7 @@ export async function ejecutarImportacion(
           campo: null,
           valorAnterior: null,
           valorNuevo: String(resultado.sitiosEscritos),
-          detalle: `${resultado.sitiosEscritos} sitio(s) escrito(s), ${resultado.seguimientosCreados} seguimiento(s), ${resultado.filasOmitidas} fila(s) omitida(s)${resultado.seguimientosFueraDeAlcance ? `, ${resultado.seguimientosFueraDeAlcance} seguimiento(s) fuera de alcance` : ''}`,
+          detalle: `${resultado.sitiosEscritos} sitio(s) escrito(s), ${resultado.seguimientosCreados} seguimiento(s) nuevo(s), ${resultado.seguimientosActualizados} actualizado(s), ${resultado.filasOmitidas} fila(s) omitida(s)${resultado.seguimientosFueraDeAlcance ? `, ${resultado.seguimientosFueraDeAlcance} seguimiento(s) fuera de alcance` : ''}`,
         },
       ],
       actor,
