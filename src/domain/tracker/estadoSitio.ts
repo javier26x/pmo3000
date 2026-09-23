@@ -64,10 +64,13 @@ export function condicionDelSitio(
   let vigente = !(v.startsWith('no') || /\bno vigente\b/.test(v) || RE_BAJA.test(v))
   if (RE_BAJA.test(f)) vigente = false
 
-  const hold = RE_ON_HOLD.exec(faseCruda)
+  // El Plan 200 no tiene columna de fase y anota el bloqueo en la vigencia:
+  // "Vigente/On Hold".
+  const hold = RE_ON_HOLD.exec(faseCruda) ?? RE_ON_HOLD.exec(vigencia ?? '')
+  const origenHold = RE_ON_HOLD.test(faseCruda) ? faseCruda : (vigencia ?? '')
   let motivoBloqueo: string | null = null
   if (hold !== null) {
-    const resto = faseCruda
+    const resto = origenHold
       .slice(hold.index + hold[0].length)
       .replace(/^[\s\-–:()]+/, '')
       .replace(/[()]/g, '')

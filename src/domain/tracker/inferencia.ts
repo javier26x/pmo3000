@@ -86,6 +86,9 @@ const ALIAS_ETAPA: Record<string, string> = {
   // por aca, porque la cola de un encabezado se lee antes como disciplina.
   oocc: 'Construcción',
   construccion: 'Construcción',
+  // El Plan 200 llama "Estado Adecuaciones OOCC" a lo mismo: las obras en el
+  // sitio despues de la ingenieria.
+  adecuaciones: 'Construcción',
   'obras civiles': 'Construcción',
   'on air': 'On Air',
   onair: 'On Air',
@@ -193,6 +196,17 @@ function esFecha(v: unknown): boolean {
 }
 
 /**
+ * Numero de serie de Excel entre 1982 y 2119: una fecha que la celda perdio el
+ * formato ("46233" en vez de 30-07-2026). Solo se cree en columnas cuyo
+ * encabezado dice "fecha"; en cualquier otra, 46233 puede ser un numero de verdad.
+ */
+function esSerialDeFecha(v: unknown): boolean {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 30_000 && v <= 80_000
+}
+
+const RE_FECHA_ENCABEZADO = /\bfecha\b/i
+
+/**
  * Tipo de una columna a partir de lo que realmente tiene adentro.
  *
  * El encabezado ayuda pero no manda: hay columnas llamadas "Status Tx" que
@@ -206,7 +220,9 @@ export function inferirTipo(
   const llenos = valores.filter((v) => v !== null && v !== undefined && String(v).trim() !== '')
   if (llenos.length === 0) return { tipo: 'texto', opciones: [] }
 
-  const fechas = llenos.filter(esFecha).length
+  const encabezadoDeFecha = RE_FECHA_ENCABEZADO.test(encabezado)
+  const fechas = llenos.filter((v) => esFecha(v) || (encabezadoDeFecha && esSerialDeFecha(v)))
+    .length
   if (fechas / llenos.length >= 0.8) return { tipo: 'fecha', opciones: [] }
 
   const semanas = llenos.filter(

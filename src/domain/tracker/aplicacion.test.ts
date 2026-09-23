@@ -296,3 +296,83 @@ describe('regla de tecnologia en sitios 5G', () => {
     expect(fila.etapaActual).toBe('CERRADO')
   })
 })
+
+describe('encabezados del Plan 200', () => {
+  // Cuatro "Fecha Aprobación/Observación" iguales, un comentario con errata
+  // ("OII") y una fecha que perdio el formato y llega como serie de Excel.
+  const encabezados = [
+    'ID Sitio',
+    'Site Name',
+    'Vigencia',
+    'Status TSS RF',
+    'Comentarios TSS RF',
+    'Fecha Aprobación/Observación',
+    'Status TSS ECE',
+    'Comentario TSS ECE',
+    'Fecha Aprobación/Observación',
+    'Fecha Aprobación/Observación TSS',
+    'Status TSS',
+    'Status Ing OOII',
+    'Comentarios Ing OII',
+    'Ing Fecha de Aprobación/Obs OOII',
+    'Status Ing',
+    'Estado Adecuaciones OOCC',
+    'Status As Built Implementación',
+    'Fecha de Aprobación/Obs Implementación',
+    'Status As built ECE',
+    'Status Asbuilt',
+  ]
+  const fila = [
+    '02_600',
+    'Calama',
+    'Vigente/On Hold',
+    'TSS Aprobado',
+    'Viable',
+    F(2026, 3, 9),
+    'TSS Aprobado',
+    'Sin observaciones',
+    F(2026, 4, 21),
+    F(2026, 4, 21),
+    'TSS Aprobado',
+    'Ing Aprobada',
+    'Ing efectuada por operador',
+    F(2026, 8, 31),
+    'Ing Aprobada',
+    'Finalizadas',
+    'As built Aprobado',
+    46233,
+    'As built Aprobado',
+    'As built Aprobado',
+  ]
+  const plantilla = inferirPlantilla([encabezados, fila, [...fila.slice(0, 17), F(2026, 7, 3)]])
+  const indice = indexarColumnas(plantilla)
+  const f = convertirFila(fila, plantilla, indice)
+  const etapa = (codigo: string) => f.etapas.find((e) => e.codigo === codigo)!
+
+  it('la fecha sin disciplina que sigue al estado es de esa revision', () => {
+    expect(etapa('TSS').revisiones.rf?.fecha).toBe('2026-03-09')
+    expect(etapa('TSS').revisiones.ece?.fecha).toBe('2026-04-21')
+  })
+
+  it('la fecha consolidada de la etapa no se la queda ninguna revision', () => {
+    expect(f.valores['fecha-aprobacion-observacion-tss']).toBe('2026-04-21')
+    expect(f.valores).not.toHaveProperty('fecha-aprobacion-observacion')
+  })
+
+  it('el comentario con errata sigue siendo de su revision', () => {
+    expect(etapa('INGENIERIA').revisiones.ooii?.comentario).toBe('Ing efectuada por operador')
+  })
+
+  it('una fecha escrita como serie de Excel se lee como fecha', () => {
+    expect(etapa('AS_BUILT').revisiones.implementacion?.fecha).toBe('2026-07-30')
+  })
+
+  it('"Adecuaciones" es la etapa de construcción', () => {
+    expect(plantilla.etapas.map((e) => e.nombre)).toContain('Construcción')
+    expect(etapa('CONSTRUCCION').cerrada).toBe(true)
+  })
+
+  it('"Vigente/On Hold" deja el sitio vigente pero bloqueado', () => {
+    expect(f.condicion).toMatchObject({ vigente: true, bloqueado: true })
+  })
+})

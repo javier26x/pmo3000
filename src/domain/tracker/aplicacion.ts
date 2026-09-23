@@ -179,12 +179,18 @@ export function indexarColumnas(plantilla: PlantillaInferida): IndiceColumnas {
     for (const revision of etapa.revisiones) {
       const k = llave(etapa.nombre, revision.nombre)
       const candidatas = columnas.filter((c) => mencionaRevision(c.encabezado, revision.nombre))
-      const comentario = candidatas.find((c) => c.rol === 'comentario')
-      const fecha = candidatas.find((c) => c.rol === 'fecha')
+      const comentario =
+        candidatas.find((c) => c.rol === 'comentario') ??
+        vecinaSinDisciplina(columnas, etapa, revision.nombre, 'comentario', indice)
+      const fecha =
+        candidatas.find((c) => c.rol === 'fecha') ??
+        vecinaSinDisciplina(columnas, etapa, revision.nombre, 'fecha', indice)
       if (comentario) indice.comentarios.set(k, comentario.indice)
       if (fecha) indice.fechas.set(k, fecha.indice)
     }
   }
+
+  const deRevision = new Set([...indice.comentarios.values(), ...indice.fechas.values()])
 
   // Todo lo que no es identidad ni parte de una revision se guarda como valor
   // del sitio: los estados, comentarios y fechas de cada disciplina ya viajan
@@ -195,10 +201,43 @@ export function indexarColumnas(plantilla: PlantillaInferida): IndiceColumnas {
     (c) =>
       c.rol !== 'identidad' &&
       !(c.rol === 'estado' && c.revision !== null) &&
-      !esColumnaDeRevision(c, plantilla),
+      !esColumnaDeRevision(c, plantilla) &&
+      !deRevision.has(c.indice),
   )
 
   return indice
+}
+
+/**
+ * La columna de comentario o de fecha que va justo despues del estado de una
+ * revision, cuando su encabezado no nombra a la disciplina.
+ *
+ * El Plan 200 escribe cuatro veces "Fecha Aprobación/Observación", una tras
+ * cada "Status TSS <disciplina>", y un "Comentarios Ing OII" con errata. Sin
+ * esto esas fechas quedan como campos sueltos y la revision sin fecha. Solo se
+ * mira entre el estado de la revision y el siguiente estado de la etapa, y solo
+ * columnas que no nombran a NINGUNA disciplina de la etapa: la fecha consolidada
+ * ("Fecha Aprobación/Observación TSS") queda despues del ultimo bloque y ya la
+ * reclamo la ultima revision, o no la alcanza.
+ */
+function vecinaSinDisciplina(
+  columnas: readonly ColumnaInferida[],
+  etapa: EtapaInferida,
+  revision: string,
+  rol: 'comentario' | 'fecha',
+  indice: IndiceColumnas,
+): ColumnaInferida | undefined {
+  const ordenadas = [...columnas].sort((a, b) => a.indice - b.indice)
+  const pos = ordenadas.findIndex((c) => c.rol === 'estado' && c.revision === revision)
+  if (pos < 0) return undefined
+  const tomadas = new Set([...indice.comentarios.values(), ...indice.fechas.values()])
+  for (const c of ordenadas.slice(pos + 1)) {
+    if (c.rol === 'estado') return undefined
+    if (c.rol !== rol || tomadas.has(c.indice)) continue
+    if (etapa.revisiones.some((r) => mencionaRevision(c.encabezado, r.nombre))) continue
+    return c
+  }
+  return undefined
 }
 
 function esColumnaDeRevision(col: ColumnaInferida, plantilla: PlantillaInferida): boolean {
