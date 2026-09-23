@@ -4,6 +4,7 @@ import {
   BookmarkPlus,
   Check,
   ChevronLeft,
+  FolderKanban,
   ListFilter,
   Plus,
   Search,
@@ -22,6 +23,7 @@ import {
   useMenuFlotante,
 } from '@/components/ui'
 import { borrarVista, guardarVista, leerVistas, type VistaGuardada } from '@/app/vistas'
+import type { Proyecto } from '@/domain/tipos'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useDespliegue } from '@/hooks/useDespliegue'
 import { useFiltros } from '@/hooks/useFiltros'
@@ -225,7 +227,9 @@ export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
           onBooleano={fijarVista}
         />
 
-        {!compacta && <MenuVistas consulta={consulta} onAplicar={aplicarConsulta} />}
+        {!compacta && (
+          <MenuVistas consulta={consulta} onAplicar={aplicarConsulta} proyectos={proyectos} />
+        )}
 
         <div className="flex flex-wrap items-center gap-1.5">
           {activos.map((d) => (
@@ -516,14 +520,28 @@ function MenuAgregarFiltro({
   )
 }
 
-/** Vistas guardadas: nombre + query de la URL. */
+/**
+ * Vistas guardadas: nombre + query de la URL. Ademas trae hecha una vista por
+ * proyecto (los del alcance de quien mira): es el corte que todos arman primero,
+ * y sin esto cada persona tenia que filtrar y guardarla a mano.
+ */
 function MenuVistas({
   consulta,
   onAplicar,
+  proyectos,
 }: {
   consulta: string
   onAplicar: (consulta: string) => void
+  proyectos: readonly Proyecto[]
 }) {
+  // Los cerrados al final: se consultan menos, pero siguen ahi.
+  const porProyecto = [...proyectos]
+    .sort(
+      (a, b) =>
+        Number(a.estado === 'cerrado') - Number(b.estado === 'cerrado') ||
+        a.nombre.localeCompare(b.nombre, 'es'),
+    )
+    .map((p) => ({ proyecto: p, consulta: new URLSearchParams({ proy: p.id }).toString() }))
   const [vistas, setVistas] = useState<VistaGuardada[]>(() => leerVistas())
   const [nombrando, setNombrando] = useState(false)
   const [nombre, setNombre] = useState('')
@@ -532,7 +550,12 @@ function MenuVistas({
     setNombre('')
   })
 
-  const actual = vistas.find((v) => v.consulta === consulta)
+  const actual =
+    vistas.find((v) => v.consulta === consulta) ??
+    (() => {
+      const p = porProyecto.find((v) => v.consulta === consulta)
+      return p ? { nombre: p.proyecto.nombre } : undefined
+    })()
 
   return (
     <>
@@ -586,6 +609,28 @@ function MenuVistas({
           ))}
 
           {vistas.length > 0 && <SeparadorMenu />}
+
+          {porProyecto.length > 0 && (
+            <>
+              <TituloMenu>Por proyecto</TituloMenu>
+              <div className="max-h-64 overflow-y-auto">
+                {porProyecto.map(({ proyecto, consulta: c }) => (
+                  <ItemMenu
+                    key={proyecto.id}
+                    onClick={() => {
+                      onAplicar(c)
+                      cerrar(false)
+                    }}
+                    activo={c === consulta}
+                    icono={<FolderKanban aria-hidden className="size-3.5" />}
+                  >
+                    {proyecto.nombre}
+                  </ItemMenu>
+                ))}
+              </div>
+              <SeparadorMenu />
+            </>
+          )}
 
           {nombrando ? (
             <form

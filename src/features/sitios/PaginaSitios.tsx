@@ -19,6 +19,7 @@ import { useSesion } from '@/hooks/useSesion'
 import { escribiendoEnCampo } from '@/app/atajos'
 import { recordarSitio } from '@/app/sitiosRecientes'
 import type { CampoOrden } from '@/domain/vistas/filtrado'
+import { torreraDe } from '@/domain/vistas/torrera'
 import { BarraFiltros } from './BarraFiltros'
 import { EmbudoGates } from './EmbudoGates'
 import { useMedidorSla } from '@/hooks/useSla'
@@ -34,6 +35,7 @@ const COLUMNAS: { campo: CampoOrden | null; etiqueta: string; alineacion?: 'dere
   { campo: 'nombre', etiqueta: 'Nombre' },
   { campo: 'region', etiqueta: 'Comuna' },
   { campo: null, etiqueta: 'Programa' },
+  { campo: null, etiqueta: 'Torrera' },
   { campo: 'gate', etiqueta: 'Gate' },
   { campo: 'plan', etiqueta: 'Fecha plan', alineacion: 'derecha' },
   { campo: 'atraso', etiqueta: 'Desviación', alineacion: 'derecha' },
@@ -61,6 +63,7 @@ export function PaginaSitios() {
       visibles.map((sp) => ({
         sp,
         nombrePrograma: nombrePrograma(sp.programaId),
+        torrera: torreraDe(sp.valores),
         nombreProveedor: nombreProveedor(sp.proveedorId),
         nombreResponsable: nombreUsuario(sp.responsableUid),
         sla: medirSla(sp, hoy),

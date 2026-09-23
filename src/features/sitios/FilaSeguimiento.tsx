@@ -40,6 +40,8 @@ const TONO_PRIORIDAD = {
 export interface DatosFila {
   sp: SitioProyecto
   nombrePrograma: string
+  /** Empresa duena de la infraestructura (OOII), leida del tracker. */
+  torrera: string | null
   nombreProveedor: string
   nombreResponsable: string
   /** SLA de la etapa actual, con la configuracion del proyecto. */
@@ -147,6 +149,9 @@ export function FilaSeguimiento({
       <Celda titulo={datos.nombrePrograma} className="max-w-36 text-texto-2">
         {datos.nombrePrograma}
       </Celda>
+      <Celda titulo={datos.torrera ?? undefined} className="max-w-28 text-texto-2">
+        {datos.torrera ?? '—'}
+      </Celda>
       <Celda>
         <InsigniaGate gate={sp.gateActual} estado={sp.estadoGate} />
       </Celda>
@@ -210,6 +215,7 @@ export function TarjetaSeguimiento({ datos }: { datos: DatosFila }) {
       <div className="flex flex-wrap items-center gap-x-3 text-xs text-texto-2">
         <span>{sp.comuna}</span>
         <span>{datos.nombrePrograma}</span>
+        {datos.torrera && <span>{datos.torrera}</span>}
         <span>Plan {formatearFecha(sp.fechaPlanGateActual)}</span>
         <span
           className={cn(
