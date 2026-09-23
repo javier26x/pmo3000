@@ -300,8 +300,8 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
           {/* ------------------------------------------------ revisores */}
           <Bloque
             icono={<ClipboardCheck aria-hidden className="size-4" />}
-            titulo="Quién revisa"
-            descripcion="Las personas que responden por cada área en este proyecto. Ven sus revisiones en Pendientes."
+            titulo="Quién responde"
+            descripcion="Las personas que responden por cada área en este proyecto: las revisiones (OOCC, ECE, RF…) y la transmisión (FO, MMOO, IPRAN). Ven lo suyo en Pendientes."
             className="lg:col-span-2"
           >
             <RevisoresProyecto
@@ -399,7 +399,7 @@ function RevisoresProyecto({
   if (areas.length === 0) {
     return (
       <p className="text-sm text-texto-3">
-        No hay áreas creadas. Créalas en Configuración → Áreas que revisan.
+        No hay áreas creadas. Créalas en Configuración → Equipos y áreas.
       </p>
     )
   }

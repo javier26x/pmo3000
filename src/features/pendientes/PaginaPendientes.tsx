@@ -14,6 +14,7 @@ import {
 import { diasEntre } from '@/domain/fechas'
 import { nombreGate } from '@/domain/gates/catalogo'
 import { entradaEnEtapa } from '@/domain/sla'
+import { fechaConstruccionLista } from '@/domain/areas'
 import { COLOR_ESTADO, NOMBRES_ESTADO, pideAccion } from '@/domain/tracker/estados'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useDespliegue } from '@/hooks/useDespliegue'
@@ -66,7 +67,9 @@ export function PaginaPendientes() {
       .filter((p) => (quien === TODAS ? true : p.responsables.includes(quien)))
       .filter((p) => (areaId === TODAS ? true : p.area.id === areaId))
       .map((p) => {
-        const entrada = entradaEnEtapa(p.sp)
+        // Una revision espera desde que el sitio entro a la etapa; la Tx y la
+        // IPRAN, desde que la obra quedo lista.
+        const entrada = p.clase === 'tx' ? fechaConstruccionLista(p.sp) : entradaEnEtapa(p.sp)
         return { ...p, dias: entrada === null ? null : Math.max(0, diasEntre(entrada, hoy)) }
       })
       .sort(
@@ -112,7 +115,7 @@ export function PaginaPendientes() {
     <>
       <CabeceraPantalla
         titulo="Pendientes por área"
-        descripcion="Revisiones de la etapa actual que su área aún no aprueba. Las áreas responden en el tracker; al reimportarlo, esta lista se actualiza."
+        descripcion="Revisiones de la etapa actual que su área aún no aprueba, y la Tx (FO, MMOO) y la IPRAN de los sitios ya construidos. Todo sale del tracker: al reimportarlo, esta lista se actualiza."
       >
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs text-texto-3">
@@ -164,7 +167,7 @@ export function PaginaPendientes() {
           <EstadoVacio
             icono={<Inbox aria-hidden className="size-6" />}
             titulo="Nada pendiente"
-            descripcion="Con estos filtros no hay revisiones esperando."
+            descripcion="Con estos filtros no hay revisiones ni transmisiones esperando."
           />
         ) : (
           <div className="overflow-x-auto rounded border border-borde bg-superficie">
@@ -175,7 +178,7 @@ export function PaginaPendientes() {
                   <th className="px-3 py-2 font-medium">Etapa</th>
                   <th className="px-3 py-2 font-medium">Área</th>
                   <th className="px-3 py-2 font-medium">Estado en el tracker</th>
-                  <th className="px-3 py-2 text-right font-medium">Días en la etapa</th>
+                  <th className="px-3 py-2 text-right font-medium">Días esperando</th>
                   <th className="px-3 py-2 font-medium">Responde</th>
                 </tr>
               </thead>
@@ -216,7 +219,9 @@ export function PaginaPendientes() {
                       </span>
                       {p.comentario !== '' && (
                         <p className="mt-1 flex max-w-md items-start gap-1 text-xs text-texto-2">
-                          <MessageSquare aria-hidden className="mt-0.5 size-3 shrink-0" />
+                          {p.clase === 'revision' && (
+                            <MessageSquare aria-hidden className="mt-0.5 size-3 shrink-0" />
+                          )}
                           <span className="line-clamp-2">{p.comentario}</span>
                         </p>
                       )}

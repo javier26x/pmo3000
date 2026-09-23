@@ -283,6 +283,10 @@ const REGLAS: { estado: EstadoSemantico; prueba: (t: string) => boolean }[] = [
   // sitio dice en que etapa va, no si algo se aprobo.
   { estado: 'en_revision', prueba: (t) => /^en (etapa|implementacion|construccion)/.test(t) },
   { estado: 'no_recibido', prueba: (t) => /off air|sin energia|sin contrato/.test(t) },
+  // "Poste" en Status Tx es la fibra que ya llego al poste: avanzo, pero falta
+  // el ODF. Va antes de la regla de aprobado para que "Poste / ODF Instalado"
+  // no quede a medias: con ODF instalado manda el aprobado de mas abajo.
+  { estado: 'en_revision', prueba: (t) => /^(fibra (al|en) )?poste$/.test(t) },
   {
     estado: 'en_revision',
     prueba: (t) =>

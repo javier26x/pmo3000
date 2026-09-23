@@ -26,11 +26,20 @@ export const esquemaArea = z
   .extend(esquemaSellos.shape)
 export type Area = z.infer<typeof esquemaArea>
 
-/** Las areas que revisan en los trackers de la PMO, para crearlas de una vez. */
+/**
+ * Las areas de los trackers de la PMO, para crearlas de una vez.
+ *
+ * Las cinco primeras revisan TSS, Ingenieria y As Built. FO, MMOO e IPRAN son
+ * ademas los equipos de transmision de la PMO: con la construccion lista, la Tx
+ * pendiente es de FO o de MMOO segun el "Tipo Tx" del sitio (los alias son los
+ * valores de esa columna) y la IPRAN pendiente es de IPRAN.
+ */
 export const AREAS_SEMILLA: { id: string; nombre: string; alias: string[] }[] = [
   { id: 'oocc', nombre: 'OOCC', alias: ['OOCC', 'Obras civiles'] },
   { id: 'ece', nombre: 'ECE', alias: ['ECE'] },
   { id: 'rf', nombre: 'RF', alias: ['RF', 'Radiofrecuencia'] },
   { id: 'implementacion', nombre: 'Implementación', alias: ['Implementacion', 'IMPL'] },
-  { id: 'mmoo', nombre: 'MMOO', alias: ['MMOO'] },
+  { id: 'mmoo', nombre: 'MMOO', alias: ['MMOO', 'Microondas'] },
+  { id: 'fo', nombre: 'FO', alias: ['FO', 'Fibra', 'Fibra óptica'] },
+  { id: 'ipran', nombre: 'IPRAN', alias: ['IPRAN', 'UAN'] },
 ]

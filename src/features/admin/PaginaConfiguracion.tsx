@@ -506,8 +506,8 @@ export function PaginaConfiguracion() {
 
               <Seccion
                 icono={<ClipboardCheck aria-hidden className="size-4" />}
-                titulo="Áreas que revisan"
-                descripcion="OOCC, ECE, RF, Implementación y MMOO revisan TSS, Ingeniería y As Built. Aquí se asigna quién responde por cada área, en general o por proyecto; cada persona ve lo suyo en Pendientes."
+                titulo="Áreas y equipos de Tx"
+                descripcion="OOCC, ECE, RF, Implementación y MMOO revisan TSS, Ingeniería y As Built. FO, MMOO e IPRAN responden por la transmisión de los sitios ya construidos: la Tx va a FO o MMOO según el Tipo Tx. Aquí se asigna quién responde por cada una, en general o por proyecto; cada persona ve lo suyo en Pendientes."
                 accion={
                   puedeEditarAreas ? (
                     <span className="flex flex-wrap gap-2">

@@ -77,7 +77,9 @@ const ALIAS_ETAPA: Record<string, string> = {
   contrato: 'Contrato',
   tx: 'Transmisión',
   ipran: 'IPRAN',
-  uan: 'UAN',
+  // El UAN es el equipo de acceso de la red IPRAN: "Proveedor UAN" y "Fecha
+  // Real Inst. UAN" son columnas de la etapa IPRAN.
+  uan: 'IPRAN',
   dom: 'DOM',
   subtel: 'Subtel',
   empalme: 'Empalme',
@@ -496,7 +498,24 @@ function asignarColumnasAEtapas(
     const siguiente = ordenados.find(([, r]) => i < r.min)
     const primero = ordenados[0]![1]
     // Solo se rellena entre bloques, nunca antes del primero.
-    if (siguiente !== undefined && i > primero.min) asignadas.set(i, siguiente[0])
+    if (siguiente === undefined || i <= primero.min) return
+    // Entre dos bloques, lo que va despues del bloque anterior y ANTES de
+    // cualquier mencion de la etapa siguiente es cola del anterior: en el
+    // Outdoor, tras "Status Tx" y "Forecast Entrega Tx" vienen "Fecha Real de
+    // Entrega" y "Fecha Entrega Certficado", que son de Tx y no de IPRAN. Las
+    // columnas de preparacion del paso siguiente ("SLA Revisión2") siguen yendo
+    // a el, porque aparecen despues de que se lo nombra ("Presentación Ing").
+    const anterior = [...ordenados].reverse().find(([, r]) => r.max < i)
+    if (anterior !== undefined) {
+      const tramo = encabezados.slice(anterior[1].max + 1, i).map((_, k) => anterior[1].max + 1 + k)
+      const nombraSiguiente = tramo.some((k) => asignadas.get(k) === siguiente[0])
+      const nombraAnterior = tramo.some((k) => asignadas.get(k) === anterior[0])
+      if (nombraAnterior && !nombraSiguiente) {
+        asignadas.set(i, anterior[0])
+        return
+      }
+    }
+    asignadas.set(i, siguiente[0])
   })
 
   return asignadas

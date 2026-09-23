@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { areaDeRevision, indiceAreas, pendientesDe, responsablesDe } from '.'
+import {
+  areaDeRevision,
+  construccionLista,
+  fechaConstruccionLista,
+  indiceAreas,
+  pendientesDe,
+  pendientesTx,
+  responsablesDe,
+} from '.'
+import type { GateSitio, SitioProyecto } from '@/domain/tipos/sitioProyecto'
 import { sitioProyecto } from '@/pruebas/fabricas'
 import type { Area } from '@/domain/tipos/area'
 import type { GateTemplate } from '@/domain/tipos/gate'
@@ -90,5 +99,94 @@ describe('pendientesDe', () => {
 
   it('un sitio cerrado no tiene pendientes', () => {
     expect(pendientesDe(sitioProyecto({ gateActual: 'CERRADO' }), plantilla, INDICE)).toEqual([])
+  })
+})
+
+describe('pendientes de transmision', () => {
+  const TX = indiceAreas([
+    area('fo', 'FO', { alias: ['Fibra'] }),
+    area('mmoo', 'MMOO'),
+    area('ipran', 'IPRAN', { alias: ['UAN'] }),
+  ])
+  const gate = (nombre: string, estado: GateSitio['estado'], fechaReal: string | null = null) =>
+    ({
+      orden: 0,
+      nombre,
+      color: 'gris',
+      siguiente: null,
+      tipo: 'secuencial',
+      estado,
+      fechaPlan: null,
+      fechaReal,
+      fechaBaseline: null,
+      responsableUid: null,
+      proveedorId: null,
+      checklist: {},
+      revisiones: {},
+      completadoEn: null,
+      completadoPor: null,
+    }) as GateSitio
+  const sitio = (
+    construccion: GateSitio['estado'],
+    valores: SitioProyecto['valores'],
+    tx: GateSitio['estado'] = 'no_iniciado',
+    ipran: GateSitio['estado'] = 'no_iniciado',
+  ) =>
+    sitioProyecto({
+      gateActual: 'AS_BUILT',
+      gates: {
+        CONSTRUCCION: gate('Construcción', construccion, '2026-05-10'),
+        AS_BUILT: gate('As Built', 'en_curso'),
+        TRANSMISION: gate('Transmisión', tx),
+        IPRAN: gate('IPRAN', ipran),
+      },
+      valores,
+    })
+
+  it('antes de la construccion no hay nada pendiente', () => {
+    expect(pendientesTx(sitio('en_curso', { 'tipo-tx': 'FO' }), null, TX)).toEqual([])
+  })
+
+  it('con la construccion lista, la Tx va al area de su tipo y la IPRAN a IPRAN', () => {
+    const p = pendientesTx(
+      sitio('completado', { 'tipo-tx': 'FO/On Net', 'status-tx': 'Poste' }),
+      null,
+      TX,
+    )
+    expect(p.map((x) => [x.area.id, x.revisionId, x.estado])).toEqual([
+      ['fo', 'tx', 'en_revision'],
+      ['ipran', 'ipran', 'no_recibido'],
+    ])
+    expect(p.every((x) => x.clase === 'tx')).toBe(true)
+  })
+
+  it('MMOO va a MMOO', () => {
+    const p = pendientesTx(sitio('completado', { 'tipo-tx': 'MMOO' }), null, TX)
+    expect(p[0]?.area.id).toBe('mmoo')
+  })
+
+  it('lo ya instalado o integrado no es pendiente', () => {
+    expect(
+      pendientesTx(sitio('completado', { 'tipo-tx': 'FO' }, 'completado', 'completado'), null, TX),
+    ).toEqual([])
+  })
+
+  it('un tipo sin area (TBD, vacio) no se asigna, pero la IPRAN si', () => {
+    const p = pendientesTx(sitio('completado', { 'tipo-tx': 'TBD' }), null, TX)
+    expect(p.map((x) => x.area.id)).toEqual(['ipran'])
+  })
+
+  it('un sitio no vigente no tiene pendientes', () => {
+    const sp = { ...sitio('completado', { 'tipo-tx': 'FO' }), vigente: false }
+    expect(pendientesTx(sp, null, TX)).toEqual([])
+  })
+
+  it('la obra lista se sabe tambien por lo que viene despues, y desde cuando', () => {
+    const sp = sitioProyecto({
+      gateActual: 'CERRADO',
+      gates: { ON_AIR: gate('On Air', 'completado', '2026-06-01') },
+    })
+    expect(construccionLista(sp)).toBe(true)
+    expect(fechaConstruccionLista(sitio('completado', {}))).toBe('2026-05-10')
   })
 })

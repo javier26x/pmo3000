@@ -122,7 +122,12 @@ describe('clasificarEstado', () => {
     // Vocabulario propio del negocio. Que caiga en desconocido es el
     // comportamiento correcto: la app lo muestra para que alguien lo homologue.
     expect(clasificarEstado('TDI')).toBe('desconocido')
-    expect(clasificarEstado('Poste')).toBe('desconocido')
+  })
+
+  it('"Poste" en Status Tx es la fibra al poste: avanzo, pero falta el ODF', () => {
+    expect(clasificarEstado('Poste')).toBe('en_revision')
+    expect(clasificarEstado('Fibra al poste')).toBe('en_revision')
+    expect(clasificarEstado('Poste / ODF Instalado')).toBe('aprobado')
   })
 
   it('el contrato post RFI esta diferido, no pendiente', () => {
