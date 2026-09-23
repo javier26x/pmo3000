@@ -43,11 +43,11 @@ service cloud.firestore {
       return ['javier.neo@gmail.com'];
     }
 
-    // Dominios de Claro: @clarovtr.cl y @claro.cl. Espejo en el cliente:
+    // Dominios de Claro: @clarovtr.cl, @e.clarovtr.cl y @claro.cl. Espejo en el cliente:
     // AJUSTES.dominiosPermitidos (VITE_DOMINIOS_PERMITIDOS). Sin mayusculas:
     // el token puede traer el correo como lo escribio el directorio.
     function esCorreoCorporativo() {
-      return correo() is string && correo().lower().matches('^[^@]+@(clarovtr|claro)[.]cl$');
+      return correo() is string && correo().lower().matches('^[^@]+@(clarovtr|e[.]clarovtr|claro)[.]cl$');
     }
 
     function esAdministradorInicial() {

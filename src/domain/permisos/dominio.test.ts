@@ -37,6 +37,13 @@ describe('esDominioPermitido', () => {
     expect(esDominioPermitido('persona@noclaro.cl', ['clarovtr.cl', 'claro.cl'])).toBe(false)
   })
 
+  it('un subdominio entra solo si esta en la lista', () => {
+    const lista = ['clarovtr.cl', 'e.clarovtr.cl', 'claro.cl']
+    expect(esDominioPermitido('felipe@e.clarovtr.cl', lista)).toBe(true)
+    expect(esDominioPermitido('felipe@e.clarovtr.cl', ['clarovtr.cl', 'claro.cl'])).toBe(false)
+    expect(esDominioPermitido('felipe@x.clarovtr.cl', lista)).toBe(false)
+  })
+
   it('rechaza dominios que solo terminan parecido', () => {
     // El sufijo no basta: "noclarovtr.cl" no es "clarovtr.cl".
     expect(esDominioPermitido('persona@noclarovtr.cl', 'clarovtr.cl')).toBe(false)

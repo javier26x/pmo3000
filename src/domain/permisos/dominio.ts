@@ -4,7 +4,7 @@
  * Dos puertas, y las dos se validan igual en el cliente (para dar un mensaje
  * claro antes de intentar) y en firestore.rules (que es donde de verdad cuenta):
  *
- * 1. Los dominios corporativos: cualquier correo @clarovtr.cl o @claro.cl.
+ * 1. Los dominios corporativos: cualquier correo @clarovtr.cl, @e.clarovtr.cl o @claro.cl.
  * 2. Una lista corta de correos externos autorizados, que además entran como
  *    administradores. Existe para resolver el arranque: alguien tiene que poder
  *    administrar la instalación antes de que exista el primer administrador, y

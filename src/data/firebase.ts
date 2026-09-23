@@ -30,7 +30,7 @@ export const AJUSTES = {
   dominiosPermitidos: listaDeDominios(
     import.meta.env.VITE_DOMINIOS_PERMITIDOS ??
       import.meta.env.VITE_DOMINIO_PERMITIDO ??
-      'clarovtr.cl,claro.cl',
+      'clarovtr.cl,e.clarovtr.cl,claro.cl',
   ),
   // Correos externos autorizados que además entran como administradores.
   // La misma lista tiene que estar en firestore.rules: ver el comentario de

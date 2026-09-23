@@ -19,7 +19,7 @@ const ARCHIVO = '.env.production'
 
 /** Valores que son decision nuestra, no del proyecto, y que se conservan si ya estan. */
 const PROPIOS = {
-  VITE_DOMINIOS_PERMITIDOS: 'clarovtr.cl,claro.cl',
+  VITE_DOMINIOS_PERMITIDOS: 'clarovtr.cl,e.clarovtr.cl,claro.cl',
   VITE_CORREOS_ADMIN: '',
   VITE_MICROSOFT_TENANT: '',
 } as const

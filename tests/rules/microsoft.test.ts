@@ -59,6 +59,22 @@ describe('ingreso con Microsoft 365', () => {
     )
   })
 
+  it('y una cuenta @e.clarovtr.cl', async () => {
+    await assertSucceeds(
+      comoMicrosoft('persona@e.clarovtr.cl', 'u-ms4')
+        .doc('usuarios/u-ms4')
+        .set(perfilLector('persona@e.clarovtr.cl')),
+    )
+  })
+
+  it('pero no otro subdominio', async () => {
+    await assertFails(
+      comoMicrosoft('persona@x.clarovtr.cl', 'u-ms5')
+        .doc('usuarios/u-ms5')
+        .set(perfilLector('persona@x.clarovtr.cl')),
+    )
+  })
+
   it('pero no un dominio parecido', async () => {
     await assertFails(
       comoMicrosoft('persona@claro.com', 'u-ms3')
