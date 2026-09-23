@@ -130,6 +130,12 @@ importación sea idempotente: reimportar la misma planilla actualiza, no duplica
 
 El id es compuesto, así que también es idempotente. Aquí viven los gates.
 
+En un tracker donde cada fila es una intervención y no un sitio (el control de
+RWK, ver `domain/tracker/perfiles.ts`) el id es
+`proyectoId__sitioId__<tipo>-<año>` (por ejemplo `…__13_937__desarme-2025`): el
+Desarme y el RWK del mismo sitio son dos seguimientos. `sitioId` sigue siendo el
+del sitio, y `sitioNombre` lleva la intervención ("Enea · Desarme 2025").
+
 **Referencias:** `sitioId`, `proyectoId`, `programaId`, `portafolioId`,
 `celulaId`, `proveedorId`, `responsableUid`.
 

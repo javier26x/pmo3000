@@ -257,6 +257,7 @@ const REGLAS: { estado: EstadoSemantico; prueba: (t: string) => boolean }[] = [
   // como cerrado daba por terminadas obras que nadie registro. Es falta de dato.
   { estado: 'no_recibido', prueba: (t) => t === '0' },
   { estado: 'no_aplica', prueba: (t) => t === '-' || /\bno\s+aplica\b/.test(t) },
+  { estado: 'no_aplica', prueba: (t) => t === 'n/a' || t === 'na' },
   // "Contrato Post RFI": el contrato se firma despues del RFI por acuerdo. No
   // falta nada ahora, asi que no debe frenar ni contar como pendiente.
   { estado: 'no_aplica', prueba: (t) => /\bpost rfi\b/.test(t) },

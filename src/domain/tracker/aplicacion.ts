@@ -13,7 +13,7 @@
  */
 import type { FechaISO } from '@/domain/fechas'
 import type { TipoEtapa } from '@/domain/gates/catalogo'
-import { coercionar, type ValorCampo } from './campos'
+import { coercionar, idDeEncabezado, type ValorCampo } from './campos'
 import {
   clasificarEstado,
   combinarTecnologias,
@@ -33,6 +33,7 @@ import {
   type PlantillaInferida,
 } from './inferencia'
 import { condicionDelSitio, type CondicionSitio } from './estadoSitio'
+import { etapaAplica, leerHito } from './perfiles'
 
 /** Un sitio del maestro, tal como sale de la fila. */
 export interface SitioDeFila {
@@ -91,6 +92,12 @@ export interface FilaTracker {
   /** 4G, 4G/5G, 5G o Indoor, segun los estados consolidados de las etapas. */
   tecnologia?: Tecnologia | null
   calidad?: CalidadDeFila
+  /**
+   * La fila es una intervencion sobre el sitio (perfiles.ts), no el sitio: el
+   * seguimiento se guarda con esta clave para que un Desarme y un RWK del mismo
+   * sitio no se pisen.
+   */
+  intervencion?: { clave: string; etiqueta: string }
 }
 
 const CERRADO = 'CERRADO'
@@ -126,6 +133,8 @@ export interface IndiceColumnas {
    * usa en las etapas que cierran con fecha (EtapaInferida.cierraConFecha).
    */
   fechaEtapa: Map<string, number>
+  /** Columnas de estado que son pasos de un perfil: se leen con leerHito. */
+  hitos: Set<number>
   campos: ColumnaInferida[]
 }
 
@@ -146,6 +155,7 @@ export function indexarColumnas(plantilla: PlantillaInferida): IndiceColumnas {
     fechas: new Map(),
     resumenEtapa: new Map(),
     fechaEtapa: new Map(),
+    hitos: new Set(plantilla.columnas.filter((c) => c.hito === true).map((c) => c.indice)),
     campos: [],
   }
 
@@ -263,7 +273,9 @@ export function convertirFila(
   const celda = (i: number | undefined) => (i === undefined ? null : (fila[i] ?? null))
 
   const sitio: SitioDeFila = {
-    id: textoDe(celda(plantilla.identidad.id)),
+    // El ID es el id del documento en Firestore, que no admite "/". El control
+    // de RWK trae sitios dobles como "01_022/01S_004".
+    id: textoDe(celda(plantilla.identidad.id)).replace(/\//g, '-'),
     nombre: textoDe(celda(plantilla.identidad.nombre)),
     region: textoDe(celda(plantilla.identidad.region)),
     comuna: textoDe(celda(plantilla.identidad.comuna)),
@@ -301,13 +313,34 @@ export function convertirFila(
   // secuencial cerrada con 5G (ver la regla de tecnologia mas abajo).
   const reabiertasPor4g: number[] = []
   let ultimaCerrada5g = -1
+
+  // Formato conocido (perfiles.ts): que etapas corren para el tipo de
+  // intervencion de la fila, y si su estatus ya la da por terminada.
+  const perfil = plantilla.perfil
+  const tipoIntervencion = perfil?.tipo != null ? textoDe(celda(perfil.tipo)) : ''
+  const terminada =
+    perfil?.estatus != null &&
+    new RegExp(perfil.terminado).test(normalizarTexto(textoDe(celda(perfil.estatus))))
+
   const etapas: EtapaDeFila[] = plantilla.etapas.map((etapa, indiceEtapa) => {
     const revisiones: Record<string, RevisionDeFila> = {}
     const clasificaciones: EstadoSemantico[] = []
     let fechaMaxima: FechaISO | null = null
+    const reglaPerfil = perfil?.etapas[etapa.nombre]
+    const aplica = etapaAplica(reglaPerfil?.aplica, tipoIntervencion)
 
     for (const revision of etapa.revisiones) {
       const k = llave(etapa.nombre, revision.nombre)
+      const iHito = indice.estados.get(k)
+      if (iHito !== undefined && indice.hitos.has(iHito)) {
+        const hito = leerHito(celda(iHito), aplica)
+        if (hito.fecha !== null && (fechaMaxima === null || hito.fecha > fechaMaxima)) {
+          fechaMaxima = hito.fecha
+        }
+        revisiones[revision.id] = hito
+        clasificaciones.push(clasificarEstado(hito.estado, homologacion))
+        continue
+      }
       const estado = estadoDeCelda(indice.estados.get(k))
       const comentario = textoDe(celda(indice.comentarios.get(k)))
       const crudoFecha = celda(indice.fechas.get(k))
@@ -366,6 +399,12 @@ export function convertirFila(
       }
     }
 
+    // Una etapa de cierre solo cierra con el estatus, y una intervencion
+    // terminada cierra entera: en las mas antiguas nadie lleno las columnas de
+    // cada paso, pero el estatus dice que se hizo.
+    if (reglaPerfil?.cierraConEstatus === true) cerrada = terminada
+    if (terminada) cerrada = true
+
     return {
       codigo: codigoDeEtapa(etapa),
       nombre: etapa.nombre,
@@ -406,6 +445,9 @@ export function convertirFila(
       .map((e) => tecnologiaDe(textoDe(celda(indice.resumenEtapa.get(e.nombre))))),
   )
 
+  const anio = perfil?.anio != null ? textoDe(celda(perfil.anio)) : ''
+  const etiqueta = [tipoIntervencion, anio].filter((t) => t !== '').join(' ')
+
   return {
     sitio,
     valores,
@@ -416,6 +458,9 @@ export function convertirFila(
     estadoSitioTracker,
     tecnologia,
     calidad,
+    ...(perfil !== undefined && etiqueta !== ''
+      ? { intervencion: { clave: idDeEncabezado(etiqueta), etiqueta } }
+      : {}),
   }
 }
 

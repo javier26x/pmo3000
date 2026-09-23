@@ -28,6 +28,7 @@ import {
   type TipoCampo,
 } from './campos'
 import { normalizarTexto } from './estados'
+import { perfilDeEncabezados, ubicarColumna, type PerfilAplicado } from './perfiles'
 import type { TipoEtapa } from '@/domain/gates/catalogo'
 
 // --------------------------------------------------------------- identidad
@@ -223,8 +224,9 @@ export function inferirTipo(
   if (llenos.length === 0) return { tipo: 'texto', opciones: [] }
 
   const encabezadoDeFecha = RE_FECHA_ENCABEZADO.test(encabezado)
-  const fechas = llenos.filter((v) => esFecha(v) || (encabezadoDeFecha && esSerialDeFecha(v)))
-    .length
+  const fechas = llenos.filter(
+    (v) => esFecha(v) || (encabezadoDeFecha && esSerialDeFecha(v)),
+  ).length
   if (fechas / llenos.length >= 0.8) return { tipo: 'fecha', opciones: [] }
 
   const semanas = llenos.filter(
@@ -298,6 +300,11 @@ export interface ColumnaInferida {
   ejemplos: string[]
   /** Cuantas celdas no se pudieron convertir al tipo propuesto. */
   noConvertibles: number
+  /**
+   * La columna es un paso de un perfil (ver perfiles.ts): su celda trae la
+   * fecha, el "OK" o la nota del paso, y se lee con leerHito.
+   */
+  hito?: true
 }
 
 export interface EtapaInferida {
@@ -329,6 +336,8 @@ export interface PlantillaInferida {
   identidad: Partial<Record<ClaveIdentidad, number>>
   condicion: CondicionInferida
   avisos: string[]
+  /** El formato conocido que se reconocio, si el archivo no trae columnas "Status". */
+  perfil?: PerfilAplicado
 }
 
 /**
@@ -392,9 +401,7 @@ function etapaMencionada(
 ): string | null {
   const texto = normalizarTexto(encabezado)
   const calzan = etapas.filter((etapa) =>
-    tokensDeEtapa(etapa).some((token) =>
-      calzaPalabra(texto, token),
-    ),
+    tokensDeEtapa(etapa).some((token) => calzaPalabra(texto, token)),
   )
   if (calzan.length === 0) return null
   // Se mira cada forma de nombrar la etapa, no solo el nombre bueno: la etapa
@@ -591,7 +598,7 @@ export function inferirPlantilla(
     })
   }
 
-  const etapas: EtapaInferida[] = [...etapasPorNombre.entries()]
+  let etapas: EtapaInferida[] = [...etapasPorNombre.entries()]
     .sort((a, b) => a[1].orden - b[1].orden)
     .map(([nombre, datosEtapa], orden) => ({
       id: idUnico(nombre, new Set()),
@@ -601,6 +608,55 @@ export function inferirPlantilla(
       revisiones: [...datosEtapa.revisiones.entries()].map(([id, nom]) => ({ id, nombre: nom })),
       ...(nombre === ETAPA_ON_AIR && conOnAir ? { cierraConFecha: true } : {}),
     }))
+
+  // 2b. Sin columnas "Status", un formato conocido (perfiles.ts) declara las
+  //     etapas y que columna es cada paso. Solo entonces: un tracker de
+  //     despliegue se sigue leyendo por sus "Status" aunque comparta encabezados.
+  const hitos = new Map<number, { etapa: string; revision: string }>()
+  let perfil: PerfilAplicado | undefined
+  const reconocido = etapas.length === 0 ? perfilDeEncabezados(encabezados) : null
+  if (reconocido !== null) {
+    const indiceDe = (u: Parameters<typeof ubicarColumna>[1]) => {
+      const i = ubicarColumna(encabezados, u)
+      return i < 0 ? null : i
+    }
+    etapas = reconocido.etapas.map((etapa, orden) => {
+      const revisiones: { id: string; nombre: string }[] = []
+      const tomados = new Set<string>()
+      for (const hito of etapa.hitos) {
+        const i = ubicarColumna(encabezados, hito.columna)
+        if (i < 0 || hitos.has(i)) continue
+        hitos.set(i, { etapa: etapa.nombre, revision: hito.nombre })
+        const id = idUnico(hito.nombre, tomados)
+        tomados.add(id)
+        revisiones.push({ id, nombre: hito.nombre })
+      }
+      return {
+        id: idUnico(etapa.nombre, new Set()),
+        nombre: etapa.nombre,
+        orden,
+        tipo: etapa.tipo,
+        revisiones,
+      }
+    })
+    perfil = {
+      id: reconocido.id,
+      nombre: reconocido.nombre,
+      estatus: indiceDe(reconocido.estatus),
+      terminado: reconocido.terminado,
+      tipo: indiceDe(reconocido.intervencion.tipo),
+      anio: indiceDe(reconocido.intervencion.anio),
+      etapas: Object.fromEntries(
+        reconocido.etapas.map((e) => [
+          e.nombre,
+          {
+            ...(e.aplica ? { aplica: e.aplica } : {}),
+            ...(e.cierraConEstatus ? { cierraConEstatus: true } : {}),
+          },
+        ]),
+      ),
+    }
+  }
 
   if (etapas.length === 0) {
     avisos.push(
@@ -626,6 +682,9 @@ export function inferirPlantilla(
     encabezados.findIndex((enc) => enc !== '' && alias.includes(normalizarTexto(enc)))
   const iVigencia = buscar(ALIAS_VIGENCIA)
   if (iVigencia >= 0) condicion.vigencia = iVigencia
+  // En un perfil el estatus de la fila hace de vigencia: "Fuera de plan" la
+  // deja no vigente (ver condicionDelSitio).
+  else if (perfil?.estatus != null) condicion.vigencia = perfil.estatus
   const iFase = buscar(ALIAS_FASE)
   if (iFase >= 0) condicion.fase = iFase
   const iEstadoSitio = encabezados.findIndex((enc) => enc !== '' && RE_ESTADO_SITIO.test(enc))
@@ -643,12 +702,13 @@ export function inferirPlantilla(
   const nombresEtapa = etapas.map((e) => e.nombre)
   const idsTomados = new Set<string>()
   const indicesIdentidad = new Set(Object.values(identidad))
-  const etapaPorColumna = asignarColumnasAEtapas(
-    encabezados,
-    nombresEtapa,
-    disciplinas,
-    indicesIdentidad,
-  )
+  // Con un perfil, cada paso ya sabe su etapa. Buscar menciones sueltas del
+  // nombre de la etapa solo confundiria: "Acta Firmada" es de la auditoria, no
+  // de la etapa Acta.
+  const etapaPorColumna =
+    perfil !== undefined
+      ? new Map<number, string>()
+      : asignarColumnasAEtapas(encabezados, nombresEtapa, disciplinas, indicesIdentidad)
   const columnas: ColumnaInferida[] = []
 
   encabezados.forEach((enc, i) => {
@@ -670,9 +730,10 @@ export function inferirPlantilla(
     if (i === condicion.estadoSitio || i === condicion.vigencia) etapa = null
 
     const revision =
-      RE_ESTADO.test(enc) && i !== condicion.estadoSitio
+      hitos.get(i)?.revision ??
+      (RE_ESTADO.test(enc) && i !== condicion.estadoSitio
         ? (partirEncabezadoDeEstado(enc, disciplinas)?.revision ?? null)
-        : null
+        : null)
 
     let rol: RolColumna = indicesIdentidad.has(i) ? 'identidad' : rolDe(enc, tipo)
     if (i === condicion.estadoSitio) {
@@ -692,6 +753,13 @@ export function inferirPlantilla(
       ops = [...new Set(llenos.map((v) => String(v).trim()))].sort()
     } else if (esOnAir) {
       rol = 'fecha'
+    }
+    const hito = indicesIdentidad.has(i) ? undefined : hitos.get(i)
+    if (hito !== undefined) {
+      etapa = hito.etapa
+      rol = 'estado'
+      tipo = 'estado'
+      ops = []
     }
     const noConvertibles = llenos.filter((v) => !coercionar(tipo, v).ok).length
 
@@ -718,6 +786,7 @@ export function inferirPlantilla(
         maximoEjemplos,
       ),
       noConvertibles,
+      ...(hito !== undefined ? { hito: true as const } : {}),
     })
   })
 
@@ -726,5 +795,13 @@ export function inferirPlantilla(
   // congelado al momento de inferir seguiria nombrando una columna ya
   // arreglada. Se deriva de `columnas` donde se muestra.
 
-  return { filaEncabezado, etapas, columnas, identidad, condicion, avisos }
+  return {
+    filaEncabezado,
+    etapas,
+    columnas,
+    identidad,
+    condicion,
+    avisos,
+    ...(perfil !== undefined ? { perfil } : {}),
+  }
 }

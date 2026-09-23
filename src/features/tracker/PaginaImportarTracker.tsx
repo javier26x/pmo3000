@@ -349,6 +349,9 @@ export default function PaginaImportarTracker() {
                 <Insignia tono="neutro">{filasDatos.length} filas</Insignia>
                 <Insignia tono="neutro">{propuesta.etapas.length} etapas</Insignia>
                 <Insignia tono="neutro">{propuesta.columnas.length} columnas</Insignia>
+                {propuesta.perfil && (
+                  <Insignia tono="info">Formato reconocido: {propuesta.perfil.nombre}</Insignia>
+                )}
                 <span className="text-xs text-texto-3">
                   encabezado en la fila {propuesta.filaEncabezado + 1}
                 </span>

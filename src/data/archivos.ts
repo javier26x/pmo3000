@@ -118,7 +118,10 @@ export async function leerHojaCruda(archivo: File, hojaPedida?: string): Promise
   const XLSX = await import('@e965/xlsx')
   const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array', cellDates: true })
   const hojas = libro.SheetNames
-  const hoja = hojaPedida && hojas.includes(hojaPedida) ? hojaPedida : elegirHoja(hojas, libro)
+  const hoja =
+    hojaPedida && hojas.includes(hojaPedida)
+      ? hojaPedida
+      : ((await hojaDePerfil(hojas, libro)) ?? elegirHoja(hojas, libro))
   const pagina = libro.Sheets[hoja]
   if (!pagina) throw new Error(`No se pudo leer la hoja "${hoja}"`)
 
@@ -127,6 +130,33 @@ export async function leerHojaCruda(archivo: File, hojaPedida?: string): Promise
     .filter(Array.isArray)
 
   return { nombre: archivo.name, hoja, hojas, filas }
+}
+
+/**
+ * La hoja cuyo encabezado es el de un formato conocido (domain/tracker/perfiles).
+ *
+ * El control de RWK trae veintisiete hojas y la mas grande es un inventario de
+ * gabinetes: por tamano se eligiria mal. Solo se leen las primeras filas de
+ * cada hoja, que es donde esta el encabezado.
+ */
+async function hojaDePerfil(
+  hojas: readonly string[],
+  libro: { Sheets: Record<string, unknown> },
+): Promise<string | null> {
+  const XLSX = await import('@e965/xlsx')
+  const { hojaTienePerfil } = await import('@/domain/tracker/perfiles')
+  for (const nombre of hojas) {
+    const pagina = libro.Sheets[nombre] as Parameters<typeof XLSX.utils.sheet_to_json>[0]
+    const ref = (pagina as { '!ref'?: string } | undefined)?.['!ref']
+    if (ref === undefined) continue
+    const rango = XLSX.utils.decode_range(ref)
+    rango.e.r = Math.min(rango.e.r, rango.s.r + 11)
+    const primeras = XLSX.utils
+      .sheet_to_json<unknown[]>(pagina, { header: 1, raw: true, defval: null, range: rango })
+      .filter(Array.isArray)
+    if (hojaTienePerfil(primeras)) return nombre
+  }
+  return null
 }
 
 /**

@@ -221,7 +221,15 @@ export async function ejecutarImportacionTracker(
       // ya este en el proyecto: entonces salio del plan (paso a On Hold, a No
       // Vigente o a otro plan) y se actualiza como no vigente. Si se la saltara,
       // el sitio quedaria congelado en la app como si siguiera en curso.
-      const idSeguimiento = idSitioProyecto(destino.proyectoId, fila.sitio.id)
+      // Si la fila es una intervencion (control de RWK), el seguimiento lleva su
+      // tipo y ano: el Desarme 2025 y el RWK 2026 del mismo sitio son dos.
+      const idSeguimiento = idSitioProyecto(
+        destino.proyectoId,
+        fila.intervencion ? `${fila.sitio.id}__${fila.intervencion.clave}` : fila.sitio.id,
+      )
+      const nombreSeguimiento =
+        (fila.sitio.nombre || fila.sitio.id) +
+        (fila.intervencion ? ` · ${fila.intervencion.etiqueta}` : '')
       const existe = existentes.has(idSeguimiento)
       const enPlan = filaEnPlan(fila, destino.filtro)
       if (!enPlan && !existe) {
@@ -283,10 +291,7 @@ export async function ejecutarImportacionTracker(
       // construirGates devuelve el mapa suelto que va a Firestore (valores
       // `unknown`), no GateSitio ya normalizado; el cast solo afirma lo que esa
       // funcion acaba de construir tres lineas mas arriba.
-      const copias = camposGateActual(
-        gates as Partial<Record<string, GateSitio>>,
-        fila.etapaActual,
-      )
+      const copias = camposGateActual(gates as Partial<Record<string, GateSitio>>, fila.etapaActual)
 
       // El tracker manda en el avance (etapas, vigencia, bloqueo), pero lo que se
       // decide en la app —celula, responsable, proveedor, prioridad— y el sello
@@ -318,7 +323,7 @@ export async function ejecutarImportacionTracker(
           programaId: destino.programaId,
           portafolioId: destino.portafolioId,
           ...soloAlCrear,
-          sitioNombre: fila.sitio.nombre || fila.sitio.id,
+          sitioNombre: nombreSeguimiento,
           region: fila.sitio.region,
           comuna: fila.sitio.comuna,
           lat: fila.sitio.lat ?? 0,
