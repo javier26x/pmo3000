@@ -169,7 +169,15 @@ export function PaginaSitio() {
                 Eliminar
               </Boton>
             )}
-            <EnlaceBoton to="/mapa" tamano="sm">
+            {/* El mapa vuela al sitio y lo marca (ver EnfoqueSitio en PaginaMapa). */}
+            <EnlaceBoton
+              to={`/mapa?${new URLSearchParams({
+                sitio: sitio.id,
+                lat: String(sitio.lat),
+                lon: String(sitio.lon),
+              }).toString()}`}
+              tamano="sm"
+            >
               Ver en el mapa
             </EnlaceBoton>
           </span>

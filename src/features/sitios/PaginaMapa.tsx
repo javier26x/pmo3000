@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -53,6 +54,38 @@ function DetectorDeTeselas({ onFallar }: { onFallar: () => void }) {
       mapa.eachLayer((capa) => capa.off('tileerror', alFallar))
     }
   }, [mapa, onFallar])
+
+  return null
+}
+
+/** Zoom al abrir el mapa desde un sitio: se ve la manzana y el sitio sale del cluster. */
+const ZOOM_SITIO = 17
+
+/**
+ * Lleva el mapa al sitio que pide la URL (`/mapa?sitio=…&lat=…&lon=…`, el enlace
+ * "Ver en el mapa" de la ficha) y lo marca con un anillo. Las coordenadas viajan
+ * en el enlace para que funcione aunque el sitio quede fuera de los filtros (no
+ * vigente, de otro proyecto): el punto se muestra igual.
+ */
+function EnfoqueSitio({ lat, lon }: { lat: number; lon: number }) {
+  const mapa = useMap()
+
+  useEffect(() => {
+    mapa.flyTo([lat, lon], ZOOM_SITIO, { duration: 0.8 })
+    // Leaflet escribe el color como atributo SVG, donde var() no se resuelve.
+    const acento =
+      getComputedStyle(document.documentElement).getPropertyValue('--acento').trim() || '#da291c'
+    const anillo = L.circleMarker([lat, lon], {
+      radius: 16,
+      weight: 3,
+      color: acento,
+      fill: false,
+      interactive: false,
+    }).addTo(mapa)
+    return () => {
+      anillo.remove()
+    }
+  }, [mapa, lat, lon])
 
   return null
 }
@@ -150,7 +183,7 @@ export default function PaginaMapa() {
   const { nombrePrograma, nombreProveedor, etapas } = useCatalogos()
   const [modo, setModo] = useState<ModoColor>('gate')
   useTituloPagina('Mapa')
-  const [elegido, setElegido] = useState<SitioProyecto | null>(null)
+  const [elegidoManual, setElegido] = useState<SitioProyecto | null>(null)
   const [sinTeselas, setSinTeselas] = useState(false)
   const marcarSinTeselas = useCallback(() => setSinTeselas(true), [])
 
@@ -158,6 +191,33 @@ export default function PaginaMapa() {
     () => visibles.filter((sp) => sp.lat !== 0 || sp.lon !== 0),
     [visibles],
   )
+
+  // Sitio pedido por la URL: se enfoca y, si esta entre los cargados, se abre su
+  // detalle una sola vez (despues quien mira puede cerrarlo o elegir otro).
+  const [params] = useSearchParams()
+  const sitioPedido = params.get('sitio')
+  const latPedida = Number(params.get('lat'))
+  const lonPedida = Number(params.get('lon'))
+  const enfoque =
+    sitioPedido &&
+    Number.isFinite(latPedida) &&
+    Number.isFinite(lonPedida) &&
+    (latPedida !== 0 || lonPedida !== 0)
+      ? { lat: latPedida, lon: lonPedida }
+      : null
+  // Se deriva en vez de copiarlo a un estado: el detalle del sitio pedido se
+  // muestra hasta que alguien lo cierra o elige otro punto.
+  const [descartado, setDescartado] = useState<string | null>(null)
+  const pedido =
+    sitioPedido && descartado !== sitioPedido
+      ? (conCoordenadas.find((s) => s.sitioId === sitioPedido) ?? null)
+      : null
+  const elegido = elegidoManual ?? pedido
+  const elegir = useCallback((sp: SitioProyecto) => setElegido(sp), [])
+  const cerrarDetalle = () => {
+    setElegido(null)
+    setDescartado(sitioPedido)
+  }
 
   const estadoElegido = elegido ? semaforoDeSeguimiento(elegido, hoy) : null
 
@@ -213,9 +273,10 @@ export default function PaginaMapa() {
             modo={modo}
             hoy={hoy}
             etapas={etapas}
-            onElegir={setElegido}
+            onElegir={elegir}
           />
           <DetectorDeTeselas onFallar={marcarSinTeselas} />
+          {enfoque && <EnfoqueSitio lat={enfoque.lat} lon={enfoque.lon} />}
         </MapContainer>
 
         {sinTeselas && (
@@ -276,7 +337,7 @@ export default function PaginaMapa() {
                 tamano="sm"
                 soloIcono
                 aria-label="Cerrar detalle"
-                onClick={() => setElegido(null)}
+                onClick={cerrarDetalle}
                 icono={<X aria-hidden className="size-4" />}
               />
             </div>
