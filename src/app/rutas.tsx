@@ -18,6 +18,8 @@ const cargarKanban = () => import('@/features/kanban/PaginaKanban')
 const cargarAuditoria = () => import('@/features/auditoria/PaginaAuditoria')
 const cargarUsuarios = () => import('@/features/admin/PaginaUsuarios')
 const cargarConfiguracion = () => import('@/features/admin/PaginaConfiguracion')
+const cargarProyectos = () => import('@/features/proyectos/PaginaProyectos')
+const cargarProyecto = () => import('@/features/proyectos/PaginaProyecto')
 // La ficha del sitio y la del seguimiento son las dos pantallas mas pesadas que
 // quedaban en el trozo inicial (la del seguimiento arrastra la maquina de gates,
 // el checklist, las revisiones y el historial). Se llega a ellas con un clic
@@ -36,6 +38,10 @@ const PaginaUsuarios = lazy(() => cargarUsuarios().then((m) => ({ default: m.Pag
 const PaginaConfiguracion = lazy(() =>
   cargarConfiguracion().then((m) => ({ default: m.PaginaConfiguracion })),
 )
+const PaginaProyectos = lazy(() =>
+  cargarProyectos().then((m) => ({ default: m.PaginaProyectos })),
+)
+const PaginaProyecto = lazy(() => cargarProyecto().then((m) => ({ default: m.PaginaProyecto })))
 const PaginaSitio = lazy(() => cargarSitio().then((m) => ({ default: m.PaginaSitio })))
 const PaginaSeguimiento = lazy(() =>
   cargarSeguimiento().then((m) => ({ default: m.PaginaSeguimiento })),
@@ -57,6 +63,7 @@ function precargarPantallas(): void {
     cargarMapa,
     cargarAyuda,
     cargarConfiguracion,
+    cargarProyectos,
     cargarUsuarios,
     cargarAuditoria,
     cargarTracker,
@@ -136,6 +143,22 @@ export function Rutas() {
           />
           <Route path="/kanban" element={<PaginaKanban />} />
           <Route path="/pendientes" element={<PaginaPendientes />} />
+          <Route
+            path="/proyectos"
+            element={
+              <Suspense fallback={<Cargando texto="Cargando proyectos…" />}>
+                <PaginaProyectos />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/proyectos/:proyectoId"
+            element={
+              <Suspense fallback={<Cargando texto="Abriendo el proyecto…" />}>
+                <PaginaProyecto />
+              </Suspense>
+            }
+          />
           <Route
             path="/importar"
             element={

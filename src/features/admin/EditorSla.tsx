@@ -27,7 +27,7 @@ function aDias(tabla: Tabla): Record<string, number> {
  * de las que usan sus sitios: un tracker importado trae su propia plantilla,
  * distinta de la del programa.
  */
-function etapasDelProyecto(
+export function etapasDelProyecto(
   proyecto: Proyecto,
   programas: readonly Programa[],
   plantillas: readonly GateTemplate[],

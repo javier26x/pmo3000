@@ -315,6 +315,23 @@ export const guardarFiltroTracker = (
     proyecto,
   )
 
+/** Cambia quien responde por el proyecto. Queda en la auditoria. */
+export const guardarResponsableProyecto = (
+  proyecto: Proyecto,
+  responsableUid: string | null,
+  actor: Actor,
+) =>
+  guardarCatalogo(
+    COLECCIONES.proyectos,
+    'proyecto',
+    proyecto.id,
+    { responsableUid },
+    proyecto.nombre,
+    actor,
+    false,
+    proyecto,
+  )
+
 /**
  * Guarda el SLA por etapa (y por celula) de un proyecto. Queda en la auditoria.
  *

@@ -8,7 +8,7 @@ import type { Area, Proyecto, Usuario } from '@/domain/tipos'
 import type { Actor } from '@/domain/tipos/comunes'
 
 /** Personas elegidas como chips, y un selector para agregar otra. */
-function SelectorPersonas({
+export function SelectorPersonas({
   elegidas,
   onCambiar,
   usuarios,

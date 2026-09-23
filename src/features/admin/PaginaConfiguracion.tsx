@@ -856,7 +856,7 @@ const TITULOS_ALTA: Record<TipoCatalogo, string> = {
  * o tres campos. Se monta al abrir, así el estado inicial sale del documento que
  * se edita (o vacío, en un alta).
  */
-function DialogoCatalogo({
+export function DialogoCatalogo({
   edicion,
   onCerrar,
   catalogos,

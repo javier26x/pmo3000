@@ -1,5 +1,6 @@
 import {
   FileSpreadsheet,
+  FolderKanban,
   ClipboardList,
   History,
   House,
@@ -26,6 +27,12 @@ export const NAVEGACION: ItemNavegacion[] = [
   { ruta: '/sitios', etiqueta: 'Sitios', icono: ClipboardList, requiere: ['sitios', 'ver'] },
   { ruta: '/mapa', etiqueta: 'Mapa', icono: MapaIcono, requiere: ['sitios', 'ver'] },
   { ruta: '/kanban', etiqueta: 'Kanban', icono: LayoutGrid, requiere: ['sitioProyectos', 'ver'] },
+  {
+    ruta: '/proyectos',
+    etiqueta: 'Proyectos',
+    icono: FolderKanban,
+    requiere: ['proyectos', 'ver'],
+  },
   { ruta: '/pendientes', etiqueta: 'Pendientes', icono: Inbox, requiere: ['areas', 'ver'] },
   { ruta: '/importar', etiqueta: 'Importar', icono: Upload, requiere: ['sitios', 'importar'] },
   {
