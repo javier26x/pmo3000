@@ -64,7 +64,7 @@ export function PaginaProyectos() {
         }
       />
 
-      <div className="p-4">
+      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto p-4">
         {filas.length === 0 ? (
           <EstadoVacio
             icono={<FolderKanban aria-hidden className="size-6" />}

@@ -129,224 +129,228 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
         }
       />
 
-      <div className="grid gap-4 p-4 lg:grid-cols-2">
-        {/* ------------------------------------------------ foto */}
-        <Bloque
-          icono={<Info aria-hidden className="size-4" />}
-          titulo="Cómo va"
-          className="lg:col-span-2"
-        >
-          {cargando ? (
-            <Cargando texto="Contando sitios…" />
-          ) : (
-            // Numeros a la izquierda y etapas a la derecha: apilados, la foto
-            // sola ocupaba media pantalla de notebook.
-            <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-              <div className="grid grid-cols-3 content-start gap-x-6 gap-y-3">
-                <Metrica etiqueta="Sitios vigentes" valor={r.vigentes} />
-                <Metrica etiqueta="Terminados" valor={r.cerrados} tono="ok" />
-                <Metrica
-                  etiqueta="Fuera de SLA"
-                  valor={proyecto.sla ? r.fueraDeSla : '—'}
-                  tono={r.fueraDeSla > 0 ? 'error' : 'neutro'}
-                />
-                <Metrica
-                  etiqueta="Por vencer"
-                  valor={proyecto.sla ? r.porVencer : '—'}
-                  tono={r.porVencer > 0 ? 'riesgo' : 'neutro'}
-                />
-                <Metrica etiqueta="En hold" valor={r.bloqueados} />
-                <Metrica etiqueta="No vigentes" valor={r.noVigentes} />
-              </div>
-              {r.porEtapa.length > 0 && (
-                <ul className="flex flex-col gap-1" aria-label="Sitios por etapa">
-                  {r.porEtapa.map((e) => (
-                    <li key={e.codigo} className="flex items-center gap-2 text-xs">
-                      <span className="w-32 shrink-0 truncate text-texto-2">
-                        {nombreGate(e.codigo, etapas)}
-                      </span>
-                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
-                        <span
-                          className="block h-full rounded-full bg-[var(--dato)]"
-                          style={{ width: `${(e.total / maxEtapa) * 100}%` }}
-                        />
-                      </span>
-                      <span className="w-10 text-right tabular-nums">{e.total}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {truncado && (
-                <p className="text-xs text-texto-3 lg:col-span-2">
-                  El despliegue tiene más sitios de los que se cargan de una vez: los números pueden
-                  quedarse cortos.
-                </p>
-              )}
-            </div>
-          )}
-        </Bloque>
-
-        {/* ------------------------------------------------ datos */}
-        <Bloque
-          icono={<Pencil aria-hidden className="size-4" />}
-          titulo="Datos del proyecto"
-          accion={puedeEditar ? <Boton onClick={() => setEditandoDatos(true)}>Editar</Boton> : null}
-        >
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt className="text-texto-3">Programa</dt>
-            <dd>{nombrePrograma(proyecto.programaId)}</dd>
-            <dt className="text-texto-3">Célula</dt>
-            <dd>{proyecto.celulaId ? nombreCelula(proyecto.celulaId) : '—'}</dd>
-            <dt className="text-texto-3">Proveedor</dt>
-            <dd>{proyecto.proveedorId ? nombreProveedor(proyecto.proveedorId) : '—'}</dd>
-            <dt className="text-texto-3">Fechas</dt>
-            <dd>
-              {proyecto.fechaInicio ? formatearFecha(proyecto.fechaInicio) : 'sin inicio'} →{' '}
-              {proyecto.fechaFin ? formatearFecha(proyecto.fechaFin) : 'sin término'}
-            </dd>
-            <dt className="self-center text-texto-3">Responsable</dt>
-            <dd>
-              {puedeEditar ? (
-                <div className="w-64 max-w-full">
-                  <Selector
-                    aria-label="Responsable del proyecto"
-                    value={proyecto.responsableUid ?? ''}
-                    onChange={(e) =>
-                      guardarResponsableProyecto(proyecto, e.target.value || null, actor)
-                        .then(() => avisar.ok('Responsable actualizado'))
-                        .catch((err) => avisar.error(mensajeDeError(err)))
-                    }
-                  >
-                    <option value="">Sin responsable</option>
-                    {internos.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nombre}
-                      </option>
-                    ))}
-                  </Selector>
+      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto">
+        <div className="grid gap-4 p-4 lg:grid-cols-2">
+          {/* ------------------------------------------------ foto */}
+          <Bloque
+            icono={<Info aria-hidden className="size-4" />}
+            titulo="Cómo va"
+            className="lg:col-span-2"
+          >
+            {cargando ? (
+              <Cargando texto="Contando sitios…" />
+            ) : (
+              // Numeros a la izquierda y etapas a la derecha: apilados, la foto
+              // sola ocupaba media pantalla de notebook.
+              <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                <div className="grid grid-cols-3 content-start gap-x-6 gap-y-3">
+                  <Metrica etiqueta="Sitios vigentes" valor={r.vigentes} />
+                  <Metrica etiqueta="Terminados" valor={r.cerrados} tono="ok" />
+                  <Metrica
+                    etiqueta="Fuera de SLA"
+                    valor={proyecto.sla ? r.fueraDeSla : '—'}
+                    tono={r.fueraDeSla > 0 ? 'error' : 'neutro'}
+                  />
+                  <Metrica
+                    etiqueta="Por vencer"
+                    valor={proyecto.sla ? r.porVencer : '—'}
+                    tono={r.porVencer > 0 ? 'riesgo' : 'neutro'}
+                  />
+                  <Metrica etiqueta="En hold" valor={r.bloqueados} />
+                  <Metrica etiqueta="No vigentes" valor={r.noVigentes} />
                 </div>
-              ) : (
-                nombreUsuario(proyecto.responsableUid)
-              )}
-            </dd>
-            {proyecto.descripcion && (
-              <>
-                <dt className="text-texto-3">Descripción</dt>
-                <dd className="text-texto-2">{proyecto.descripcion}</dd>
-              </>
-            )}
-          </dl>
-        </Bloque>
-
-        {/* ------------------------------------------------ SLA */}
-        <Bloque
-          icono={<Timer aria-hidden className="size-4" />}
-          titulo="SLA"
-          descripcion="Días que puede estar un sitio en cada etapa, contados desde que cerró la anterior."
-          accion={
-            puedeEditar ? (
-              <Boton onClick={() => setEditandoSla(true)}>
-                {proyecto.sla ? 'Editar' : 'Definir SLA'}
-              </Boton>
-            ) : null
-          }
-        >
-          {proyecto.sla === null ? (
-            <p className="text-sm text-texto-3">
-              Este proyecto no mide SLA: no hay semáforo de plazos para sus sitios.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2 text-sm">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left text-xs text-texto-3">
-                    <th className="pb-1 font-normal">Etapa</th>
-                    <th className="pb-1 text-right font-normal">Días</th>
-                    {Object.keys(proyecto.sla.porCelula).map((c) => (
-                      <th key={c} className="pb-1 text-right font-normal">
-                        {nombreCelula(c)}
-                      </th>
+                {r.porEtapa.length > 0 && (
+                  <ul className="flex flex-col gap-1" aria-label="Sitios por etapa">
+                    {r.porEtapa.map((e) => (
+                      <li key={e.codigo} className="flex items-center gap-2 text-xs">
+                        <span className="w-32 shrink-0 truncate text-texto-2">
+                          {nombreGate(e.codigo, etapas)}
+                        </span>
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
+                          <span
+                            className="block h-full rounded-full bg-[var(--dato)]"
+                            style={{ width: `${(e.total / maxEtapa) * 100}%` }}
+                          />
+                        </span>
+                        <span className="w-10 text-right tabular-nums">{e.total}</span>
+                      </li>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {etapasSla.map((e) => (
-                    <tr key={e.codigo} className="border-t border-borde">
-                      <td className="py-1">{e.nombre}</td>
-                      <td className="py-1 text-right tabular-nums">
-                        {proyecto.sla?.dias[e.codigo] ?? '—'}
-                      </td>
-                      {Object.entries(proyecto.sla?.porCelula ?? {}).map(([c, dias]) => (
-                        <td key={c} className="py-1 text-right tabular-nums text-texto-2">
-                          {dias[e.codigo] ?? '·'}
-                        </td>
+                  </ul>
+                )}
+                {truncado && (
+                  <p className="text-xs text-texto-3 lg:col-span-2">
+                    El despliegue tiene más sitios de los que se cargan de una vez: los números
+                    pueden quedarse cortos.
+                  </p>
+                )}
+              </div>
+            )}
+          </Bloque>
+
+          {/* ------------------------------------------------ datos */}
+          <Bloque
+            icono={<Pencil aria-hidden className="size-4" />}
+            titulo="Datos del proyecto"
+            accion={
+              puedeEditar ? <Boton onClick={() => setEditandoDatos(true)}>Editar</Boton> : null
+            }
+          >
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+              <dt className="text-texto-3">Programa</dt>
+              <dd>{nombrePrograma(proyecto.programaId)}</dd>
+              <dt className="text-texto-3">Célula</dt>
+              <dd>{proyecto.celulaId ? nombreCelula(proyecto.celulaId) : '—'}</dd>
+              <dt className="text-texto-3">Proveedor</dt>
+              <dd>{proyecto.proveedorId ? nombreProveedor(proyecto.proveedorId) : '—'}</dd>
+              <dt className="text-texto-3">Fechas</dt>
+              <dd>
+                {proyecto.fechaInicio ? formatearFecha(proyecto.fechaInicio) : 'sin inicio'} →{' '}
+                {proyecto.fechaFin ? formatearFecha(proyecto.fechaFin) : 'sin término'}
+              </dd>
+              <dt className="self-center text-texto-3">Responsable</dt>
+              <dd>
+                {puedeEditar ? (
+                  <div className="w-64 max-w-full">
+                    <Selector
+                      aria-label="Responsable del proyecto"
+                      value={proyecto.responsableUid ?? ''}
+                      onChange={(e) =>
+                        guardarResponsableProyecto(proyecto, e.target.value || null, actor)
+                          .then(() => avisar.ok('Responsable actualizado'))
+                          .catch((err) => avisar.error(mensajeDeError(err)))
+                      }
+                    >
+                      <option value="">Sin responsable</option>
+                      {internos.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.nombre}
+                        </option>
+                      ))}
+                    </Selector>
+                  </div>
+                ) : (
+                  nombreUsuario(proyecto.responsableUid)
+                )}
+              </dd>
+              {proyecto.descripcion && (
+                <>
+                  <dt className="text-texto-3">Descripción</dt>
+                  <dd className="text-texto-2">{proyecto.descripcion}</dd>
+                </>
+              )}
+            </dl>
+          </Bloque>
+
+          {/* ------------------------------------------------ SLA */}
+          <Bloque
+            icono={<Timer aria-hidden className="size-4" />}
+            titulo="SLA"
+            descripcion="Días que puede estar un sitio en cada etapa, contados desde que cerró la anterior."
+            accion={
+              puedeEditar ? (
+                <Boton onClick={() => setEditandoSla(true)}>
+                  {proyecto.sla ? 'Editar' : 'Definir SLA'}
+                </Boton>
+              ) : null
+            }
+          >
+            {proyecto.sla === null ? (
+              <p className="text-sm text-texto-3">
+                Este proyecto no mide SLA: no hay semáforo de plazos para sus sitios.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 text-sm">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-xs text-texto-3">
+                      <th className="pb-1 font-normal">Etapa</th>
+                      <th className="pb-1 text-right font-normal">Días</th>
+                      {Object.keys(proyecto.sla.porCelula).map((c) => (
+                        <th key={c} className="pb-1 text-right font-normal">
+                          {nombreCelula(c)}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="text-xs text-texto-3">
-                {proyecto.sla.habiles ? 'Días hábiles.' : 'Días corridos.'}
-                {Object.keys(proyecto.sla.porCelula).length > 0 &&
-                  ' «·» en una célula: usa el plazo general.'}
-              </p>
-            </div>
-          )}
-        </Bloque>
+                  </thead>
+                  <tbody>
+                    {etapasSla.map((e) => (
+                      <tr key={e.codigo} className="border-t border-borde">
+                        <td className="py-1">{e.nombre}</td>
+                        <td className="py-1 text-right tabular-nums">
+                          {proyecto.sla?.dias[e.codigo] ?? '—'}
+                        </td>
+                        {Object.entries(proyecto.sla?.porCelula ?? {}).map(([c, dias]) => (
+                          <td key={c} className="py-1 text-right tabular-nums text-texto-2">
+                            {dias[e.codigo] ?? '·'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-xs text-texto-3">
+                  {proyecto.sla.habiles ? 'Días hábiles.' : 'Días corridos.'}
+                  {Object.keys(proyecto.sla.porCelula).length > 0 &&
+                    ' «·» en una célula: usa el plazo general.'}
+                </p>
+              </div>
+            )}
+          </Bloque>
 
-        {/* ------------------------------------------------ revisores */}
-        <Bloque
-          icono={<ClipboardCheck aria-hidden className="size-4" />}
-          titulo="Quién revisa"
-          descripcion="Las personas que responden por cada área en este proyecto. Ven sus revisiones en Pendientes."
-          className="lg:col-span-2"
-        >
-          <RevisoresProyecto
-            proyecto={proyecto}
-            areas={areas.filter((a) => a.activa)}
-            usuarios={internos}
-            nombreUsuario={nombreUsuario}
-            puedeEditar={puedeHacer('areas', 'editar')}
-          />
-        </Bloque>
+          {/* ------------------------------------------------ revisores */}
+          <Bloque
+            icono={<ClipboardCheck aria-hidden className="size-4" />}
+            titulo="Quién revisa"
+            descripcion="Las personas que responden por cada área en este proyecto. Ven sus revisiones en Pendientes."
+            className="lg:col-span-2"
+          >
+            <RevisoresProyecto
+              proyecto={proyecto}
+              areas={areas.filter((a) => a.activa)}
+              usuarios={internos}
+              nombreUsuario={nombreUsuario}
+              puedeEditar={puedeHacer('areas', 'editar')}
+            />
+          </Bloque>
 
-        {/* ------------------------------------------------ tracker */}
-        <Bloque
-          icono={<FileSpreadsheet aria-hidden className="size-4" />}
-          titulo="Tracker"
-          descripcion="Qué filas del Excel son de este proyecto y con qué plantilla se leyeron."
-        >
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt className="text-texto-3">Filtro</dt>
-            <dd>
-              {proyecto.filtroTracker && proyecto.filtroTracker.planes.length > 0
-                ? `${proyecto.filtroTracker.planes.join(', ')}${
-                    proyecto.filtroTracker.soloVigentes ? ' · solo vigentes' : ''
-                  }`
-                : 'Entra todo el archivo'}
-            </dd>
-            <dt className="text-texto-3">Plantilla</dt>
-            <dd>
-              {r.plantillas.length === 0
-                ? 'Todavía no se importa ningún sitio'
-                : r.plantillas.map((id) => plantillaPorId(id)?.nombre ?? id).join(', ')}
-            </dd>
-          </dl>
-        </Bloque>
+          {/* ------------------------------------------------ tracker */}
+          <Bloque
+            icono={<FileSpreadsheet aria-hidden className="size-4" />}
+            titulo="Tracker"
+            descripcion="Qué filas del Excel son de este proyecto y con qué plantilla se leyeron."
+          >
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+              <dt className="text-texto-3">Filtro</dt>
+              <dd>
+                {proyecto.filtroTracker && proyecto.filtroTracker.planes.length > 0
+                  ? `${proyecto.filtroTracker.planes.join(', ')}${
+                      proyecto.filtroTracker.soloVigentes ? ' · solo vigentes' : ''
+                    }`
+                  : 'Entra todo el archivo'}
+              </dd>
+              <dt className="text-texto-3">Plantilla</dt>
+              <dd>
+                {r.plantillas.length === 0
+                  ? 'Todavía no se importa ningún sitio'
+                  : r.plantillas.map((id) => plantillaPorId(id)?.nombre ?? id).join(', ')}
+              </dd>
+            </dl>
+          </Bloque>
 
-        {/* ------------------------------------------------ acceso */}
-        <Bloque
-          icono={<KeyRound aria-hidden className="size-4" />}
-          titulo="Quién lo ve"
-          descripcion="Personas acotadas a este proyecto, a su programa o a su célula."
-          accion={
-            puedeHacer('usuarios', 'editar') ? (
-              <EnlaceBoton to="/usuarios">Usuarios</EnlaceBoton>
-            ) : null
-          }
-        >
-          <Acceso proyecto={proyecto} />
-        </Bloque>
+          {/* ------------------------------------------------ acceso */}
+          <Bloque
+            icono={<KeyRound aria-hidden className="size-4" />}
+            titulo="Quién lo ve"
+            descripcion="Personas acotadas a este proyecto, a su programa o a su célula."
+            accion={
+              puedeHacer('usuarios', 'editar') ? (
+                <EnlaceBoton to="/usuarios">Usuarios</EnlaceBoton>
+              ) : null
+            }
+          >
+            <Acceso proyecto={proyecto} />
+          </Bloque>
+        </div>
       </div>
 
       {editandoDatos && (
