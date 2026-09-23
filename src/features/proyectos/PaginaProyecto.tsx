@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import {
   ClipboardCheck,
   FileSpreadsheet,
   Info,
   KeyRound,
+  ListChecks,
+  MapPin,
   Pencil,
   Timer,
   Upload,
@@ -37,6 +39,8 @@ import { useActor, useSesion } from '@/hooks/useSesion'
 import { useMedidorSla } from '@/hooks/useSla'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { Bloque, TONO_ESTADO } from './comun'
+import { PlantillaDelProyecto } from './PlantillaDelProyecto'
+import { SitiosDelProyecto } from './SitiosDelProyecto'
 
 /**
  * Ficha de un proyecto: todo lo que se configura de el en un solo lugar.
@@ -162,17 +166,24 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
                 {r.porEtapa.length > 0 && (
                   <ul className="flex flex-col gap-1" aria-label="Sitios por etapa">
                     {r.porEtapa.map((e) => (
-                      <li key={e.codigo} className="flex items-center gap-2 text-xs">
-                        <span className="w-32 shrink-0 truncate text-texto-2">
-                          {nombreGate(e.codigo, etapas)}
-                        </span>
-                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
-                          <span
-                            className="block h-full rounded-full bg-[var(--dato)]"
-                            style={{ width: `${(e.total / maxEtapa) * 100}%` }}
-                          />
-                        </span>
-                        <span className="w-10 text-right tabular-nums">{e.total}</span>
+                      <li key={e.codigo}>
+                        {/* Cada etapa abre la lista de Sitios con sus sitios. */}
+                        <Link
+                          to={`/sitios?proy=${encodeURIComponent(proyecto.id)}&gate=${encodeURIComponent(e.codigo)}`}
+                          title={`Ver los sitios en ${nombreGate(e.codigo, etapas)}`}
+                          className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-superficie-2"
+                        >
+                          <span className="w-32 shrink-0 truncate text-texto-2">
+                            {nombreGate(e.codigo, etapas)}
+                          </span>
+                          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
+                            <span
+                              className="block h-full rounded-full bg-[var(--dato)]"
+                              style={{ width: `${(e.total / maxEtapa) * 100}%` }}
+                            />
+                          </span>
+                          <span className="w-10 text-right tabular-nums">{e.total}</span>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -184,6 +195,19 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
                   </p>
                 )}
               </div>
+            )}
+          </Bloque>
+
+          {/* ------------------------------------------------ sitios */}
+          <Bloque
+            icono={<MapPin aria-hidden className="size-4" />}
+            titulo="Sitios"
+            className="lg:col-span-2"
+          >
+            {cargando ? (
+              <Cargando texto="Cargando sitios…" />
+            ) : (
+              <SitiosDelProyecto proyectoId={proyecto.id} seguimientos={seguimientos} />
             )}
           </Bloque>
 
@@ -310,6 +334,27 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
               usuarios={internos}
               nombreUsuario={nombreUsuario}
               puedeEditar={puedeHacer('areas', 'editar')}
+            />
+          </Bloque>
+
+          {/* ------------------------------------------------ plantilla */}
+          <Bloque
+            icono={<ListChecks aria-hidden className="size-4" />}
+            titulo="Plantilla de gates"
+            descripcion="Las etapas por las que pasan los sitios de este proyecto. Es la misma plantilla de Configuración: lo que cambies se ve en los dos lados."
+            className="lg:col-span-2"
+          >
+            <PlantillaDelProyecto
+              proyecto={proyecto}
+              idsEnUso={r.plantillas}
+              plantillas={plantillas}
+              proyectos={catalogos.proyectos}
+              programaTemplateId={
+                programas.find((p) => p.id === proyecto.programaId)?.gateTemplateId ?? null
+              }
+              seguimientos={seguimientos}
+              puedeEditar={puedeHacer('gateTemplates', 'editar')}
+              actor={actor}
             />
           </Bloque>
 
