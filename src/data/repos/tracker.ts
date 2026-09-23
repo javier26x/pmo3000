@@ -28,6 +28,8 @@ import {
 import type { PlantillaInferida } from '@/domain/tracker/inferencia'
 import type { EstadoSemantico } from '@/domain/tracker/estados'
 import { estadoSitio } from '@/domain/tracker/estadoSitio'
+import { camposGateActual } from '@/domain/gates/maquina'
+import type { GateSitio } from '@/domain/tipos/sitioProyecto'
 import { estaEnAlcance } from '@/domain/permisos/alcance'
 import type { Actor, Prioridad } from '@/domain/tipos/comunes'
 
@@ -275,7 +277,16 @@ export async function ejecutarImportacionTracker(
         responsableUid: null,
         proveedorId: destino.proveedorId,
       })
-      const actual = gates[fila.etapaActual]
+      // Las tres copias del gate en curso salen del mismo sitio que en el resto
+      // de la app, para que una importacion no deje el documento distinto de lo
+      // que dejaria un avance hecho a mano.
+      // construirGates devuelve el mapa suelto que va a Firestore (valores
+      // `unknown`), no GateSitio ya normalizado; el cast solo afirma lo que esa
+      // funcion acaba de construir tres lineas mas arriba.
+      const copias = camposGateActual(
+        gates as Partial<Record<string, GateSitio>>,
+        fila.etapaActual,
+      )
 
       // El tracker manda en el avance (etapas, vigencia, bloqueo), pero lo que se
       // decide en la app —celula, responsable, proveedor, prioridad— y el sello
@@ -318,7 +329,7 @@ export async function ejecutarImportacionTracker(
           bloqueado,
           motivoBloqueo: bloqueado ? (fila.condicion?.motivoBloqueo ?? 'On Hold (tracker)') : null,
           vigente,
-          fechaPlanGateActual: (actual?.fechaPlan as string | null) ?? null,
+          ...copias,
           gates,
           ...pasos,
           valores,

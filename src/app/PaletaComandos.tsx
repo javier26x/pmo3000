@@ -21,10 +21,10 @@ import { useSesion } from '@/hooks/useSesion'
 import { ordenarPorCoincidencia, puntuar } from './coincidencia'
 import { usarTema } from './tema'
 import { NOMBRES_DENSIDAD, usarDensidad } from './densidad'
+import { leerRecientes, recordarSitio } from './sitiosRecientes'
 import type { Accion, Recurso } from '@/domain/permisos/matriz'
 
 const TOPE_SITIOS = 8
-const CLAVE_RECIENTES = 'pmo3000.sitiosRecientes'
 
 interface Comando {
   id: string
@@ -34,24 +34,6 @@ interface Comando {
   atajo?: string
   requiere?: [Recurso, Accion]
   ejecutar: () => void
-}
-
-export function leerRecientes(): string[] {
-  try {
-    const crudo = JSON.parse(localStorage.getItem(CLAVE_RECIENTES) ?? '[]')
-    return Array.isArray(crudo) ? crudo.filter((x): x is string => typeof x === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-export function recordarSitio(sitioId: string): void {
-  try {
-    const previos = leerRecientes().filter((id) => id !== sitioId)
-    localStorage.setItem(CLAVE_RECIENTES, JSON.stringify([sitioId, ...previos].slice(0, 6)))
-  } catch {
-    // sin almacenamiento: los recientes valen solo para esta sesión
-  }
 }
 
 /**

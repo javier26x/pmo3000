@@ -215,7 +215,6 @@ export function PaginaSitio() {
               <ul className="divide-y divide-borde">
                 {participaciones.datos.map((sp) => {
                   const dias = atrasoDeSeguimiento(sp, hoy)
-                  const gate = sp.gateActual === 'CERRADO' ? null : sp.gates[sp.gateActual]
                   const sla = medirSla(sp, hoy)
                   return (
                     <li
@@ -231,9 +230,9 @@ export function PaginaSitio() {
                         {nombreGate(sp.gateActual, etapas)}
                       </span>
                       {/* Solo lo que tiene dato: una fila de guiones no dice nada. */}
-                      {gate?.fechaPlan && (
+                      {sp.fechaPlanGateActual && (
                         <div className="text-xs text-texto-2">
-                          <p>Plan {formatearFecha(gate.fechaPlan)}</p>
+                          <p>Plan {formatearFecha(sp.fechaPlanGateActual)}</p>
                           <p className={dias !== null && dias > 0 ? 'text-[var(--error-fg)]' : ''}>
                             {textoAtraso(dias)}
                           </p>

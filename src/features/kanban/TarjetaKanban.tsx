@@ -4,11 +4,10 @@ import { useDraggable } from '@dnd-kit/core'
 import { GripVertical, Lock } from 'lucide-react'
 import { Insignia, cn } from '@/components/ui'
 import { formatearFecha } from '@/domain/fechas'
-import { semaforo, textoAtraso } from '@/domain/gates/atraso'
-import { CERRADO } from '@/domain/gates/catalogo'
+import { textoAtraso } from '@/domain/gates/atraso'
 import { NOMBRES_PRIORIDAD } from '@/domain/tipos/comunes'
 import type { SitioProyecto } from '@/domain/tipos/sitioProyecto'
-import { atrasoDeSeguimiento } from '@/domain/vistas/filtrado'
+import { atrasoDeSeguimiento, semaforoDeSeguimiento } from '@/domain/vistas/filtrado'
 
 const TONO_PRIORIDAD = {
   critica: 'error',
@@ -35,9 +34,8 @@ export const TarjetaKanban = memo(function TarjetaKanban({
     disabled: !arrastrable,
   })
 
-  const gate = sp.gateActual === CERRADO ? null : sp.gates[sp.gateActual]
   const dias = atrasoDeSeguimiento(sp, hoy)
-  const estado = semaforo(gate?.fechaPlan ?? null, gate?.fechaReal ?? null, hoy)
+  const estado = semaforoDeSeguimiento(sp, hoy)
 
   return (
     <article
@@ -92,7 +90,7 @@ export const TarjetaKanban = memo(function TarjetaKanban({
 
       <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-texto-3">
         <span className="truncate">{sp.comuna}</span>
-        <span>Plan {formatearFecha(gate?.fechaPlan ?? null)}</span>
+        <span>Plan {formatearFecha(sp.fechaPlanGateActual)}</span>
         <span className="truncate">{nombreProveedor}</span>
       </div>
     </article>

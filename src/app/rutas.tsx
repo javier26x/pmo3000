@@ -18,6 +18,14 @@ const cargarKanban = () => import('@/features/kanban/PaginaKanban')
 const cargarAuditoria = () => import('@/features/auditoria/PaginaAuditoria')
 const cargarUsuarios = () => import('@/features/admin/PaginaUsuarios')
 const cargarConfiguracion = () => import('@/features/admin/PaginaConfiguracion')
+// La ficha del sitio y la del seguimiento son las dos pantallas mas pesadas que
+// quedaban en el trozo inicial (la del seguimiento arrastra la maquina de gates,
+// el checklist, las revisiones y el historial). Se llega a ellas con un clic
+// desde la tabla, asi que el precargador las tiene listas antes de ese clic.
+const cargarSitio = () => import('@/features/sitios/PaginaSitio')
+const cargarSeguimiento = () => import('@/features/gates/PaginaSeguimiento')
+const cargarPaleta = () => import('./PaletaComandos')
+const cargarAyuda = () => import('./AyudaAtajos')
 
 const PaginaMapa = lazy(cargarMapa)
 const PaginaImportar = lazy(cargarImportar)
@@ -28,6 +36,10 @@ const PaginaUsuarios = lazy(() => cargarUsuarios().then((m) => ({ default: m.Pag
 const PaginaConfiguracion = lazy(() =>
   cargarConfiguracion().then((m) => ({ default: m.PaginaConfiguracion })),
 )
+const PaginaSitio = lazy(() => cargarSitio().then((m) => ({ default: m.PaginaSitio })))
+const PaginaSeguimiento = lazy(() =>
+  cargarSeguimiento().then((m) => ({ default: m.PaginaSeguimiento })),
+)
 
 /**
  * Precarga en segundo plano, cuando el navegador queda libre despues del primer
@@ -35,9 +47,15 @@ const PaginaConfiguracion = lazy(() =>
  * no espera la red: el modulo ya esta en cache cuando alguien hace clic.
  */
 function precargarPantallas(): void {
+  // En orden de probabilidad: del maestro se entra a una ficha mucho antes que
+  // al importador.
   const cargas = [
+    cargarSeguimiento,
+    cargarSitio,
     cargarKanban,
+    cargarPaleta,
     cargarMapa,
+    cargarAyuda,
     cargarConfiguracion,
     cargarUsuarios,
     cargarAuditoria,
@@ -68,8 +86,6 @@ if (typeof window !== 'undefined') precargarPantallas()
 
 import { PaginaInicio } from '@/features/inicio/PaginaInicio'
 import { PaginaSitios } from '@/features/sitios/PaginaSitios'
-import { PaginaSitio } from '@/features/sitios/PaginaSitio'
-import { PaginaSeguimiento } from '@/features/gates/PaginaSeguimiento'
 import { PaginaPendientes } from '@/features/pendientes/PaginaPendientes'
 
 /** Envuelve las rutas de la app con los proveedores de datos compartidos. */
@@ -94,8 +110,22 @@ export function Rutas() {
         <Route element={<AppProtegida />}>
           <Route index element={<PaginaInicio />} />
           <Route path="/sitios" element={<PaginaSitios />} />
-          <Route path="/sitios/:sitioId" element={<PaginaSitio />} />
-          <Route path="/seguimiento/:seguimientoId" element={<PaginaSeguimiento />} />
+          <Route
+            path="/sitios/:sitioId"
+            element={
+              <Suspense fallback={<Cargando texto="Abriendo el sitio…" />}>
+                <PaginaSitio />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/seguimiento/:seguimientoId"
+            element={
+              <Suspense fallback={<Cargando texto="Abriendo el seguimiento…" />}>
+                <PaginaSeguimiento />
+              </Suspense>
+            }
+          />
           <Route
             path="/mapa"
             element={

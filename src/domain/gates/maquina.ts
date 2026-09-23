@@ -59,6 +59,42 @@ export interface OpcionesGatesIniciales {
   proveedorId: string | null
 }
 
+/** Las tres copias del gate en curso que el documento lleva al nivel raiz. */
+export interface CamposGateActual {
+  fechaPlanGateActual: FechaISO | null
+  fechaRealGateActual: FechaISO | null
+  ordenGateActual: number | null
+}
+
+/**
+ * Unico lugar que calcula los campos desnormalizados del gate en curso.
+ *
+ * Esta centralizado a proposito: son tres campos que hay que mantener en cada
+ * camino que mueve el gate (alta, avance, retroceso, correccion administrativa,
+ * importacion del tracker), y si uno se olvida el sintoma no es un error sino
+ * una tabla que ordena mal y un semaforo que miente. Con una sola funcion, un
+ * camino nuevo que no la llame se nota leyendo el codigo.
+ *
+ * `opciones.fechaReal` es para los parches que ademas escriben la fecha real del
+ * destino: ahi el valor correcto es el que va a quedar, no el que estaba.
+ */
+export function camposGateActual(
+  gates: Partial<Record<CodigoGate, GateSitio>>,
+  destino: GateActual,
+  opciones: { fechaReal?: FechaISO | null } = {},
+): CamposGateActual {
+  if (destino === CERRADO) {
+    return { fechaPlanGateActual: null, fechaRealGateActual: null, ordenGateActual: null }
+  }
+  const g = gates[destino]
+  return {
+    fechaPlanGateActual: g?.fechaPlan ?? null,
+    fechaRealGateActual:
+      'fechaReal' in opciones ? (opciones.fechaReal ?? null) : (g?.fechaReal ?? null),
+    ordenGateActual: g?.orden ?? null,
+  }
+}
+
 /**
  * Instancia la plantilla de gates en un sitio. Las fechas plan se encadenan
  * sumando el SLA de cada gate a partir de `fechaInicio`; si no hay fecha de
@@ -71,8 +107,7 @@ export function crearGatesDesdePlantilla(
   gates: Partial<Record<CodigoGate, GateSitio>>
   gateActual: GateActual
   estadoGate: GateSitio['estado']
-  fechaPlanGateActual: FechaISO | null
-} {
+} & CamposGateActual {
   const ordenados = [...plantilla.gates].sort((a, b) => a.orden - b.orden)
   // Las paralelas se instancian (se siguen y se muestran) pero no entran en la
   // cadena: no tienen `siguiente`, no suman SLA a la secuencia y el sitio nunca
@@ -121,7 +156,12 @@ export function crearGatesDesdePlantilla(
 
   const primero = secuenciales[0]
   if (!primero) {
-    return { gates, gateActual: CERRADO, estadoGate: 'completado', fechaPlanGateActual: null }
+    return {
+      gates,
+      gateActual: CERRADO,
+      estadoGate: 'completado',
+      ...camposGateActual(gates, CERRADO),
+    }
   }
 
   const inicial = gates[primero.codigo]
@@ -131,7 +171,7 @@ export function crearGatesDesdePlantilla(
     gates,
     gateActual: primero.codigo,
     estadoGate: 'en_curso',
-    fechaPlanGateActual: inicial?.fechaPlan ?? null,
+    ...camposGateActual(gates, primero.codigo),
   }
 }
 
@@ -353,12 +393,11 @@ export function planAvanzarGate(
 
   if (destino === CERRADO) {
     campos.estadoGate = 'completado'
-    campos.fechaPlanGateActual = null
   } else {
     campos[`gates.${destino}.estado`] = 'en_curso'
     campos.estadoGate = 'en_curso'
-    campos.fechaPlanGateActual = sp.gates[destino]?.fechaPlan ?? null
   }
+  Object.assign(campos, camposGateActual(sp.gates, destino))
 
   const eventos: EventoAuditoriaNuevo[] = [
     {
@@ -416,7 +455,9 @@ export function planRetrocederGate(
     [`gates.${destino}.completadoPor`]: null,
     gateActual: destino,
     estadoGate: 'en_curso',
-    fechaPlanGateActual: sp.gates[destino]?.fechaPlan ?? null,
+    // El parche de arriba borra la fecha real del destino, asi que la copia
+    // tiene que quedar en null y no en lo que el gate traia.
+    ...camposGateActual(sp.gates, destino, { fechaReal: null }),
   }
 
   if (sp.gateActual !== CERRADO) {
@@ -530,9 +571,11 @@ export function planRegistrarFecha(
     [`gates.${opciones.codigo}.${opciones.campo}`]: opciones.fecha,
   }
 
-  // El campo desnormalizado que alimenta la consulta de atrasados debe seguir al plan.
-  if (opciones.campo === 'fechaPlan' && opciones.codigo === sp.gateActual) {
-    campos.fechaPlanGateActual = opciones.fecha
+  // Los campos desnormalizados que alimentan la consulta de atrasados y el
+  // semaforo de la tabla siguen a la fecha del gate en curso.
+  if (opciones.codigo === sp.gateActual) {
+    if (opciones.campo === 'fechaPlan') campos.fechaPlanGateActual = opciones.fecha
+    else campos.fechaRealGateActual = opciones.fecha
   }
 
   return {
@@ -679,10 +722,13 @@ export function planCorreccionAdmin(
 
   const destino = opciones.destino
   const estadoGate = destino === CERRADO ? 'completado' : sp.bloqueado ? 'bloqueado' : 'en_curso'
-  const fechaPlan = destino === CERRADO ? null : (sp.gates[destino]?.fechaPlan ?? null)
+  // El recorrido de arriba deja el destino en curso y sin fecha real.
+  const copias = camposGateActual(sp.gates, destino, { fechaReal: null })
   poner('gateActual', destino, sp.gateActual)
   poner('estadoGate', estadoGate, sp.estadoGate)
-  poner('fechaPlanGateActual', fechaPlan, sp.fechaPlanGateActual)
+  poner('fechaPlanGateActual', copias.fechaPlanGateActual, sp.fechaPlanGateActual)
+  poner('fechaRealGateActual', copias.fechaRealGateActual, sp.fechaRealGateActual)
+  poner('ordenGateActual', copias.ordenGateActual, sp.ordenGateActual)
 
   if (Object.keys(campos).length === 0) {
     return { ok: false, motivo: 'El sitio ya esta en ese estado: no hay nada que corregir' }
