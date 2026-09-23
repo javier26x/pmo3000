@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router'
 import {
   Building2,
   Check,
@@ -26,6 +27,8 @@ import {
   Entrada,
   Insignia,
   Selector,
+  Tabs,
+  type Pestana,
   type TonoInsignia,
 } from '@/components/ui'
 import { avisar, mensajeDeError } from '@/app/avisos'
@@ -81,6 +84,8 @@ interface EdicionPlantilla {
   /** Solo en altas: el id sale del nombre que se escriba. */
   idDesdeNombre: boolean
 }
+
+type PestanaConfig = 'estructura' | 'equipos' | 'integraciones'
 
 /** Un documento de catalogo junto con su tipo, para no perder cual es cual. */
 type Elemento =
@@ -180,6 +185,20 @@ export function PaginaConfiguracion() {
   } = useCatalogos()
 
   const [edicion, setEdicion] = useState<Edicion | null>(null)
+  // La pestana va en la URL: volver atras desde un editor, o compartir el
+  // enlace, deja en la misma seccion.
+  const [parametros, setParametros] = useSearchParams()
+  const pestanas: Pestana<PestanaConfig>[] = [
+    { id: 'estructura', etiqueta: 'Estructura' },
+    { id: 'equipos', etiqueta: 'Equipos y áreas' },
+    ...(actor.rol === 'admin' ? [{ id: 'integraciones' as const, etiqueta: 'Integraciones' }] : []),
+  ]
+  const pedida = parametros.get('seccion')
+  const pestana: PestanaConfig = pestanas.some((p) => p.id === pedida)
+    ? (pedida as PestanaConfig)
+    : 'estructura'
+  const cambiarPestana = (id: PestanaConfig) =>
+    setParametros(id === 'estructura' ? {} : { seccion: id }, { replace: true })
   const [eliminando, setEliminando] = useState<Elemento | null>(null)
   const [creandoPlantilla, setCreandoPlantilla] = useState(false)
   const [editandoPlantilla, setEditandoPlantilla] = useState<EdicionPlantilla | null>(null)
@@ -254,10 +273,12 @@ export function PaginaConfiguracion() {
       <CabeceraPantalla
         titulo="Configuración"
         descripcion="La estructura sobre la que se cuelga el despliegue: plantilla de gates, portafolios, programas, proyectos, células y proveedores."
-      />
+      >
+        <Tabs pestanas={pestanas} activa={pestana} onCambiar={cambiarPestana} />
+      </CabeceraPantalla>
 
       <div className="panel-scroll min-h-0 flex-1 overflow-y-auto p-3">
-        <div className="mx-auto flex max-w-4xl flex-col gap-3">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3">
           {!cargando && !listo && (
             <Aviso tono="info" titulo="Puesta en marcha">
               Para poder importar sitios hace falta, en este orden: la{' '}
@@ -267,299 +288,320 @@ export function PaginaConfiguracion() {
             </Aviso>
           )}
 
-          <Seccion
-            icono={<ListChecks aria-hidden className="size-4" />}
-            titulo="Plantillas de gates"
-            descripcion="La secuencia de etapas de cada programa y el checklist exigible en cada una. Editar una plantilla crea una versión nueva, que rige para los sitios que entren desde ahora."
-            accion={
-              puedeEditarPlantillas ? (
-                <span className="flex flex-wrap gap-2">
-                  <Boton
-                    variante={plantillaEstandar ? 'secundario' : 'primario'}
-                    cargando={creandoPlantilla}
-                    disabled={cargando}
-                    onClick={() =>
-                      plantillaEstandar
-                        ? restaurarPlantillaEstandar(plantillaEstandar)
-                        : crearPlantillaEstandar()
-                    }
-                    icono={
-                      plantillaEstandar ? (
-                        <Check aria-hidden className="size-4" />
-                      ) : (
-                        <Plus aria-hidden className="size-4" />
-                      )
-                    }
-                  >
-                    {plantillaEstandar ? 'Restaurar la estándar' : 'Crear la plantilla estándar'}
-                  </Boton>
-                  <Boton
-                    disabled={cargando}
-                    onClick={() =>
-                      setEditandoPlantilla({
-                        original: null,
-                        inicial: plantillaEnBlanco('', ''),
-                        idDesdeNombre: true,
-                      })
-                    }
-                    icono={<Plus aria-hidden className="size-4" />}
-                  >
-                    Nueva plantilla
-                  </Boton>
-                </span>
-              ) : null
-            }
-          >
-            {cargando ? (
-              <FilasEsqueleto />
-            ) : plantillas.length === 0 ? (
-              <Vacio>
-                Todavía no hay ninguna plantilla. Sin ella, los sitios no pueden entrar en
-                seguimiento.
-              </Vacio>
-            ) : (
-              <ul className="divide-y divide-borde">
-                {plantillas.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
-                    <span className="min-w-0 flex-1">
-                      <span className="text-sm font-medium">{p.nombre}</span>
-                      <span className="ml-2 font-mono text-xs text-texto-3">{p.id}</span>
+          {pestana === 'estructura' && (
+            <div className="grid items-start gap-3 xl:grid-cols-2">
+              <Seccion
+                icono={<ListChecks aria-hidden className="size-4" />}
+                titulo="Plantillas de gates"
+                descripcion="La secuencia de etapas de cada programa y el checklist exigible en cada una. Editar una plantilla crea una versión nueva, que rige para los sitios que entren desde ahora."
+                accion={
+                  puedeEditarPlantillas ? (
+                    <span className="flex flex-wrap gap-2">
+                      <Boton
+                        variante={plantillaEstandar ? 'secundario' : 'primario'}
+                        cargando={creandoPlantilla}
+                        disabled={cargando}
+                        onClick={() =>
+                          plantillaEstandar
+                            ? restaurarPlantillaEstandar(plantillaEstandar)
+                            : crearPlantillaEstandar()
+                        }
+                        icono={
+                          plantillaEstandar ? (
+                            <Check aria-hidden className="size-4" />
+                          ) : (
+                            <Plus aria-hidden className="size-4" />
+                          )
+                        }
+                      >
+                        {plantillaEstandar
+                          ? 'Restaurar la estándar'
+                          : 'Crear la plantilla estándar'}
+                      </Boton>
+                      <Boton
+                        disabled={cargando}
+                        onClick={() =>
+                          setEditandoPlantilla({
+                            original: null,
+                            inicial: plantillaEnBlanco('', ''),
+                            idDesdeNombre: true,
+                          })
+                        }
+                        icono={<Plus aria-hidden className="size-4" />}
+                      >
+                        Nueva plantilla
+                      </Boton>
                     </span>
-                    {!p.activo && <Insignia tono="neutro">Inactiva</Insignia>}
-                    <Insignia tono="neutro">v{p.version}</Insignia>
-                    <Insignia tono="info">{p.gates.length} etapas</Insignia>
-                    <Insignia tono="neutro">
-                      {p.gates.reduce((n, g) => n + g.checklist.length, 0)} entregables
-                    </Insignia>
-                    {puedeEditarPlantillas && (
-                      <span className="flex items-center gap-1">
-                        <Boton
-                          variante="fantasma"
-                          tamano="sm"
-                          soloIcono
-                          aria-label={`Editar ${p.nombre}`}
-                          title="Editar"
-                          onClick={() =>
-                            setEditandoPlantilla({ original: p, inicial: p, idDesdeNombre: false })
-                          }
-                          icono={<Pencil aria-hidden className="size-3.5" />}
-                        />
-                        <Boton
-                          variante="fantasma"
-                          tamano="sm"
-                          soloIcono
-                          aria-label={`Duplicar ${p.nombre}`}
-                          title="Duplicar"
-                          onClick={() =>
-                            setEditandoPlantilla({
-                              original: null,
-                              inicial: duplicarPlantilla(p, '', `${p.nombre} (copia)`),
-                              idDesdeNombre: true,
-                            })
-                          }
-                          icono={<Copy aria-hidden className="size-3.5" />}
-                        />
-                        <Boton
-                          variante="fantasma"
-                          tamano="sm"
-                          soloIcono
-                          aria-label={`Eliminar ${p.nombre}`}
-                          title="Eliminar"
-                          onClick={() => setEliminandoPlantilla(p)}
-                          icono={<Trash2 aria-hidden className="size-3.5" />}
-                        />
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Seccion>
+                  ) : null
+                }
+              >
+                {cargando ? (
+                  <FilasEsqueleto />
+                ) : plantillas.length === 0 ? (
+                  <Vacio>
+                    Todavía no hay ninguna plantilla. Sin ella, los sitios no pueden entrar en
+                    seguimiento.
+                  </Vacio>
+                ) : (
+                  <ul className="divide-y divide-borde">
+                    {plantillas.map((p) => (
+                      <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+                        <span className="min-w-0 flex-1">
+                          <span className="text-sm font-medium">{p.nombre}</span>
+                          <span className="ml-2 font-mono text-xs text-texto-3">{p.id}</span>
+                        </span>
+                        {!p.activo && <Insignia tono="neutro">Inactiva</Insignia>}
+                        <Insignia tono="neutro">v{p.version}</Insignia>
+                        <Insignia tono="info">{p.gates.length} etapas</Insignia>
+                        <Insignia tono="neutro">
+                          {p.gates.reduce((n, g) => n + g.checklist.length, 0)} entregables
+                        </Insignia>
+                        {puedeEditarPlantillas && (
+                          <span className="flex items-center gap-1">
+                            <Boton
+                              variante="fantasma"
+                              tamano="sm"
+                              soloIcono
+                              aria-label={`Editar ${p.nombre}`}
+                              title="Editar"
+                              onClick={() =>
+                                setEditandoPlantilla({
+                                  original: p,
+                                  inicial: p,
+                                  idDesdeNombre: false,
+                                })
+                              }
+                              icono={<Pencil aria-hidden className="size-3.5" />}
+                            />
+                            <Boton
+                              variante="fantasma"
+                              tamano="sm"
+                              soloIcono
+                              aria-label={`Duplicar ${p.nombre}`}
+                              title="Duplicar"
+                              onClick={() =>
+                                setEditandoPlantilla({
+                                  original: null,
+                                  inicial: duplicarPlantilla(p, '', `${p.nombre} (copia)`),
+                                  idDesdeNombre: true,
+                                })
+                              }
+                              icono={<Copy aria-hidden className="size-3.5" />}
+                            />
+                            <Boton
+                              variante="fantasma"
+                              tamano="sm"
+                              soloIcono
+                              aria-label={`Eliminar ${p.nombre}`}
+                              title="Eliminar"
+                              onClick={() => setEliminandoPlantilla(p)}
+                              icono={<Trash2 aria-hidden className="size-3.5" />}
+                            />
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Seccion>
 
-          <Seccion
-            icono={<FolderTree aria-hidden className="size-4" />}
-            titulo="Portafolios"
-            descripcion="El nivel más alto: agrupa los programas de un período."
-            accion={botonAgregar('portafolio')}
-          >
-            <Lista
-              cargando={cargando}
-              items={portafolios.map((p) => ({
-                id: p.id,
-                titulo: p.nombre,
-                detalle: p.periodo,
-                insignia: insigniaActivo(p.activo),
-                ...acciones({ tipo: 'portafolio', item: p }, () =>
-                  setEdicion({ tipo: 'portafolio', existente: p }),
-                ),
-              }))}
-              vacio="Sin portafolios."
-            />
-          </Seccion>
+              <Seccion
+                icono={<FolderTree aria-hidden className="size-4" />}
+                titulo="Portafolios"
+                descripcion="El nivel más alto: agrupa los programas de un período."
+                accion={botonAgregar('portafolio')}
+              >
+                <Lista
+                  cargando={cargando}
+                  items={portafolios.map((p) => ({
+                    id: p.id,
+                    titulo: p.nombre,
+                    detalle: p.periodo,
+                    insignia: insigniaActivo(p.activo),
+                    ...acciones({ tipo: 'portafolio', item: p }, () =>
+                      setEdicion({ tipo: 'portafolio', existente: p }),
+                    ),
+                  }))}
+                  vacio="Sin portafolios."
+                />
+              </Seccion>
 
-          <Seccion
-            icono={<Layers aria-hidden className="size-4" />}
-            titulo="Programas"
-            descripcion="Ej. «Plan 200 sitios nuevos». El nombre es el que se reconoce en la columna Programa al importar."
-            accion={botonAgregar('programa', portafolios.length === 0 || plantillas.length === 0)}
-          >
-            <Lista
-              cargando={cargando}
-              items={programas.map((p) => ({
-                id: p.id,
-                titulo: p.nombre,
-                detalle: `${p.fechaInicio ?? 'sin inicio'} → ${p.fechaFin ?? 'sin fin'}`,
-                insignia: insigniaEstado(p.estado),
-                ...acciones({ tipo: 'programa', item: p }, () =>
-                  setEdicion({ tipo: 'programa', existente: p }),
-                ),
-              }))}
-              vacio={
-                portafolios.length === 0
-                  ? 'Crea primero un portafolio.'
-                  : plantillas.length === 0
-                    ? 'Crea primero la plantilla de gates.'
-                    : 'Sin programas.'
-              }
-            />
-          </Seccion>
+              <Seccion
+                icono={<Layers aria-hidden className="size-4" />}
+                titulo="Programas"
+                descripcion="Ej. «Plan 200 sitios nuevos». El nombre es el que se reconoce en la columna Programa al importar."
+                accion={botonAgregar(
+                  'programa',
+                  portafolios.length === 0 || plantillas.length === 0,
+                )}
+              >
+                <Lista
+                  cargando={cargando}
+                  items={programas.map((p) => ({
+                    id: p.id,
+                    titulo: p.nombre,
+                    detalle: `${p.fechaInicio ?? 'sin inicio'} → ${p.fechaFin ?? 'sin fin'}`,
+                    insignia: insigniaEstado(p.estado),
+                    ...acciones({ tipo: 'programa', item: p }, () =>
+                      setEdicion({ tipo: 'programa', existente: p }),
+                    ),
+                  }))}
+                  vacio={
+                    portafolios.length === 0
+                      ? 'Crea primero un portafolio.'
+                      : plantillas.length === 0
+                        ? 'Crea primero la plantilla de gates.'
+                        : 'Sin programas.'
+                  }
+                />
+              </Seccion>
 
-          <Seccion
-            icono={<Building2 aria-hidden className="size-4" />}
-            titulo="Proyectos"
-            descripcion="El tramo de un programa al que se incorporan los sitios. Un sitio entra al seguimiento a través de un proyecto."
-            accion={botonAgregar('proyecto', programas.length === 0)}
-          >
-            <Lista
-              cargando={cargando}
-              items={proyectos.map((p) => ({
-                id: p.id,
-                titulo: p.nombre,
-                detalle: programas.find((pr) => pr.id === p.programaId)?.nombre ?? p.programaId,
-                insignia: insigniaEstado(p.estado),
-                ...acciones({ tipo: 'proyecto', item: p }, () =>
-                  setEdicion({ tipo: 'proyecto', existente: p }),
-                ),
-                ...(puedeHacer('proyectos', 'editar') ? { onSla: () => setSlaDe(p) } : {}),
-                ...(p.sla ? { conSla: true } : {}),
-              }))}
-              vacio={programas.length === 0 ? 'Crea primero un programa.' : 'Sin proyectos.'}
-            />
-          </Seccion>
-
-          <Seccion
-            icono={<Users2 aria-hidden className="size-4" />}
-            titulo="Células"
-            descripcion="Los equipos de la PMO. Definen las columnas del kanban por célula."
-            accion={botonAgregar('celula')}
-          >
-            <Lista
-              cargando={cargando}
-              items={celulas.map((c) => ({
-                id: c.id,
-                titulo: c.nombre,
-                detalle: c.descripcion,
-                insignia: insigniaActivo(c.activa, true),
-                ...acciones({ tipo: 'celula', item: c }, () =>
-                  setEdicion({ tipo: 'celula', existente: c }),
-                ),
-              }))}
-              vacio="Sin células."
-            />
-          </Seccion>
-
-          <Seccion
-            icono={<ClipboardCheck aria-hidden className="size-4" />}
-            titulo="Áreas que revisan"
-            descripcion="OOCC, ECE, RF, Implementación y MMOO revisan TSS, Ingeniería y As Built. Aquí se asigna quién responde por cada área, en general o por proyecto; cada persona ve lo suyo en Pendientes."
-            accion={
-              puedeEditarAreas ? (
-                <span className="flex flex-wrap gap-2">
-                  {faltanSemilla && (
-                    <Boton
-                      disabled={cargando || creandoAreas}
-                      onClick={() => {
-                        setCreandoAreas(true)
-                        crearAreasSemilla(areas, actor)
-                          .then((n) => avisar.ok(`Se crearon ${n} área(s)`))
-                          .catch((e) => avisar.error(mensajeDeError(e)))
-                          .finally(() => setCreandoAreas(false))
-                      }}
-                    >
-                      {creandoAreas ? 'Creando…' : 'Crear las de los trackers'}
-                    </Boton>
-                  )}
-                  <Boton
-                    onClick={() => setEditandoArea(null)}
-                    disabled={cargando}
-                    icono={<Plus aria-hidden className="size-4" />}
-                  >
-                    Agregar
-                  </Boton>
-                </span>
-              ) : null
-            }
-          >
-            <Lista
-              cargando={cargando}
-              items={areas.map((a) => ({
-                id: a.id,
-                titulo: a.nombre,
-                detalle:
-                  a.responsables.length === 0
-                    ? 'Sin responsables'
-                    : a.responsables.map((u) => nombreUsuario(u)).join(', ') +
-                      (Object.keys(a.porProyecto).length > 0
-                        ? ` · ${Object.keys(a.porProyecto).length} proyecto(s) con otras personas`
-                        : ''),
-                insignia: insigniaActivo(a.activa, true),
-                ...(puedeEditarAreas ? { onEditar: () => setEditandoArea(a) } : {}),
-              }))}
-              vacio="Sin áreas. Crea las de los trackers para empezar."
-            />
-          </Seccion>
-
-          <Seccion
-            icono={<Truck aria-hidden className="size-4" />}
-            titulo="Proveedores"
-            descripcion="Las empresas contratistas. Un usuario con rol contratista solo ve los sitios de su proveedor."
-            accion={botonAgregar('proveedor')}
-          >
-            <Lista
-              cargando={cargando}
-              items={proveedores.map((p) => ({
-                id: p.id,
-                titulo: p.nombre,
-                detalle: p.contactoEmail,
-                insignia: insigniaActivo(p.activo),
-                ...acciones({ tipo: 'proveedor', item: p }, () =>
-                  setEdicion({ tipo: 'proveedor', existente: p }),
-                ),
-              }))}
-              vacio="Sin proveedores."
-            />
-          </Seccion>
-
-          {actor.rol === 'admin' && (
-            <Seccion
-              icono={<FolderOpen aria-hidden className="size-4" />}
-              titulo="Carpetas de SharePoint"
-              descripcion="Las carpetas se piden con un correo que lee un flujo de Power Automate. Aquí se configura adónde va y el formato del asunto."
-              accion={null}
-            >
-              <ConfigCarpetasSharePoint actor={actor} />
-            </Seccion>
+              <Seccion
+                icono={<Building2 aria-hidden className="size-4" />}
+                titulo="Proyectos"
+                descripcion="El tramo de un programa al que se incorporan los sitios. Un sitio entra al seguimiento a través de un proyecto."
+                accion={botonAgregar('proyecto', programas.length === 0)}
+              >
+                <Lista
+                  cargando={cargando}
+                  items={proyectos.map((p) => ({
+                    id: p.id,
+                    titulo: p.nombre,
+                    detalle: programas.find((pr) => pr.id === p.programaId)?.nombre ?? p.programaId,
+                    insignia: insigniaEstado(p.estado),
+                    ...acciones({ tipo: 'proyecto', item: p }, () =>
+                      setEdicion({ tipo: 'proyecto', existente: p }),
+                    ),
+                    ...(puedeHacer('proyectos', 'editar') ? { onSla: () => setSlaDe(p) } : {}),
+                    ...(p.sla ? { conSla: true } : {}),
+                  }))}
+                  vacio={programas.length === 0 ? 'Crea primero un programa.' : 'Sin proyectos.'}
+                />
+              </Seccion>
+            </div>
           )}
 
-          {actor.rol === 'admin' && (
-            <Seccion
-              icono={<ShieldCheck aria-hidden className="size-4" />}
-              titulo="Seguridad de la secuencia"
-              descripcion="Mantenimiento de una vez para los seguimientos anteriores a la protección de etapas."
-              accion={null}
-            >
-              <ProtegerSecuencias actor={actor} />
-            </Seccion>
+          {pestana === 'equipos' && (
+            <div className="grid items-start gap-3 xl:grid-cols-2">
+              <Seccion
+                icono={<Users2 aria-hidden className="size-4" />}
+                titulo="Células"
+                descripcion="Los equipos de la PMO. Definen las columnas del kanban por célula."
+                accion={botonAgregar('celula')}
+              >
+                <Lista
+                  cargando={cargando}
+                  items={celulas.map((c) => ({
+                    id: c.id,
+                    titulo: c.nombre,
+                    detalle: c.descripcion,
+                    insignia: insigniaActivo(c.activa, true),
+                    ...acciones({ tipo: 'celula', item: c }, () =>
+                      setEdicion({ tipo: 'celula', existente: c }),
+                    ),
+                  }))}
+                  vacio="Sin células."
+                />
+              </Seccion>
+
+              <Seccion
+                icono={<ClipboardCheck aria-hidden className="size-4" />}
+                titulo="Áreas que revisan"
+                descripcion="OOCC, ECE, RF, Implementación y MMOO revisan TSS, Ingeniería y As Built. Aquí se asigna quién responde por cada área, en general o por proyecto; cada persona ve lo suyo en Pendientes."
+                accion={
+                  puedeEditarAreas ? (
+                    <span className="flex flex-wrap gap-2">
+                      {faltanSemilla && (
+                        <Boton
+                          disabled={cargando || creandoAreas}
+                          onClick={() => {
+                            setCreandoAreas(true)
+                            crearAreasSemilla(areas, actor)
+                              .then((n) => avisar.ok(`Se crearon ${n} área(s)`))
+                              .catch((e) => avisar.error(mensajeDeError(e)))
+                              .finally(() => setCreandoAreas(false))
+                          }}
+                        >
+                          {creandoAreas ? 'Creando…' : 'Crear las de los trackers'}
+                        </Boton>
+                      )}
+                      <Boton
+                        onClick={() => setEditandoArea(null)}
+                        disabled={cargando}
+                        icono={<Plus aria-hidden className="size-4" />}
+                      >
+                        Agregar
+                      </Boton>
+                    </span>
+                  ) : null
+                }
+              >
+                <Lista
+                  cargando={cargando}
+                  items={areas.map((a) => ({
+                    id: a.id,
+                    titulo: a.nombre,
+                    detalle:
+                      a.responsables.length === 0
+                        ? 'Sin responsables'
+                        : a.responsables.map((u) => nombreUsuario(u)).join(', ') +
+                          (Object.keys(a.porProyecto).length > 0
+                            ? ` · ${Object.keys(a.porProyecto).length} proyecto(s) con otras personas`
+                            : ''),
+                    insignia: insigniaActivo(a.activa, true),
+                    ...(puedeEditarAreas ? { onEditar: () => setEditandoArea(a) } : {}),
+                  }))}
+                  vacio="Sin áreas. Crea las de los trackers para empezar."
+                />
+              </Seccion>
+
+              <Seccion
+                icono={<Truck aria-hidden className="size-4" />}
+                titulo="Proveedores"
+                descripcion="Las empresas contratistas. Un usuario con rol contratista solo ve los sitios de su proveedor."
+                accion={botonAgregar('proveedor')}
+              >
+                <Lista
+                  cargando={cargando}
+                  items={proveedores.map((p) => ({
+                    id: p.id,
+                    titulo: p.nombre,
+                    detalle: p.contactoEmail,
+                    insignia: insigniaActivo(p.activo),
+                    ...acciones({ tipo: 'proveedor', item: p }, () =>
+                      setEdicion({ tipo: 'proveedor', existente: p }),
+                    ),
+                  }))}
+                  vacio="Sin proveedores."
+                />
+              </Seccion>
+            </div>
+          )}
+
+          {pestana === 'integraciones' && (
+            <div className="grid items-start gap-3 xl:grid-cols-2">
+              {actor.rol === 'admin' && (
+                <Seccion
+                  icono={<FolderOpen aria-hidden className="size-4" />}
+                  titulo="Carpetas de SharePoint"
+                  descripcion="Las carpetas se piden con un correo que lee un flujo de Power Automate. Aquí se configura adónde va y el formato del asunto."
+                  accion={null}
+                >
+                  <ConfigCarpetasSharePoint actor={actor} />
+                </Seccion>
+              )}
+
+              {actor.rol === 'admin' && (
+                <Seccion
+                  icono={<ShieldCheck aria-hidden className="size-4" />}
+                  titulo="Seguridad de la secuencia"
+                  descripcion="Mantenimiento de una vez para los seguimientos anteriores a la protección de etapas."
+                  accion={null}
+                >
+                  <ProtegerSecuencias actor={actor} />
+                </Seccion>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -321,14 +321,22 @@ export function PaginaSeguimiento() {
           </Aviso>
         )}
 
+        {/* Una linea y no una lista: los mismos entregables estan justo debajo,
+            en el checklist del gate, y la lista repetida empujaba la ficha fuera
+            de la pantalla. El detalle completo queda en el title. */}
         {evaluacion && !evaluacion.permitido && evaluacion.itemsFaltantes.length > 0 && (
-          <Aviso tono="info" titulo="Para avanzar al siguiente gate falta:" className="mb-3">
-            <ul className="mt-1 list-inside list-disc">
-              {evaluacion.itemsFaltantes.map((item) => (
-                <li key={item.id}>{item.texto}</li>
-              ))}
-            </ul>
-          </Aviso>
+          <p
+            className="mb-3 truncate rounded bg-[var(--info-bg)] px-3 py-1.5 text-sm text-[var(--info-fg)]"
+            title={evaluacion.itemsFaltantes.map((i) => `• ${i.texto}`).join('\n')}
+          >
+            <strong className="font-medium">
+              Para avanzar faltan {evaluacion.itemsFaltantes.length}{' '}
+              {evaluacion.itemsFaltantes.length === 1 ? 'entregable' : 'entregables'}:
+            </strong>{' '}
+            <span className="opacity-80">
+              {evaluacion.itemsFaltantes.map((i) => i.texto).join(' · ')}
+            </span>
+          </p>
         )}
 
         {/* En pantalla ancha: secuencia | gate + datos del tracker | asignacion e

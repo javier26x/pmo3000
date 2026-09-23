@@ -139,8 +139,10 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
           {cargando ? (
             <Cargando texto="Contando sitios…" />
           ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap gap-x-8 gap-y-3">
+            // Numeros a la izquierda y etapas a la derecha: apilados, la foto
+            // sola ocupaba media pantalla de notebook.
+            <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+              <div className="grid grid-cols-3 content-start gap-x-6 gap-y-3">
                 <Metrica etiqueta="Sitios vigentes" valor={r.vigentes} />
                 <Metrica etiqueta="Terminados" valor={r.cerrados} tono="ok" />
                 <Metrica
@@ -157,13 +159,13 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
                 <Metrica etiqueta="No vigentes" valor={r.noVigentes} />
               </div>
               {r.porEtapa.length > 0 && (
-                <ul className="flex flex-col gap-1.5" aria-label="Sitios por etapa">
+                <ul className="flex flex-col gap-1" aria-label="Sitios por etapa">
                   {r.porEtapa.map((e) => (
                     <li key={e.codigo} className="flex items-center gap-2 text-xs">
                       <span className="w-32 shrink-0 truncate text-texto-2">
                         {nombreGate(e.codigo, etapas)}
                       </span>
-                      <span className="h-2 flex-1 overflow-hidden rounded-full bg-superficie-3">
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
                         <span
                           className="block h-full rounded-full bg-[var(--dato)]"
                           style={{ width: `${(e.total / maxEtapa) * 100}%` }}
@@ -175,7 +177,7 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
                 </ul>
               )}
               {truncado && (
-                <p className="text-xs text-texto-3">
+                <p className="text-xs text-texto-3 lg:col-span-2">
                   El despliegue tiene más sitios de los que se cargan de una vez: los números pueden
                   quedarse cortos.
                 </p>

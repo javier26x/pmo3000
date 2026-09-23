@@ -40,58 +40,54 @@ export const TarjetaKanban = memo(function TarjetaKanban({
   return (
     <article
       ref={setNodeRef}
+      title={nombreProveedor || undefined}
       style={
         transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
       }
       className={cn(
-        'rounded border border-borde bg-superficie p-2 shadow-[var(--sombra)]',
+        'rounded border border-borde bg-superficie px-2 py-1.5 shadow-[var(--sombra)]',
         isDragging && 'z-50 opacity-90 ring-2 ring-[var(--acento)]',
         estado === 'atrasado' && 'border-l-2 border-l-[var(--error-fg)]',
       )}
     >
-      <div className="flex items-start gap-1">
+      {/* Dos lineas y no cuatro: con la tarjeta alta cabian cuatro por columna
+          en un notebook. El proveedor queda en el title de la tarjeta. */}
+      <div className="flex items-center gap-1.5">
         {arrastrable && (
           <button
             type="button"
             {...attributes}
             {...listeners}
             aria-label={`Mover ${sp.sitioId} de gate`}
-            className="mt-0.5 shrink-0 cursor-grab rounded text-texto-3 hover:text-texto active:cursor-grabbing"
+            className="shrink-0 cursor-grab rounded text-texto-3 hover:text-texto active:cursor-grabbing"
           >
             <GripVertical aria-hidden className="size-3.5" />
           </button>
         )}
-
-        <div className="min-w-0 flex-1">
-          <Link
-            to={`/seguimiento/${encodeURIComponent(sp.id)}`}
-            className="rounded font-mono text-xs text-[var(--acento)] hover:underline"
-          >
-            {sp.sitioId}
-          </Link>
-          <p className="truncate text-sm font-medium" title={sp.sitioNombre}>
-            {sp.sitioNombre}
-          </p>
-        </div>
-
+        <Link
+          to={`/seguimiento/${encodeURIComponent(sp.id)}`}
+          className="shrink-0 rounded font-mono text-xs text-[var(--acento)] hover:underline"
+        >
+          {sp.sitioId}
+        </Link>
+        <p className="min-w-0 flex-1 truncate text-sm font-medium" title={sp.sitioNombre}>
+          {sp.sitioNombre}
+        </p>
         {sp.bloqueado && (
-          <Lock aria-label="Bloqueado" className="mt-0.5 size-3 shrink-0 text-[var(--riesgo-fg)]" />
+          <Lock aria-label="Bloqueado" className="size-3 shrink-0 text-[var(--riesgo-fg)]" />
         )}
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-texto-3">
         <Insignia tono={TONO_PRIORIDAD[sp.prioridad]}>{NOMBRES_PRIORIDAD[sp.prioridad]}</Insignia>
         {estado === 'atrasado' ? (
           <Insignia tono="error">{textoAtraso(dias)}</Insignia>
         ) : estado === 'por_vencer' ? (
           <Insignia tono="riesgo">{textoAtraso(dias)}</Insignia>
         ) : null}
-      </div>
-
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-texto-3">
-        <span className="truncate">{sp.comuna}</span>
-        <span>Plan {formatearFecha(sp.fechaPlanGateActual)}</span>
-        <span className="truncate">{nombreProveedor}</span>
+        <span className="min-w-0 truncate">
+          {sp.comuna} · Plan {formatearFecha(sp.fechaPlanGateActual)}
+        </span>
       </div>
     </article>
   )

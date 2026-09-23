@@ -10,6 +10,8 @@ import {
   Settings2,
   Sun,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import {
   Boton,
@@ -31,7 +33,7 @@ import { useCatalogos } from '@/hooks/useCatalogos'
 import { describirAlcance, tieneAlcance } from '@/domain/permisos/alcance'
 import { usarTema } from './tema'
 import { DENSIDADES, NOMBRES_DENSIDAD, usarDensidad } from './densidad'
-import { NAVEGACION } from './navegacion'
+import { GRUPOS_NAVEGACION, NAVEGACION } from './navegacion'
 /**
  * La paleta y la ayuda de atajos solo aparecen cuando alguien las abre (⌘K, ?),
  * asi que no tienen por que viajar en el trozo inicial. Son ~25 kB entre las dos
@@ -42,7 +44,9 @@ import { NAVEGACION } from './navegacion'
  * <main> no corresponde porque son superpuestas. Mientras llega el modulo no se
  * pinta nada, que para un cuadro es preferible a un salto de layout.
  */
-const PaletaComandos = lazy(() => import('./PaletaComandos').then((m) => ({ default: m.PaletaComandos })))
+const PaletaComandos = lazy(() =>
+  import('./PaletaComandos').then((m) => ({ default: m.PaletaComandos })),
+)
 const AyudaAtajos = lazy(() => import('./AyudaAtajos').then((m) => ({ default: m.AyudaAtajos })))
 import { IndicadorConexion } from './IndicadorConexion'
 import { useAtajosGlobales } from './atajos'
@@ -58,6 +62,14 @@ export function Layout() {
   const densidad = usarDensidad((e) => e.densidad)
   const fijarDensidad = usarDensidad((e) => e.fijar)
   const [panelAbierto, setPanelAbierto] = useState(false)
+  // Contraido, el panel deja solo los iconos y le devuelve ~180 px al contenido:
+  // lo que mas lo agradece es la tabla de sitios y el kanban en un notebook.
+  const [contraido, setContraido] = useState(leerContraido)
+  const alternarContraido = () =>
+    setContraido((v) => {
+      guardarContraido(!v)
+      return !v
+    })
   const [paletaAbierta, setPaletaAbierta] = useState(false)
   const [ayudaAbierta, setAyudaAbierta] = useState(false)
   const ubicacion = useLocation()
@@ -209,44 +221,74 @@ export function Layout() {
           aria-label="Navegación principal"
           className={cn(
             'lente flex w-[var(--ancho-panel)] shrink-0 flex-col overflow-y-auto rounded-[var(--radio-lente)] p-2',
+            'transition-[width] duration-[var(--ms-rapido)]',
+            contraido && 'md:w-14',
             // En movil el panel se abre ENCIMA del contenido: ahi el vidrio deja ver
             // que hay debajo, que es lo que evita la sensacion de cambiar de pantalla.
             'max-md:fixed max-md:bottom-1.5 max-md:left-1.5 max-md:top-[calc(var(--alto-barra)+0.75rem)] max-md:z-40',
             panelAbierto ? 'max-md:flex' : 'max-md:hidden',
           )}
         >
-          <ul className="flex flex-col gap-0.5">
-            {visibles.map((item) => {
-              // Saltar de la tabla al mapa o al kanban conserva los filtros: son
-              // tres miradas del mismo recorte, no tres pantallas distintas.
-              const conservaFiltros = enVistaDespliegue && VISTAS_DESPLIEGUE.has(item.ruta)
-              return (
-                <li key={item.ruta}>
-                  <NavLink
-                    to={{
-                      pathname: item.ruta,
-                      search: conservaFiltros ? ubicacion.search : '',
-                    }}
-                    viewTransition
-                    end={item.ruta === '/'}
-                    onClick={() => setPanelAbierto(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex h-9 items-center gap-2.5 rounded-xl px-2.5 text-sm font-medium',
-                        'transition-[background-color,color,box-shadow] duration-[var(--ms-rapido)]',
-                        isActive ? 'gota' : 'text-texto-2 hover:bg-[var(--gota)] hover:text-texto',
-                      )
-                    }
-                  >
-                    <item.icono aria-hidden className="size-4 shrink-0" />
-                    {item.etiqueta}
-                  </NavLink>
-                </li>
-              )
-            })}
-          </ul>
+          {GRUPOS_NAVEGACION.map((grupo) => {
+            const items = visibles.filter((item) => item.grupo === grupo)
+            if (items.length === 0) return null
+            const primero = visibles[0]?.grupo === grupo
+            return (
+              <div key={grupo} className="mb-2 last:mb-0">
+                {contraido ? (
+                  !primero && (
+                    <div
+                      aria-hidden
+                      className="mx-2 mb-2 border-t border-[var(--vidrio-divisor)]"
+                    />
+                  )
+                ) : (
+                  <p className="px-2.5 pt-1 pb-1 text-[11px] font-medium tracking-wide text-texto-3 uppercase">
+                    {grupo}
+                  </p>
+                )}
+                <ul className="flex flex-col gap-0.5" aria-label={grupo}>
+                  {items.map((item) => {
+                    // Saltar de la tabla al mapa o al kanban conserva los filtros: son
+                    // tres miradas del mismo recorte, no tres pantallas distintas.
+                    const conservaFiltros = enVistaDespliegue && VISTAS_DESPLIEGUE.has(item.ruta)
+                    return (
+                      <li key={item.ruta}>
+                        <NavLink
+                          to={{
+                            pathname: item.ruta,
+                            search: conservaFiltros ? ubicacion.search : '',
+                          }}
+                          viewTransition
+                          end={item.ruta === '/'}
+                          onClick={() => setPanelAbierto(false)}
+                          title={contraido ? item.etiqueta : undefined}
+                          aria-label={contraido ? item.etiqueta : undefined}
+                          className={({ isActive }) =>
+                            cn(
+                              'flex h-9 items-center gap-2.5 rounded-xl px-2.5 text-sm font-medium',
+                              'transition-[background-color,color,box-shadow] duration-[var(--ms-rapido)]',
+                              contraido && 'md:justify-center md:px-0',
+                              isActive
+                                ? 'gota'
+                                : 'text-texto-2 hover:bg-[var(--gota)] hover:text-texto',
+                            )
+                          }
+                        >
+                          <item.icono aria-hidden className="size-4 shrink-0" />
+                          <span className={cn('truncate', contraido && 'md:sr-only')}>
+                            {item.etiqueta}
+                          </span>
+                        </NavLink>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )
+          })}
 
-          {perfil?.rol === 'contratista' && (
+          {!contraido && perfil?.rol === 'contratista' && (
             <div className="mt-3 rounded border border-borde bg-superficie-2 p-2">
               <Insignia tono="info">Vista de proveedor</Insignia>
               <p className="mt-1.5 text-xs text-texto-2">
@@ -256,7 +298,7 @@ export function Layout() {
           )}
 
           {/* Perfil acotado: que sepa por que no ve todo el despliegue. */}
-          {perfil && tieneAlcance(perfil) && (
+          {!contraido && perfil && tieneAlcance(perfil) && (
             <div className="mt-3 rounded border border-borde bg-superficie-2 p-2">
               <Insignia tono="info">Vista acotada</Insignia>
               <p
@@ -277,15 +319,38 @@ export function Layout() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setAyudaAbierta(true)}
-            className="mt-auto flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-texto-3 hover:bg-[var(--gota)] hover:text-texto-2"
-          >
-            <Keyboard aria-hidden className="size-3.5 shrink-0" />
-            Atajos de teclado
-            <kbd className="tecla ml-auto">?</kbd>
-          </button>
+          <div className="mt-auto flex flex-col gap-0.5 pt-2">
+            {!contraido && (
+              <button
+                type="button"
+                onClick={() => setAyudaAbierta(true)}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-texto-3 hover:bg-[var(--gota)] hover:text-texto-2"
+              >
+                <Keyboard aria-hidden className="size-3.5 shrink-0" />
+                Atajos de teclado
+                <kbd className="tecla ml-auto">?</kbd>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={alternarContraido}
+              aria-label={contraido ? 'Expandir el menú' : 'Contraer el menú'}
+              title={contraido ? 'Expandir el menú' : 'Contraer el menú'}
+              className={cn(
+                'hidden w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-texto-3 hover:bg-[var(--gota)] hover:text-texto-2 md:flex',
+                contraido && 'justify-center px-0',
+              )}
+            >
+              {contraido ? (
+                <PanelLeftOpen aria-hidden className="size-3.5 shrink-0" />
+              ) : (
+                <>
+                  <PanelLeftClose aria-hidden className="size-3.5 shrink-0" />
+                  Contraer menú
+                </>
+              )}
+            </button>
+          </div>
         </nav>
 
         <main
@@ -318,4 +383,22 @@ export function Layout() {
       </Suspense>
     </div>
   )
+}
+
+const CLAVE_CONTRAIDO = 'pmo3000.menuContraido'
+
+function leerContraido(): boolean {
+  try {
+    return localStorage.getItem(CLAVE_CONTRAIDO) === '1'
+  } catch {
+    return false
+  }
+}
+
+function guardarContraido(valor: boolean): void {
+  try {
+    localStorage.setItem(CLAVE_CONTRAIDO, valor ? '1' : '0')
+  } catch {
+    // Sin almacenamiento el panel vuelve expandido la proxima vez: no es grave.
+  }
 }
