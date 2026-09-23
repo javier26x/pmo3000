@@ -154,3 +154,45 @@ function elegirHoja(hojas: readonly string[], libro: { Sheets: Record<string, un
   }
   return mejor
 }
+
+/**
+ * Arma el libro del tracker de ejemplo: la hoja del tracker primero y las
+ * instrucciones despues. La del tracker tiene que ser la mas grande para que
+ * elegirHoja la tome sola al volver a subir el archivo.
+ */
+export async function libroTrackerEjemplo(): Promise<ArrayBuffer> {
+  const XLSX = await import('@e965/xlsx')
+  const { ENCABEZADO_EJEMPLO, INSTRUCCIONES_EJEMPLO, filasTrackerEjemplo } =
+    await import('@/domain/tracker/ejemplo')
+
+  const tracker = XLSX.utils.aoa_to_sheet(filasTrackerEjemplo(), {
+    cellDates: true,
+    dateNF: 'dd-mm-yyyy',
+  })
+  tracker['!cols'] = ENCABEZADO_EJEMPLO.map((c) => ({ wch: Math.max(12, c.length + 2) }))
+  tracker['!autofilter'] = { ref: tracker['!ref'] ?? 'A1' }
+
+  const instrucciones = XLSX.utils.aoa_to_sheet(INSTRUCCIONES_EJEMPLO)
+  instrucciones['!cols'] = [{ wch: 100 }]
+
+  const libro = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(libro, tracker, 'Tracker')
+  XLSX.utils.book_append_sheet(libro, instrucciones, 'Instrucciones')
+  return XLSX.write(libro, { type: 'array', bookType: 'xlsx', cellDates: true }) as ArrayBuffer
+}
+
+/** Descarga el tracker de ejemplo como "Tracker de ejemplo PMO3000.xlsx". */
+export async function descargarTrackerEjemplo(): Promise<void> {
+  const datos = await libroTrackerEjemplo()
+  const blob = new Blob([datos], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = 'Tracker de ejemplo PMO3000.xlsx'
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

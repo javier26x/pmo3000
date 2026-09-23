@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
-import { FileSpreadsheet, Layers, Upload } from 'lucide-react'
-import { leerHojaCruda, EXTENSIONES_ACEPTADAS, type ArchivoCrudo } from '@/data/archivos'
+import { Download, FileSpreadsheet, Layers, Upload } from 'lucide-react'
+import {
+  descargarTrackerEjemplo,
+  leerHojaCruda,
+  EXTENSIONES_ACEPTADAS,
+  type ArchivoCrudo,
+} from '@/data/archivos'
 import { guardarPlantillaTracker, ejecutarImportacionTracker } from '@/data/repos/tracker'
 import { guardarFiltroTracker } from '@/data/repos/catalogos'
 import {
@@ -71,6 +76,7 @@ export default function PaginaImportarTracker() {
   const [propuesta, setPropuesta] = useState<PlantillaInferida | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [leyendo, setLeyendo] = useState(false)
+  const [descargando, setDescargando] = useState(false)
   const [avance, setAvance] = useState({ procesadas: 0, total: 0 })
   const [resumen, setResumen] = useState<Resumen | null>(null)
 
@@ -148,10 +154,7 @@ export default function PaginaImportarTracker() {
     [convertidas, filtro],
   )
   // La calidad se mide sobre lo que se va a importar, no sobre otros planes.
-  const calidad = useMemo(
-    () => (delPlan.length === 0 ? null : resumirCalidad(delPlan)),
-    [delPlan],
-  )
+  const calidad = useMemo(() => (delPlan.length === 0 ? null : resumirCalidad(delPlan)), [delPlan])
 
   const elegirProyecto = (id: string) => {
     setProyectoId(id)
@@ -301,6 +304,24 @@ export default function PaginaImportarTracker() {
                 />
               </label>
               {leyendo && <Cargando texto="Leyendo la planilla…" className="mt-4" />}
+              <div className="mx-auto mt-5 max-w-md border-t border-borde pt-4">
+                <p className="mb-2 text-sm text-texto-2">
+                  ¿Todavía no tienes un tracker? Descarga uno de ejemplo con las columnas que la app
+                  reconoce, reemplaza los sitios por los tuyos y súbelo aquí.
+                </p>
+                <Boton
+                  icono={<Download aria-hidden className="size-4" />}
+                  cargando={descargando}
+                  onClick={() => {
+                    setDescargando(true)
+                    descargarTrackerEjemplo()
+                      .catch((e: unknown) => setError(mensajeDeError(e)))
+                      .finally(() => setDescargando(false))
+                  }}
+                >
+                  Descargar tracker de ejemplo
+                </Boton>
+              </div>
             </div>
           )}
 
