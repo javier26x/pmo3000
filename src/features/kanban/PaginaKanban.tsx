@@ -97,7 +97,7 @@ export function PaginaKanban() {
 
     const plantilla = plantillaPorId(sp.gateTemplateId)
     if (!plantilla) {
-      avisar.error('Falta la plantilla de gates de este sitio')
+      avisar.error('Falta la plantilla de etapas de este sitio')
       return
     }
 
@@ -154,13 +154,13 @@ export function PaginaKanban() {
         titulo="Kanban"
         descripcion={
           vista === 'gates'
-            ? 'Columnas por gate: donde se acumulan los sitios es donde esta el cuello de botella.'
+            ? 'Columnas por etapa: donde se acumulan los sitios es donde esta el cuello de botella.'
             : 'Columnas por celula: como se reparte la carga del despliegue.'
         }
         acciones={
           <Tabs
             pestanas={[
-              { id: 'gates', etiqueta: 'Por gate' },
+              { id: 'gates', etiqueta: 'Por etapa' },
               { id: 'celulas', etiqueta: 'Por celula' },
             ]}
             activa={vista}
@@ -181,7 +181,7 @@ export function PaginaKanban() {
         {puedeMover && vista === 'gates' && (
           <p className="mb-2 flex items-center gap-1.5 text-xs text-texto-3">
             <Info aria-hidden className="size-3.5" />
-            Arrastra una tarjeta al gate siguiente para avanzarla. Los saltos de gate se rechazan.
+            Arrastra una tarjeta a la etapa siguiente para avanzarla. Los saltos de etapa se rechazan.
           </p>
         )}
 
@@ -258,7 +258,7 @@ export function PaginaKanban() {
         descripcion={
           confirmacion?.tipo === 'avance'
             ? `Se cerrara ${nombreGate(confirmacion.sp.gateActual, etapas)} con la fecha real que indiques.`
-            : 'El gate anterior se reabre y pierde su fecha real.'
+            : 'La etapa anterior se reabre y pierde su fecha real.'
         }
         pie={
           <>
@@ -289,7 +289,7 @@ export function PaginaKanban() {
               id="kanban-motivo"
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
-              placeholder="Ej: se detecto un hallazgo que obliga a reabrir el gate anterior."
+              placeholder="Ej: se detecto un hallazgo que obliga a reabrir la etapa anterior."
             />
           </Campo>
         )}

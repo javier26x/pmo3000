@@ -47,7 +47,7 @@ export function PanelChecklist({
   if (!definicion) {
     return (
       <Aviso tono="riesgo">
-        El gate {codigo} no existe en la plantilla {plantilla.id} v{plantilla.version}.
+        La etapa {codigo} no existe en la plantilla {plantilla.id} v{plantilla.version}.
       </Aviso>
     )
   }
@@ -74,7 +74,7 @@ export function PanelChecklist({
           etiqueta="Fecha real"
           htmlFor={`real-${codigo}`}
           ayuda={
-            gate?.fechaReal ? `Cerrado el ${formatearFecha(gate.fechaReal)}` : 'Aun sin cierre'
+            gate?.fechaReal ? `Cerrada el ${formatearFecha(gate.fechaReal)}` : 'Aun sin cierre'
           }
         >
           <Entrada
@@ -89,7 +89,7 @@ export function PanelChecklist({
 
       {esFuturo && (
         <Aviso tono="info">
-          Este gate todavia no esta en curso. Se puede consultar, pero no editar.
+          Esta etapa todavia no esta en curso. Se puede consultar, pero no editar.
         </Aviso>
       )}
 

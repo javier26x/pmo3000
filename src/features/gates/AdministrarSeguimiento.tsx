@@ -322,7 +322,7 @@ function Contenido({ sp }: { sp: SitioProyecto }) {
         abierto={dialogo === 'eliminar'}
         onCerrar={cerrar}
         titulo="Eliminar el seguimiento"
-        descripcion={`Se quita ${sp.sitioId} de este proyecto, con todos sus gates y comentarios. El sitio sigue en el maestro y en sus otros proyectos. No se puede deshacer; la auditoría conserva el rastro.`}
+        descripcion={`Se quita ${sp.sitioId} de este proyecto, con todas sus etapas y comentarios. El sitio sigue en el maestro y en sus otros proyectos. No se puede deshacer; la auditoría conserva el rastro.`}
         pie={
           <>
             <Boton disabled={eliminando} onClick={cerrar}>

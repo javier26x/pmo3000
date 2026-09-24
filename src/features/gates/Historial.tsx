@@ -35,7 +35,7 @@ export function Historial({
       <EstadoVacio
         icono={<History aria-hidden className="size-6" />}
         titulo="Sin movimientos registrados"
-        descripcion="Cada cambio de gate, fecha, responsable o entregable queda aqui."
+        descripcion="Cada cambio de etapa, fecha, responsable o entregable queda aqui."
       />
     )
   }

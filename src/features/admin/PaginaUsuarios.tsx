@@ -304,7 +304,7 @@ export function PaginaUsuarios() {
           {rol === 'admin' && (
             <p className="flex items-start gap-1.5 text-xs text-texto-3">
               <ShieldAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-              Un administrador puede cambiar roles, editar la plantilla de gates y borrar sitios.
+              Un administrador puede cambiar roles, editar la plantilla de etapas y borrar sitios.
             </p>
           )}
         </div>

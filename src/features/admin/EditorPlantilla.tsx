@@ -195,7 +195,7 @@ export function EditorPlantilla({
       abierto
       ancho="xl"
       onCerrar={onCerrar}
-      titulo={original ? `Editar plantilla «${original.nombre}»` : 'Nueva plantilla de gates'}
+      titulo={original ? `Editar plantilla «${original.nombre}»` : 'Nueva plantilla de etapas'}
       descripcion={
         original
           ? `Identificador ${original.id} · versión ${original.version}. Los cambios se guardan como versión ${versionNueva}.`

@@ -36,7 +36,7 @@ const COLUMNAS: { campo: CampoOrden | null; etiqueta: string; alineacion?: 'dere
   { campo: 'region', etiqueta: 'Comuna' },
   { campo: null, etiqueta: 'Programa' },
   { campo: null, etiqueta: 'Torrera' },
-  { campo: 'gate', etiqueta: 'Gate' },
+  { campo: 'gate', etiqueta: 'Etapa' },
   { campo: 'plan', etiqueta: 'Fecha plan', alineacion: 'derecha' },
   { campo: 'atraso', etiqueta: 'Desviación', alineacion: 'derecha' },
   { campo: null, etiqueta: 'SLA etapa', alineacion: 'derecha' },
@@ -148,7 +148,7 @@ export function PaginaSitios() {
     <>
       <CabeceraPantalla
         titulo="Maestro de sitios"
-        descripcion="Cada fila es un sitio dentro de un proyecto, con su gate actual y su desviación."
+        descripcion="Cada fila es un sitio dentro de un proyecto, con su etapa actual y su desviación."
         acciones={
           puedeHacer('sitios', 'importar') ? (
             <EnlaceBoton to="/importar" variante="primario">

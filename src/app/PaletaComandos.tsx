@@ -129,7 +129,7 @@ export function PaletaComandos({ onCerrar }: { onCerrar: () => void }) {
       },
       {
         id: 'ir-configuracion',
-        titulo: 'Configuración: gates, programas y proyectos',
+        titulo: 'Configuración: etapas, programas y proyectos',
         grupo: 'Navegación',
         icono: <SlidersHorizontal aria-hidden className="size-4" />,
         requiere: ['proyectos', 'editar'],

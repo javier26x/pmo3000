@@ -129,7 +129,7 @@ export function BarraFiltros({ compacta = false }: { compacta?: boolean }) {
       },
       {
         clave: 'gate',
-        etiqueta: 'Gate',
+        etiqueta: 'Etapa',
         opciones: [
           ...etapas.map((e) => ({ valor: e.codigo, texto: nombreGate(e.codigo, etapas) })),
           { valor: 'CERRADO', texto: 'Cerrado' },

@@ -111,7 +111,7 @@ export const CAMPOS_IMPORTACION: readonly CampoImportacion[] = [
     etiqueta: 'Fecha de inicio',
     obligatorio: false,
     alias: ['fechainicio', 'inicio', 'fechaplan', 'startdate', 'fecha'],
-    ayuda: 'Desde esta fecha se calculan las fechas plan de cada gate.',
+    ayuda: 'Desde esta fecha se calculan las fechas plan de cada etapa.',
   },
 ]
 

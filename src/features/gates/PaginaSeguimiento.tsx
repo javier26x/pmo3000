@@ -141,7 +141,7 @@ export function PaginaSeguimiento() {
   if (!plantilla) {
     return (
       <div className="p-4">
-        <Aviso tono="error" titulo="Falta la plantilla de gates">
+        <Aviso tono="error" titulo="Falta la plantilla de etapas">
           Este sitio referencia la plantilla <code>{sp.gateTemplateId}</code>, que no existe o no
           puedes leerla. Pide a un administrador que la revise.
         </Aviso>
@@ -290,7 +290,7 @@ export function PaginaSeguimiento() {
             </div>
             <BarraProgreso valor={avance} etiqueta={`Avance del sitio: ${avance}%`} />
           </div>
-          <Metrica etiqueta="Gate actual" valor={nombreGate(sp.gateActual, etapas)} />
+          <Metrica etiqueta="Etapa actual" valor={nombreGate(sp.gateActual, etapas)} />
           <Metrica etiqueta="Plan" valor={formatearFecha(gateActual?.fechaPlan ?? null)} />
           <Metrica
             etiqueta="Desviacion"
@@ -347,10 +347,10 @@ export function PaginaSeguimiento() {
             los ~130 campos del tracker. */}
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_minmax(260px,340px)] lg:grid-rows-[auto_1fr]">
           <section
-            aria-label="Secuencia de gates"
+            aria-label="Secuencia de etapas"
             className="rounded border border-borde bg-superficie p-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:self-start"
           >
-            <h2 className="px-2 pb-1 text-xs font-semibold text-texto-2">Secuencia de gates</h2>
+            <h2 className="px-2 pb-1 text-xs font-semibold text-texto-2">Secuencia de etapas</h2>
             {gateVisible && (
               <LineaGates
                 sp={sp}
@@ -363,7 +363,7 @@ export function PaginaSeguimiento() {
           </section>
 
           <section
-            aria-label="Avance del gate"
+            aria-label="Avance de la etapa"
             className="rounded border border-borde bg-superficie p-3 lg:col-start-2 lg:row-start-1"
           >
             <h2 className="mb-2 text-xs font-semibold text-texto-2">
@@ -665,7 +665,7 @@ export function PaginaSeguimiento() {
               etiqueta="Fecha real de cierre"
               htmlFor="fecha-cierre"
               obligatorio
-              ayuda="No puede ser una fecha futura ni anterior al cierre del gate previo."
+              ayuda="No puede ser una fecha futura ni anterior al cierre de la etapa previa."
             >
               <Entrada
                 id="fecha-cierre"
@@ -695,8 +695,8 @@ export function PaginaSeguimiento() {
       <Dialogo
         abierto={dialogo === 'retroceder'}
         onCerrar={() => setDialogo(null)}
-        titulo="Retroceder el gate"
-        descripcion="El gate anterior se reabre y pierde su fecha real. Queda registrado en la auditoria."
+        titulo="Retroceder la etapa"
+        descripcion="La etapa anterior se reabre y pierde su fecha real. Queda registrado en la auditoria."
         pie={
           <>
             <Boton onClick={() => setDialogo(null)}>Cancelar</Boton>
@@ -706,7 +706,7 @@ export function PaginaSeguimiento() {
               onClick={() => {
                 const ok = ejecutar(
                   planRetrocederGate(sp, plantilla, ctx, motivo),
-                  'Gate retrocedido',
+                  'Etapa retrocedida',
                 )
                 if (ok) setDialogo(null)
               }}
@@ -733,8 +733,8 @@ export function PaginaSeguimiento() {
         titulo={sp.bloqueado ? 'Desbloquear el sitio' : 'Bloquear el sitio'}
         descripcion={
           sp.bloqueado
-            ? 'El sitio vuelve a poder avanzar de gate.'
-            : 'Un sitio bloqueado no puede avanzar de gate hasta que se desbloquee.'
+            ? 'El sitio vuelve a poder avanzar de etapa.'
+            : 'Un sitio bloqueado no puede avanzar de etapa hasta que se desbloquee.'
         }
         pie={
           <>

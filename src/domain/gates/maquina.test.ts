@@ -321,7 +321,7 @@ describe('planMarcarChecklist', () => {
       ok: true,
     })
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.motivo).toContain('gate futuro')
+    if (!r.ok) expect(r.motivo).toContain('etapa futura')
   })
 
   it('registra quien marco el entregable', () => {

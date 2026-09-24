@@ -255,10 +255,10 @@ export function evaluarAvance(
   const base = { itemsFaltantes: [] as ItemPlantilla[], destino: null as GateActual | null }
 
   if (!puede(actor.rol, 'sitioProyectos', 'avanzarGate')) {
-    return { ...base, permitido: false, motivo: 'Tu rol no puede avanzar gates' }
+    return { ...base, permitido: false, motivo: 'Tu rol no puede avanzar etapas' }
   }
   if (sp.gateActual === CERRADO) {
-    return { ...base, permitido: false, motivo: 'El sitio ya cerro todos los gates' }
+    return { ...base, permitido: false, motivo: 'El sitio ya cerro todas las etapas' }
   }
   if (sp.bloqueado) {
     return {
@@ -273,7 +273,7 @@ export function evaluarAvance(
     return {
       ...base,
       permitido: false,
-      motivo: `El gate ${sp.gateActual} no existe en la plantilla ${plantilla.id}`,
+      motivo: `La etapa ${sp.gateActual} no existe en la plantilla ${plantilla.id}`,
     }
   }
 
@@ -282,7 +282,7 @@ export function evaluarAvance(
   if (faltantes.length > 0) {
     return {
       permitido: false,
-      motivo: `Faltan ${faltantes.length} entregable(s) obligatorio(s) del gate ${sp.gateActual}`,
+      motivo: `Faltan ${faltantes.length} entregable(s) obligatorio(s) de la etapa ${sp.gateActual}`,
       itemsFaltantes: faltantes,
       destino,
     }
@@ -302,7 +302,7 @@ export function evaluarMovimiento(
   destino: GateActual,
 ): { permitido: boolean; motivo: string | null; tipo: 'avance' | 'retroceso' | 'ninguno' } {
   if (destino === sp.gateActual) {
-    return { permitido: false, motivo: 'El sitio ya esta en ese gate', tipo: 'ninguno' }
+    return { permitido: false, motivo: 'El sitio ya esta en esa etapa', tipo: 'ninguno' }
   }
 
   if (destino === siguienteGate(sp.gateActual, secuenciaDeGates(sp.gates))) {
@@ -314,7 +314,7 @@ export function evaluarMovimiento(
     if (!puede(actor.rol, 'sitioProyectos', 'retrocederGate')) {
       return {
         permitido: false,
-        motivo: 'Solo un administrador o jefe de celula puede retroceder un gate',
+        motivo: 'Solo un administrador o jefe de celula puede retroceder una etapa',
         tipo: 'retroceso',
       }
     }
@@ -325,7 +325,7 @@ export function evaluarMovimiento(
   const salto = Math.abs(ordenGate(destino, secuencia) - ordenGate(sp.gateActual, secuencia))
   return {
     permitido: false,
-    motivo: `No se puede saltar ${salto} gates: los gates son secuenciales`,
+    motivo: `No se puede saltar ${salto} etapas: las etapas son secuenciales`,
     tipo: 'ninguno',
   }
 }
@@ -363,7 +363,7 @@ export function planAvanzarGate(
 ): Resultado<Parche> {
   const evaluacion = evaluarAvance(sp, plantilla, ctx.actor)
   if (!evaluacion.permitido || !evaluacion.destino) {
-    return { ok: false, motivo: evaluacion.motivo ?? 'No se puede avanzar el gate' }
+    return { ok: false, motivo: evaluacion.motivo ?? 'No se puede avanzar la etapa' }
   }
 
   const codigoActual = sp.gateActual as CodigoGate
@@ -377,7 +377,7 @@ export function planAvanzarGate(
     if (fechaAnterior && diasEntre(fechaAnterior, opciones.fechaReal) < 0) {
       return {
         ok: false,
-        motivo: `La fecha real no puede ser anterior al cierre del gate ${anterior}`,
+        motivo: `La fecha real no puede ser anterior al cierre de la etapa ${anterior}`,
       }
     }
   }
@@ -434,18 +434,18 @@ export function planRetrocederGate(
   motivo: string,
 ): Resultado<Parche> {
   if (!puede(ctx.actor.rol, 'sitioProyectos', 'retrocederGate')) {
-    return { ok: false, motivo: 'Tu rol no puede retroceder gates' }
+    return { ok: false, motivo: 'Tu rol no puede retroceder etapas' }
   }
   if (!motivo.trim()) {
-    return { ok: false, motivo: 'Un retroceso de gate exige un motivo' }
+    return { ok: false, motivo: 'Un retroceso de etapa exige un motivo' }
   }
 
   const destino = gateAnterior(sp.gateActual, secuenciaDeGates(sp.gates))
   if (!destino || destino === CERRADO) {
-    return { ok: false, motivo: 'El sitio ya esta en el primer gate' }
+    return { ok: false, motivo: 'El sitio ya esta en la primera etapa' }
   }
   if (!gateDePlantilla(plantilla, destino)) {
-    return { ok: false, motivo: `El gate ${destino} no existe en la plantilla` }
+    return { ok: false, motivo: `La etapa ${destino} no existe en la plantilla` }
   }
 
   const campos: Record<string, unknown> = {
@@ -506,11 +506,11 @@ export function planMarcarChecklist(
   const gatePlantilla = gateDePlantilla(plantilla, opciones.codigo)
   const item = gatePlantilla?.checklist.find((i) => i.id === opciones.itemId)
   if (!gatePlantilla || !item) {
-    return { ok: false, motivo: 'El entregable no existe en la plantilla de este gate' }
+    return { ok: false, motivo: 'El entregable no existe en la plantilla de esta etapa' }
   }
   const sec = secuenciaDeGates(sp.gates)
   if (ordenGate(opciones.codigo, sec) > ordenGate(sp.gateActual, sec)) {
-    return { ok: false, motivo: 'No se puede marcar el checklist de un gate futuro' }
+    return { ok: false, motivo: 'No se puede marcar el checklist de una etapa futura' }
   }
 
   const previo = sp.gates[opciones.codigo]?.checklist?.[opciones.itemId]
@@ -560,7 +560,7 @@ export function planRegistrarFecha(
     return { ok: false, motivo: 'Solo puedes editar sitios asignados a tu empresa' }
   }
   if (!gateDePlantilla(plantilla, opciones.codigo)) {
-    return { ok: false, motivo: 'El gate no existe en la plantilla' }
+    return { ok: false, motivo: 'La etapa no existe en la plantilla' }
   }
   if (opciones.campo === 'fechaReal' && opciones.fecha && diasEntre(ctx.hoy, opciones.fecha) > 0) {
     return { ok: false, motivo: 'La fecha real no puede estar en el futuro' }

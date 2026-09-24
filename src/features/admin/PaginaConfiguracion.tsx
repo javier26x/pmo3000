@@ -272,7 +272,7 @@ export function PaginaConfiguracion() {
     <>
       <CabeceraPantalla
         titulo="Configuración"
-        descripcion="La estructura sobre la que se cuelga el despliegue: plantilla de gates, portafolios, programas, proyectos, células y proveedores."
+        descripcion="La estructura sobre la que se cuelga el despliegue: plantilla de etapas, portafolios, programas, proyectos, células y proveedores."
       >
         <Tabs pestanas={pestanas} activa={pestana} onCambiar={cambiarPestana} />
       </CabeceraPantalla>
@@ -282,7 +282,7 @@ export function PaginaConfiguracion() {
           {!cargando && !listo && (
             <Aviso tono="info" titulo="Puesta en marcha">
               Para poder importar sitios hace falta, en este orden: la{' '}
-              <strong>plantilla de gates</strong>, un <strong>portafolio</strong>, al menos un{' '}
+              <strong>plantilla de etapas</strong>, un <strong>portafolio</strong>, al menos un{' '}
               <strong>programa</strong> y al menos un <strong>proyecto</strong> dentro de ese
               programa. Las células y los proveedores se pueden agregar después.
             </Aviso>
@@ -292,7 +292,7 @@ export function PaginaConfiguracion() {
             <div className="grid items-start gap-3 xl:grid-cols-2">
               <Seccion
                 icono={<ListChecks aria-hidden className="size-4" />}
-                titulo="Plantillas de gates"
+                titulo="Plantillas de etapas"
                 descripcion="La secuencia de etapas de cada programa y el checklist exigible en cada una. Editar una plantilla crea una versión nueva, que rige para los sitios que entren desde ahora."
                 accion={
                   puedeEditarPlantillas ? (
@@ -450,7 +450,7 @@ export function PaginaConfiguracion() {
                     portafolios.length === 0
                       ? 'Crea primero un portafolio.'
                       : plantillas.length === 0
-                        ? 'Crea primero la plantilla de gates.'
+                        ? 'Crea primero la plantilla de etapas.'
                         : 'Sin programas.'
                   }
                 />
@@ -1184,7 +1184,7 @@ export function DialogoCatalogo({
               </Selector>
             </Campo>
             <Campo
-              etiqueta="Plantilla de gates"
+              etiqueta="Plantilla de etapas"
               htmlFor="cfg-plantilla"
               obligatorio
               ayuda={
@@ -1288,7 +1288,7 @@ export function DialogoCatalogo({
               <Campo
                 etiqueta="Fecha de inicio"
                 htmlFor="cfg-inicio"
-                ayuda="Desde aquí se encadenan las fechas plan de cada gate."
+                ayuda="Desde aquí se encadenan las fechas plan de cada etapa."
               >
                 <Entrada
                   id="cfg-inicio"

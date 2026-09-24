@@ -233,7 +233,7 @@ export default function PaginaMapa() {
               onChange={(e) => setModo(e.target.value as ModoColor)}
               aria-label="Colorear el mapa por"
             >
-              <option value="gate">Colorear por gate</option>
+              <option value="gate">Colorear por etapa</option>
               <option value="semaforo">Colorear por cumplimiento</option>
             </Selector>
           </div>
@@ -364,7 +364,7 @@ export default function PaginaMapa() {
                 <dd className="truncate">{nombreProveedor(elegido.proveedorId)}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-texto-3">Gate actual</dt>
+                <dt className="text-texto-3">Etapa actual</dt>
                 <dd>{nombreGate(elegido.gateActual, etapas)}</dd>
               </div>
               <div className="flex justify-between gap-2">

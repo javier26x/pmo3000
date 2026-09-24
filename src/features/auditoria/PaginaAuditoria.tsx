@@ -64,7 +64,7 @@ export function PaginaAuditoria() {
     <>
       <CabeceraPantalla
         titulo="Auditoria"
-        descripcion="Cada cambio de gate, fecha, responsable o entregable, con quien lo hizo y cuando."
+        descripcion="Cada cambio de etapa, fecha, responsable o entregable, con quien lo hizo y cuando."
         acciones={
           <Insignia tono="neutro">
             <Lock aria-hidden className="size-3" />
@@ -126,7 +126,7 @@ export function PaginaAuditoria() {
           <EstadoVacio
             icono={<History aria-hidden className="size-8" />}
             titulo="Sin eventos para este filtro"
-            descripcion="Prueba quitando filtros, o genera actividad avanzando un gate."
+            descripcion="Prueba quitando filtros, o genera actividad avanzando una etapa."
           />
         ) : (
           <div className="panel-scroll min-h-0 flex-1 overflow-auto rounded border border-borde bg-superficie">

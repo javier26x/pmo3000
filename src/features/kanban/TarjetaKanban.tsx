@@ -58,7 +58,7 @@ export const TarjetaKanban = memo(function TarjetaKanban({
             type="button"
             {...attributes}
             {...listeners}
-            aria-label={`Mover ${sp.sitioId} de gate`}
+            aria-label={`Mover ${sp.sitioId} de etapa`}
             className="shrink-0 cursor-grab rounded text-texto-3 hover:text-texto active:cursor-grabbing"
           >
             <GripVertical aria-hidden className="size-3.5" />

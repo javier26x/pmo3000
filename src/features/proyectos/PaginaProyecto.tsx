@@ -340,7 +340,7 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
           {/* ------------------------------------------------ plantilla */}
           <Bloque
             icono={<ListChecks aria-hidden className="size-4" />}
-            titulo="Plantilla de gates"
+            titulo="Plantilla de etapas"
             descripcion="Las etapas por las que pasan los sitios de este proyecto. Es la misma plantilla de Configuración: lo que cambies se ve en los dos lados."
             className="lg:col-span-2"
           >

@@ -58,7 +58,7 @@ export function EmbudoGates() {
 
   return (
     <section
-      aria-label="Distribución de sitios por gate"
+      aria-label="Distribución de sitios por etapa"
       className="rounded-lg border border-borde bg-superficie p-2.5"
     >
       <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">

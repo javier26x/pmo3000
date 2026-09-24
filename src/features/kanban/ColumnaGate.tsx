@@ -94,7 +94,7 @@ export function ColumnaGate({
       <div className="panel-scroll flex flex-1 flex-col gap-1.5 overflow-y-auto p-1.5">
         {sitios.length === 0 ? (
           <p className="px-1 py-6 text-center text-xs text-texto-3">
-            {gate === CERRADO ? 'Ningun sitio cerrado' : 'Sin sitios en este gate'}
+            {gate === CERRADO ? 'Ningun sitio cerrado' : 'Sin sitios en esta etapa'}
           </p>
         ) : (
           sitios
