@@ -278,6 +278,17 @@ export function PaginaSeguimiento() {
                 Avanzar gate
               </Boton>
             )}
+            {/* El mapa vuela al sitio y lo marca (ver EnfoqueSitio en PaginaMapa). */}
+            <EnlaceBoton
+              to={`/mapa?${new URLSearchParams({
+                sitio: sp.sitioId,
+                lat: String(sp.lat),
+                lon: String(sp.lon),
+              }).toString()}`}
+            >
+              <MapPin aria-hidden className="size-4" />
+              Ver en el mapa
+            </EnlaceBoton>
             <AdministrarSeguimiento sp={sp} />
           </>
         }
