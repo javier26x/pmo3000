@@ -133,14 +133,17 @@ function main(): void {
     '',
     '# Politica de acceso. VITE_CORREOS_ADMIN tiene que decir lo mismo que',
     '# correosAdministradores() en firestore.rules.',
-    `VITE_DOMINIO_PERMITIDO=${propios.VITE_DOMINIO_PERMITIDO}`,
+    `VITE_DOMINIOS_PERMITIDOS=${propios.VITE_DOMINIOS_PERMITIDOS}`,
     `VITE_CORREOS_ADMIN=${propios.VITE_CORREOS_ADMIN}`,
+    '',
+    '# Tenant de Microsoft 365 (CLAROCHILE). Vacio: sin boton de Microsoft.',
+    `VITE_MICROSOFT_TENANT=${propios.VITE_MICROSOFT_TENANT}`,
     '',
   ]
 
   writeFileSync(ARCHIVO, lineas.join('\n'))
   console.log(`\n${ARCHIVO} escrito para el proyecto "${exigir(config, 'projectId')}".`)
-  console.log(`Dominio permitido: ${propios.VITE_DOMINIO_PERMITIDO}`)
+  console.log(`Dominios permitidos: ${propios.VITE_DOMINIOS_PERMITIDOS}`)
   console.log(
     `Correos admin: ${propios.VITE_CORREOS_ADMIN === '' ? '(ninguno)' : propios.VITE_CORREOS_ADMIN}`,
   )
