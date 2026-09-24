@@ -441,6 +441,36 @@
     }
   }
 
+  /* Seccion plegable: la misma hoja que los paneles del Inicio. */
+  .seccion {
+    background: var(--hoja);
+    border: 1px solid var(--vidrio-divisor);
+    box-shadow: var(--lente-brillo), var(--lente-sombra);
+  }
+  .seccion > header > button {
+    transition: background-color var(--ms-rapido) var(--curva);
+  }
+  .seccion > header > button:hover {
+    background: var(--gota);
+  }
+  .seccion > header > button:focus-visible {
+    outline-offset: -3px;
+  }
+
+  /* Cifras en rejilla: el hueco de 1px entre celdas ES el divisor, asi que
+     funciona con cualquier numero de columnas y de filas. */
+  .cifras-rejilla {
+    background: var(--vidrio-divisor);
+  }
+  .cifras-rejilla > .cifra-inicio {
+    background: var(--hoja);
+    border: 0;
+    grid-column: auto;
+  }
+  .cifras-rejilla > .cifra-inicio:hover {
+    background: var(--superficie);
+  }
+
   .tramo-franja {
     background: var(--gate-punto);
     transition:

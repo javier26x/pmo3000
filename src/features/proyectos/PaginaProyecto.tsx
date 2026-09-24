@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import {
   ClipboardCheck,
   FileSpreadsheet,
-  Info,
   KeyRound,
   ListChecks,
   MapPin,
@@ -18,7 +17,7 @@ import {
   EnlaceBoton,
   EstadoVacio,
   Insignia,
-  Metrica,
+  Seccion,
   Selector,
 } from '@/components/ui'
 import { avisar, mensajeDeError } from '@/app/avisos'
@@ -28,7 +27,7 @@ import { SelectorPersonas } from '@/features/admin/EditorArea'
 import { EditorSla, etapasDelProyecto } from '@/features/admin/EditorSla'
 import { DialogoCatalogo } from '@/features/admin/PaginaConfiguracion'
 import { formatearFecha } from '@/domain/fechas'
-import { nombreGate } from '@/domain/gates/catalogo'
+import { CERRADO } from '@/domain/gates/catalogo'
 import { estaEnAlcance, tieneAlcance } from '@/domain/permisos/alcance'
 import { NOMBRES_ROL } from '@/domain/tipos/comunes'
 import { NOMBRES_ESTADO_PROGRAMA, type Area, type Proyecto } from '@/domain/tipos'
@@ -38,7 +37,8 @@ import { useDespliegue } from '@/hooks/useDespliegue'
 import { useActor, useSesion } from '@/hooks/useSesion'
 import { useMedidorSla } from '@/hooks/useSla'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
-import { Bloque, TONO_ESTADO } from './comun'
+import { Cifra, Franja, numero, type Tramo } from '@/features/inicio/piezas'
+import { TONO_ESTADO } from './comun'
 import { PlantillaDelProyecto } from './PlantillaDelProyecto'
 import { SitiosDelProyecto } from './SitiosDelProyecto'
 
@@ -101,13 +101,27 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
     () => etapasDelProyecto(proyecto, programas, plantillas, new Set(r.plantillas)),
     [proyecto, programas, plantillas, r.plantillas],
   )
-  const maxEtapa = Math.max(1, ...r.porEtapa.map((e) => e.total))
+  // La lista de Sitios ya filtrada por este proyecto, y por lo que se pida.
+  const aSitios = (extra = '') =>
+    `/sitios?proy=${encodeURIComponent(proyecto.id)}${extra ? `&${extra}` : ''}`
+  const tramos: Tramo[] = [
+    ...r.porEtapa.map((e) => ({
+      gate: e.codigo,
+      total: e.total,
+      a: aSitios(`gate=${encodeURIComponent(e.codigo)}`),
+    })),
+    ...(r.cerrados > 0
+      ? [{ gate: CERRADO, total: r.cerrados, a: aSitios(`gate=${CERRADO}`) }]
+      : []),
+  ]
+  const porcentaje = r.vigentes === 0 ? 0 : Math.round((r.cerrados / r.vigentes) * 100)
   const internos = usuarios.filter((u) => u.activo && u.rol !== 'contratista')
 
   return (
     <>
       <CabeceraPantalla
         titulo={proyecto.nombre}
+        ancho="max-w-6xl"
         migas={[{ etiqueta: 'Proyectos', ruta: '/proyectos' }, { etiqueta: proyecto.nombre }]}
         descripcion={
           <span className="flex flex-wrap items-center gap-2">
@@ -133,75 +147,92 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
         }
       />
 
-      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto">
-        <div className="grid gap-4 p-4 lg:grid-cols-2">
-          {/* ------------------------------------------------ foto */}
-          <Bloque
-            icono={<Info aria-hidden className="size-4" />}
-            titulo="Cómo va"
-            className="lg:col-span-2"
+      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4">
+        <div className="mx-auto grid w-full max-w-6xl gap-4 py-5 lg:grid-cols-2">
+          {/* ------------------------------------------------ foto
+              Mismo lenguaje que el Inicio: la franja es el proceso del
+              proyecto y cada cifra abre la tabla con ese recorte. */}
+          <section
+            aria-labelledby="titulo-como-va"
+            className="lente flex flex-col gap-5 rounded-[var(--radio-lente)] p-5 sm:p-6 lg:col-span-2"
           >
             {cargando ? (
-              <Cargando texto="Contando sitios…" />
-            ) : (
-              // Numeros a la izquierda y etapas a la derecha: apilados, la foto
-              // sola ocupaba media pantalla de notebook.
-              <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <div className="grid grid-cols-3 content-start gap-x-6 gap-y-3">
-                  <Metrica etiqueta="Sitios vigentes" valor={r.vigentes} />
-                  <Metrica etiqueta="Terminados" valor={r.cerrados} tono="ok" />
-                  <Metrica
-                    etiqueta="Fuera de SLA"
-                    valor={proyecto.sla ? r.fueraDeSla : '—'}
-                    tono={r.fueraDeSla > 0 ? 'error' : 'neutro'}
-                  />
-                  <Metrica
-                    etiqueta="Por vencer"
-                    valor={proyecto.sla ? r.porVencer : '—'}
-                    tono={r.porVencer > 0 ? 'riesgo' : 'neutro'}
-                  />
-                  <Metrica etiqueta="En hold" valor={r.bloqueados} />
-                  <Metrica etiqueta="No vigentes" valor={r.noVigentes} />
-                </div>
-                {r.porEtapa.length > 0 && (
-                  <ul className="flex flex-col gap-1" aria-label="Sitios por etapa">
-                    {r.porEtapa.map((e) => (
-                      <li key={e.codigo}>
-                        {/* Cada etapa abre la lista de Sitios con sus sitios. */}
-                        <Link
-                          to={`/sitios?proy=${encodeURIComponent(proyecto.id)}&gate=${encodeURIComponent(e.codigo)}`}
-                          title={`Ver los sitios en ${nombreGate(e.codigo, etapas)}`}
-                          className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-superficie-2"
-                        >
-                          <span className="w-32 shrink-0 truncate text-texto-2">
-                            {nombreGate(e.codigo, etapas)}
-                          </span>
-                          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-superficie-3">
-                            <span
-                              className="block h-full rounded-full bg-[var(--dato)]"
-                              style={{ width: `${(e.total / maxEtapa) * 100}%` }}
-                            />
-                          </span>
-                          <span className="w-10 text-right tabular-nums">{e.total}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {truncado && (
-                  <p className="text-xs text-texto-3 lg:col-span-2">
-                    El despliegue tiene más sitios de los que se cargan de una vez: los números
-                    pueden quedarse cortos.
-                  </p>
-                )}
+              <div className="flex flex-col gap-3" aria-busy>
+                <span className="esqueleto h-7 w-72 max-w-full rounded" />
+                <span className="esqueleto h-11 w-full rounded-full" />
               </div>
+            ) : r.vigentes === 0 ? (
+              <p className="text-sm text-texto-2">
+                Este proyecto todavía no tiene sitios vigentes. Importa su tracker para empezar.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+                  <h2 id="titulo-como-va" className="text-2xl font-semibold tracking-tight">
+                    <span className="text-[var(--acento)] tabular-nums">{numero(r.cerrados)}</span>{' '}
+                    de <span className="tabular-nums">{numero(r.vigentes)}</span> sitios terminados
+                  </h2>
+                  <p className="text-sm text-texto-2">
+                    <span className="font-semibold text-texto tabular-nums">{porcentaje}%</span> del
+                    proyecto · {numero(r.vigentes - r.cerrados)} en camino
+                  </p>
+                </div>
+                <Franja tramos={tramos} etapas={etapas} />
+              </>
             )}
-          </Bloque>
+
+            <div className="cifras-rejilla grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[var(--vidrio-divisor)] sm:grid-cols-3 lg:grid-cols-6">
+              <Cifra etiqueta="Vigentes" valor={r.vigentes} a={aSitios()} cargando={cargando} />
+              <Cifra
+                etiqueta="Terminados"
+                valor={r.cerrados}
+                tono="ok"
+                a={aSitios(`gate=${CERRADO}`)}
+                cargando={cargando}
+              />
+              <Cifra
+                etiqueta="Fuera de SLA"
+                valor={proyecto.sla ? r.fueraDeSla : '—'}
+                tono="error"
+                a={aSitios('sla=1')}
+                cargando={cargando}
+              />
+              <Cifra
+                etiqueta="Por vencer"
+                valor={proyecto.sla ? r.porVencer : '—'}
+                tono="riesgo"
+                a={aSitios('ord=plan:asc')}
+                cargando={cargando}
+              />
+              <Cifra
+                etiqueta="En hold"
+                valor={r.bloqueados}
+                tono="riesgo"
+                a={aSitios('blo=1')}
+                cargando={cargando}
+              />
+              <Cifra
+                etiqueta="No vigentes"
+                valor={r.noVigentes}
+                a={aSitios('vig=no_vigentes')}
+                cargando={cargando}
+              />
+            </div>
+
+            {truncado && (
+              <p className="text-xs text-texto-3">
+                El despliegue tiene más sitios de los que se cargan de una vez: los números pueden
+                quedarse cortos.
+              </p>
+            )}
+          </section>
 
           {/* ------------------------------------------------ sitios */}
-          <Bloque
+          <Seccion
+            id="proyecto.sitios"
             icono={<MapPin aria-hidden className="size-4" />}
             titulo="Sitios"
+            resumen={`${numero(r.vigentes)} vigentes`}
             className="lg:col-span-2"
           >
             {cargando ? (
@@ -209,11 +240,12 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
             ) : (
               <SitiosDelProyecto proyectoId={proyecto.id} seguimientos={seguimientos} />
             )}
-          </Bloque>
+          </Seccion>
 
           {/* ------------------------------------------------ datos */}
-          <Bloque
+          <Seccion
             icono={<Pencil aria-hidden className="size-4" />}
+            id="proyecto.datos"
             titulo="Datos del proyecto"
             accion={
               puedeEditar ? <Boton onClick={() => setEditandoDatos(true)}>Editar</Boton> : null
@@ -263,11 +295,12 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
                 </>
               )}
             </dl>
-          </Bloque>
+          </Seccion>
 
           {/* ------------------------------------------------ SLA */}
-          <Bloque
+          <Seccion
             icono={<Timer aria-hidden className="size-4" />}
+            id="proyecto.sla"
             titulo="SLA"
             descripcion="Días que puede estar un sitio en cada etapa, contados desde que cerró la anterior."
             accion={
@@ -319,11 +352,13 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
                 </p>
               </div>
             )}
-          </Bloque>
+          </Seccion>
 
           {/* ------------------------------------------------ revisores */}
-          <Bloque
+          <Seccion
             icono={<ClipboardCheck aria-hidden className="size-4" />}
+            id="proyecto.revisores"
+            abiertaPorDefecto={false}
             titulo="Quién responde"
             descripcion="Las personas que responden por cada área en este proyecto: las revisiones (OOCC, ECE, RF…) y la transmisión (FO, MMOO, IPRAN). Ven lo suyo en Pendientes."
             className="lg:col-span-2"
@@ -335,11 +370,13 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
               nombreUsuario={nombreUsuario}
               puedeEditar={puedeHacer('areas', 'editar')}
             />
-          </Bloque>
+          </Seccion>
 
           {/* ------------------------------------------------ plantilla */}
-          <Bloque
+          <Seccion
             icono={<ListChecks aria-hidden className="size-4" />}
+            id="proyecto.plantilla"
+            abiertaPorDefecto={false}
             titulo="Plantilla de etapas"
             descripcion="Las etapas por las que pasan los sitios de este proyecto. Es la misma plantilla de Configuración: lo que cambies se ve en los dos lados."
             className="lg:col-span-2"
@@ -356,11 +393,13 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
               puedeEditar={puedeHacer('gateTemplates', 'editar')}
               actor={actor}
             />
-          </Bloque>
+          </Seccion>
 
           {/* ------------------------------------------------ tracker */}
-          <Bloque
+          <Seccion
             icono={<FileSpreadsheet aria-hidden className="size-4" />}
+            id="proyecto.tracker"
+            abiertaPorDefecto={false}
             titulo="Tracker"
             descripcion="Qué filas del Excel son de este proyecto y con qué plantilla se leyeron."
           >
@@ -380,11 +419,13 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
                   : r.plantillas.map((id) => plantillaPorId(id)?.nombre ?? id).join(', ')}
               </dd>
             </dl>
-          </Bloque>
+          </Seccion>
 
           {/* ------------------------------------------------ acceso */}
-          <Bloque
+          <Seccion
             icono={<KeyRound aria-hidden className="size-4" />}
+            id="proyecto.acceso"
+            abiertaPorDefecto={false}
             titulo="Quién lo ve"
             descripcion="Personas acotadas a este proyecto, a su programa o a su célula."
             accion={
@@ -394,7 +435,7 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
             }
           >
             <Acceso proyecto={proyecto} />
-          </Bloque>
+          </Seccion>
         </div>
       </div>
 

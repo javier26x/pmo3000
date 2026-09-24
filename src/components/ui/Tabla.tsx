@@ -12,7 +12,7 @@ export function ContenedorTabla({
   return (
     <div
       className={cn(
-        'panel-scroll min-h-0 flex-1 overflow-auto rounded border border-borde bg-superficie',
+        'panel-scroll min-h-0 flex-1 overflow-auto rounded-[var(--radio-lg)] border border-borde bg-superficie',
         className,
       )}
     >

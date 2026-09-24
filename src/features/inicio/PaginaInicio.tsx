@@ -5,7 +5,7 @@ import { InsigniaGate, cn } from '@/components/ui'
 import { leerRecientes } from '@/app/sitiosRecientes'
 import { ZONA_HORARIA, formatearFecha } from '@/domain/fechas'
 import { textoAtraso } from '@/domain/gates/atraso'
-import { CERRADO, claseGate, nombreGate, type GateActual } from '@/domain/gates/catalogo'
+import { CERRADO, type GateActual } from '@/domain/gates/catalogo'
 import { pideAccion } from '@/domain/tracker/estados'
 import { atrasoDeSeguimiento, semaforoDeSeguimiento } from '@/domain/vistas/filtrado'
 import { ritmoSemanal } from '@/domain/vistas/ritmo'
@@ -18,6 +18,7 @@ import { useSesion } from '@/hooks/useSesion'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { GraficoRitmo } from './GraficoRitmo'
 import { GraficoTrabas, type FilaTraba } from './GraficoTrabas'
+import { Cifra, Franja, numero, type Tramo } from './piezas'
 
 const horaChile = new Intl.DateTimeFormat('es-CL', {
   timeZone: ZONA_HORARIA,
@@ -37,8 +38,6 @@ function saludo(): string {
   if (hora < 20) return 'Buenas tardes'
   return 'Buenas noches'
 }
-
-const numero = (n: number) => n.toLocaleString('es-CL')
 
 interface Resumen {
   total: number
@@ -161,15 +160,17 @@ export function PaginaInicio() {
       .slice(0, 5)
   }, [seguimientos])
 
-  const tramos = [...etapas.map((e) => e.codigo), CERRADO]
-    .map((gate) => ({ gate, total: r.porGate.get(gate) ?? 0 }))
+  const tramos: Tramo[] = [...etapas.map((e) => e.codigo), CERRADO]
+    .map((gate) => ({
+      gate,
+      total: r.porGate.get(gate) ?? 0,
+      a: `/sitios?gate=${encodeURIComponent(gate)}`,
+    }))
     .filter((t) => t.total > 0)
 
   const primerNombre = perfil?.nombre.split(' ')[0] ?? ''
   const sinDatos = !cargando && r.total === 0
   const porcentaje = r.total === 0 ? 0 : Math.round((r.alAire / r.total) * 100)
-  const nombreTramo = (gate: GateActual) =>
-    gate === CERRADO ? 'Al aire' : nombreGate(gate, etapas)
 
   return (
     <div className="panel-scroll min-h-0 flex-1 overflow-y-auto">
@@ -224,40 +225,9 @@ export function PaginaInicio() {
                 </p>
               </div>
 
-              <div className="franja mt-4 flex h-11 gap-0.5 overflow-hidden rounded-full bg-[var(--gota)] p-1">
-                {tramos.map((t) => (
-                  <Link
-                    key={t.gate}
-                    to={`/sitios?gate=${encodeURIComponent(t.gate)}`}
-                    title={`${nombreTramo(t.gate)}: ${numero(t.total)}`}
-                    aria-label={`${nombreTramo(t.gate)}: ${numero(t.total)} sitios`}
-                    style={{
-                      flexGrow: t.total,
-                      ...(t.gate === CERRADO ? { background: 'var(--acento)' } : {}),
-                    }}
-                    className={cn(
-                      claseGate(t.gate, etapas),
-                      'tramo-franja min-w-2 basis-0 rounded-full',
-                    )}
-                  />
-                ))}
+              <div className="mt-4">
+                <Franja tramos={tramos} etapas={etapas} />
               </div>
-              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                {tramos.map((t) => (
-                  <li
-                    key={t.gate}
-                    className={cn(claseGate(t.gate, etapas), 'flex items-center gap-1.5')}
-                  >
-                    <span
-                      aria-hidden
-                      className="punto-gate size-2 rounded-full"
-                      style={t.gate === CERRADO ? { background: 'var(--acento)' } : undefined}
-                    />
-                    <span className="text-texto-2">{nombreTramo(t.gate)}</span>
-                    <span className="font-medium tabular-nums">{numero(t.total)}</span>
-                  </li>
-                ))}
-              </ul>
             </>
           )}
         </section>
@@ -394,48 +364,5 @@ export function PaginaInicio() {
         </div>
       </div>
     </div>
-  )
-}
-
-function Cifra({
-  etiqueta,
-  valor,
-  tono,
-  a,
-  cargando,
-}: {
-  etiqueta: string
-  valor: number
-  tono?: 'error' | 'riesgo' | 'ok'
-  a: string
-  cargando: boolean
-}) {
-  const color = {
-    error: 'text-[var(--error-fg)]',
-    riesgo: 'text-[var(--riesgo-fg)]',
-    ok: 'text-[var(--ok-fg)]',
-  }
-  return (
-    <Link to={a} className="cifra-inicio group flex min-h-24 flex-col justify-between gap-3 p-4">
-      <span className="flex items-center justify-between text-xs text-texto-2">
-        {etiqueta}
-        <ArrowRight
-          aria-hidden
-          className="size-3.5 -translate-x-1 opacity-0 transition-all duration-[var(--ms-rapido)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-        />
-      </span>
-      {cargando ? (
-        <span aria-hidden className="esqueleto h-7 w-12 rounded" />
-      ) : (
-        <span
-          className={cn(
-            'text-[1.75rem] leading-none font-semibold tracking-tight tabular-nums',
-            valor > 0 && tono ? color[tono] : 'text-texto',
-          )}
-        >
-          {numero(valor)}
-        </span>
-      )}
-    </Link>
   )
 }

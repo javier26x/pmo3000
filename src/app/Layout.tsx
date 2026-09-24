@@ -1,6 +1,7 @@
 import { Suspense, lazy, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import {
+  ChevronDown,
   Command,
   Keyboard,
   LogOut,
@@ -70,6 +71,17 @@ export function Layout() {
       guardarContraido(!v)
       return !v
     })
+  // Grupos del menu plegados. Plegado, un grupo sigue mostrando la pantalla en
+  // la que estas: saber donde se esta no deberia costar un clic.
+  const [plegados, setPlegados] = useState(leerPlegados)
+  const alternarGrupo = (grupo: string) =>
+    setPlegados((actual) => {
+      const nuevo = new Set(actual)
+      if (nuevo.has(grupo)) nuevo.delete(grupo)
+      else nuevo.add(grupo)
+      guardarPlegados(nuevo)
+      return nuevo
+    })
   const [paletaAbierta, setPaletaAbierta] = useState(false)
   const [ayudaAbierta, setAyudaAbierta] = useState(false)
   const ubicacion = useLocation()
@@ -79,6 +91,8 @@ export function Layout() {
     abrirAyuda: () => setAyudaAbierta(true),
   })
 
+  const esActiva = (ruta: string) =>
+    ruta === '/' ? ubicacion.pathname === '/' : ubicacion.pathname.startsWith(ruta)
   const visibles = NAVEGACION.filter((item) => puedeHacer(item.requiere[0], item.requiere[1]))
   const enVistaDespliegue = VISTAS_DESPLIEGUE.has(ubicacion.pathname)
 
@@ -230,8 +244,10 @@ export function Layout() {
           )}
         >
           {GRUPOS_NAVEGACION.map((grupo) => {
-            const items = visibles.filter((item) => item.grupo === grupo)
-            if (items.length === 0) return null
+            const todos = visibles.filter((item) => item.grupo === grupo)
+            if (todos.length === 0) return null
+            const plegado = !contraido && plegados.has(grupo)
+            const items = plegado ? todos.filter((item) => esActiva(item.ruta)) : todos
             const primero = visibles[0]?.grupo === grupo
             return (
               <div key={grupo} className="mb-2 last:mb-0">
@@ -243,9 +259,26 @@ export function Layout() {
                     />
                   )
                 ) : (
-                  <p className="px-2.5 pt-1 pb-1 text-[11px] font-medium tracking-wide text-texto-3 uppercase">
-                    {grupo}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => alternarGrupo(grupo)}
+                    aria-expanded={!plegado}
+                    className="group flex w-full items-center gap-1 rounded-lg px-2.5 pt-1 pb-1 text-left text-[11px] font-medium tracking-wide text-texto-3 uppercase hover:text-texto-2"
+                  >
+                    <span className="flex-1">{grupo}</span>
+                    {plegado && (
+                      <span className="text-[10px] font-normal normal-case tabular-nums">
+                        {todos.length}
+                      </span>
+                    )}
+                    <ChevronDown
+                      aria-hidden
+                      className={cn(
+                        'size-3 opacity-0 transition-[transform,opacity] duration-[var(--ms-rapido)] group-hover:opacity-100 group-focus-visible:opacity-100',
+                        plegado && '-rotate-90 opacity-100',
+                      )}
+                    />
+                  </button>
                 )}
                 <ul className="flex flex-col gap-0.5" aria-label={grupo}>
                   {items.map((item) => {
@@ -400,5 +433,24 @@ function guardarContraido(valor: boolean): void {
     localStorage.setItem(CLAVE_CONTRAIDO, valor ? '1' : '0')
   } catch {
     // Sin almacenamiento el panel vuelve expandido la proxima vez: no es grave.
+  }
+}
+
+const CLAVE_PLEGADOS = 'pmo3000.menuGruposPlegados'
+
+function leerPlegados(): Set<string> {
+  try {
+    const crudo = localStorage.getItem(CLAVE_PLEGADOS)
+    return new Set(crudo ? (JSON.parse(crudo) as string[]) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function guardarPlegados(plegados: Set<string>): void {
+  try {
+    localStorage.setItem(CLAVE_PLEGADOS, JSON.stringify([...plegados]))
+  } catch {
+    // Sin almacenamiento los grupos vuelven abiertos: no es grave.
   }
 }

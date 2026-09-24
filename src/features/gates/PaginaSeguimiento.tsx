@@ -3,13 +3,15 @@ import { useParams } from 'react-router'
 import {
   ArrowRight,
   ArrowLeft,
-  ChevronRight,
   ExternalLink,
+  ListOrdered,
   Lock,
   MapPin,
   MessageSquare,
   Send,
+  Sheet,
   Unlock,
+  UserRound,
 } from 'lucide-react'
 import {
   AreaTexto,
@@ -25,6 +27,7 @@ import {
   Insignia,
   InsigniaGate,
   Metrica,
+  Seccion,
   Selector,
   Tabs,
 } from '@/components/ui'
@@ -205,6 +208,7 @@ export function PaginaSeguimiento() {
   return (
     <>
       <CabeceraPantalla
+        ancho="max-w-[1600px]"
         migas={[
           { etiqueta: 'Sitios', ruta: '/sitios' },
           { etiqueta: sp.sitioId, ruta: `/sitios/${encodeURIComponent(sp.sitioId)}` },
@@ -275,7 +279,7 @@ export function PaginaSeguimiento() {
                   setDialogo('avanzar')
                 }}
               >
-                Avanzar gate
+                Avanzar etapa
               </Boton>
             )}
             {/* El mapa vuela al sitio y lo marca (ver EnfoqueSitio en PaginaMapa). */}
@@ -325,302 +329,303 @@ export function PaginaSeguimiento() {
         </div>
       </CabeceraPantalla>
 
-      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto p-3">
-        {sp.bloqueado && sp.motivoBloqueo && (
-          <Aviso tono="riesgo" titulo="Sitio bloqueado" className="mb-3">
-            {sp.motivoBloqueo}
-          </Aviso>
-        )}
+      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4">
+        <div className="mx-auto w-full max-w-[1600px] py-4">
+          {sp.bloqueado && sp.motivoBloqueo && (
+            <Aviso tono="riesgo" titulo="Sitio bloqueado" className="mb-3">
+              {sp.motivoBloqueo}
+            </Aviso>
+          )}
 
-        {/* Una linea y no una lista: los mismos entregables estan justo debajo,
+          {/* Una linea y no una lista: los mismos entregables estan justo debajo,
             en el checklist del gate, y la lista repetida empujaba la ficha fuera
             de la pantalla. El detalle completo queda en el title. */}
-        {evaluacion && !evaluacion.permitido && evaluacion.itemsFaltantes.length > 0 && (
-          <p
-            className="mb-3 truncate rounded bg-[var(--info-bg)] px-3 py-1.5 text-sm text-[var(--info-fg)]"
-            title={evaluacion.itemsFaltantes.map((i) => `• ${i.texto}`).join('\n')}
-          >
-            <strong className="font-medium">
-              Para avanzar faltan {evaluacion.itemsFaltantes.length}{' '}
-              {evaluacion.itemsFaltantes.length === 1 ? 'entregable' : 'entregables'}:
-            </strong>{' '}
-            <span className="opacity-80">
-              {evaluacion.itemsFaltantes.map((i) => i.texto).join(' · ')}
-            </span>
-          </p>
-        )}
+          {evaluacion && !evaluacion.permitido && evaluacion.itemsFaltantes.length > 0 && (
+            <p
+              className="mb-3 truncate rounded bg-[var(--info-bg)] px-3 py-1.5 text-sm text-[var(--info-fg)]"
+              title={evaluacion.itemsFaltantes.map((i) => `• ${i.texto}`).join('\n')}
+            >
+              <strong className="font-medium">
+                Para avanzar faltan {evaluacion.itemsFaltantes.length}{' '}
+                {evaluacion.itemsFaltantes.length === 1 ? 'entregable' : 'entregables'}:
+              </strong>{' '}
+              <span className="opacity-80">
+                {evaluacion.itemsFaltantes.map((i) => i.texto).join(' · ')}
+              </span>
+            </p>
+          )}
 
-        {/* En pantalla ancha: secuencia | gate + datos del tracker | asignacion e
+          {/* En pantalla ancha: secuencia | gate + datos del tracker | asignacion e
             historial. La columna derecha queda arriba: antes, con un tracker
             importado, los datos del tracker ocupaban la tercera columna y la
             asignacion y el historial caian a una fila nueva, varios scroll abajo.
             En pantalla angosta el orden del DOM ya deja la asignacion antes de
             los ~130 campos del tracker. */}
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_minmax(260px,340px)] lg:grid-rows-[auto_1fr]">
-          <section
-            aria-label="Secuencia de etapas"
-            className="rounded border border-borde bg-superficie p-2 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:self-start"
-          >
-            <h2 className="px-2 pb-1 text-xs font-semibold text-texto-2">Secuencia de etapas</h2>
-            {gateVisible && (
-              <LineaGates
-                sp={sp}
-                plantilla={plantilla}
-                seleccionado={gateVisible}
-                onSeleccionar={setGateElegido}
-                hoy={hoy}
-              />
-            )}
-          </section>
+          <div className="grid gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_minmax(260px,340px)] lg:grid-rows-[auto_1fr]">
+            <Seccion
+              id="seguimiento.secuencia"
+              icono={<ListOrdered aria-hidden className="size-4" />}
+              titulo="Secuencia de etapas"
+              resumen={nombreGate(sp.gateActual, etapas)}
+              className="lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:self-start"
+            >
+              {gateVisible && (
+                <LineaGates
+                  sp={sp}
+                  plantilla={plantilla}
+                  seleccionado={gateVisible}
+                  onSeleccionar={setGateElegido}
+                  hoy={hoy}
+                />
+              )}
+            </Seccion>
 
-          <section
-            aria-label="Avance de la etapa"
-            className="rounded border border-borde bg-superficie p-3 lg:col-start-2 lg:row-start-1"
-          >
-            <h2 className="mb-2 text-xs font-semibold text-texto-2">
-              {gateVisible ? nombreGate(gateVisible, etapas) : ''}
-            </h2>
+            <section
+              aria-label="Avance de la etapa"
+              className="seccion rounded-[var(--radio-xl)] p-4 lg:col-start-2 lg:row-start-1"
+            >
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                {gateVisible && <InsigniaGate gate={gateVisible} />}
+                {gateVisible && gateVisible === sp.gateActual && (
+                  <span className="text-xs font-normal text-texto-3">Etapa actual</span>
+                )}
+              </h2>
 
-            {/* Un gate de la plantilla estandar se sigue con checklist; uno de
+              {/* Un gate de la plantilla estandar se sigue con checklist; uno de
                 un tracker importado, con las revisiones de cada disciplina.
                 Pueden convivir, asi que se muestra lo que el gate tenga. */}
-            {gateVisible && Object.keys(sp.gates[gateVisible]?.revisiones ?? {}).length > 0 && (
-              <div className="mb-3">
-                <PanelRevisiones
-                  gate={sp.gates[gateVisible]!}
-                  definicion={plantilla.gates.find((g) => g.codigo === gateVisible)}
-                  homologacion={plantilla.homologacion}
-                  {...(indice.size > 0
-                    ? {
-                        responde: (revision: { id: string; nombre: string }) => {
-                          const area = areaDeRevision(indice, revision)
-                          if (!area) return null
-                          const uids = responsablesDe(area, sp.proyectoId)
-                          return uids.length === 0
-                            ? 'Sin responsable'
-                            : uids.map((u) => nombreUsuario(u)).join(', ')
-                        },
-                      }
-                    : {})}
-                />
-              </div>
-            )}
-            {gateVisible && (
-              <PanelChecklist
-                sp={sp}
-                plantilla={plantilla}
-                codigo={gateVisible}
-                editable={puedeEditar}
-                onMarcar={marcar}
-                onEditarFecha={(campo, valor) =>
-                  ejecutar(
-                    planRegistrarFecha(sp, plantilla, ctx, {
-                      codigo: gateVisible,
-                      campo,
-                      fecha: valor,
-                    }),
-                    'Fecha actualizada',
-                  )
-                }
-              />
-            )}
-          </section>
-
-          <div className="flex flex-col gap-3 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:self-start">
-            <section
-              aria-label="Asignacion"
-              className="rounded border border-borde bg-superficie p-3"
-            >
-              <h2 className="mb-2 text-xs font-semibold text-texto-2">Asignacion</h2>
-              <div className="flex flex-col gap-2">
-                <Campo etiqueta="Responsable" htmlFor="responsable">
-                  <Selector
-                    id="responsable"
-                    value={sp.responsableUid ?? ''}
-                    disabled={!puedeHacer('sitioProyectos', 'editar')}
-                    onChange={(e) => {
-                      asignarResponsable(
-                        sp,
-                        {
-                          responsableUid: e.target.value || null,
-                          proveedorId: sp.proveedorId,
-                          prioridad: sp.prioridad,
-                        },
-                        actor,
-                      ).catch((err) => avisar.error(mensajeDeError(err)))
-                      avisar.ok('Responsable actualizado')
-                    }}
-                  >
-                    <option value="">Sin asignar</option>
-                    {usuarios
-                      .filter((u) => u.activo && u.rol !== 'contratista')
-                      .map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nombre}
-                        </option>
-                      ))}
-                  </Selector>
-                </Campo>
-
-                <Campo etiqueta="Proveedor" htmlFor="proveedor">
-                  <Selector
-                    id="proveedor"
-                    value={sp.proveedorId ?? ''}
-                    disabled={!puedeHacer('sitioProyectos', 'editar')}
-                    onChange={(e) => {
-                      asignarResponsable(
-                        sp,
-                        {
-                          responsableUid: sp.responsableUid,
-                          proveedorId: e.target.value || null,
-                          prioridad: sp.prioridad,
-                        },
-                        actor,
-                      ).catch((err) => avisar.error(mensajeDeError(err)))
-                      avisar.ok('Proveedor actualizado')
-                    }}
-                  >
-                    <option value="">Sin proveedor</option>
-                    {proveedores.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </Selector>
-                </Campo>
-
-                <Campo etiqueta="Prioridad" htmlFor="prioridad">
-                  <Selector
-                    id="prioridad"
-                    value={sp.prioridad}
-                    disabled={!puedeHacer('sitioProyectos', 'editar')}
-                    onChange={(e) => {
-                      asignarResponsable(
-                        sp,
-                        {
-                          responsableUid: sp.responsableUid,
-                          proveedorId: sp.proveedorId,
-                          prioridad: e.target.value as Prioridad,
-                        },
-                        actor,
-                      ).catch((err) => avisar.error(mensajeDeError(err)))
-                      avisar.ok('Prioridad actualizada')
-                    }}
-                  >
-                    {PRIORIDADES.map((p) => (
-                      <option key={p} value={p}>
-                        {NOMBRES_PRIORIDAD[p]}
-                      </option>
-                    ))}
-                  </Selector>
-                </Campo>
-
-                <EnlaceBoton to={`/sitios/${encodeURIComponent(sp.sitioId)}`} tamano="sm">
-                  <ExternalLink aria-hidden className="size-3.5" />
-                  Ver ficha del sitio
-                </EnlaceBoton>
-              </div>
-            </section>
-
-            <section
-              aria-label="Comentarios e historial"
-              className="flex min-h-64 flex-col rounded border border-borde bg-superficie"
-            >
-              <div className="border-b border-borde p-2">
-                <Tabs
-                  pestanas={[
-                    { id: 'historial', etiqueta: 'Historial', conteo: historial.datos.length },
-                    {
-                      id: 'comentarios',
-                      etiqueta: 'Comentarios',
-                      conteo: comentarios.datos.length,
-                    },
-                  ]}
-                  activa={pestana}
-                  onCambiar={setPestana}
-                />
-              </div>
-
-              <div className="panel-scroll max-h-96 flex-1 overflow-y-auto px-2">
-                {pestana === 'historial' ? (
-                  <Historial
-                    eventos={historial.datos}
-                    cargando={historial.cargando}
-                    error={historial.error}
+              {gateVisible && Object.keys(sp.gates[gateVisible]?.revisiones ?? {}).length > 0 && (
+                <div className="mb-3">
+                  <PanelRevisiones
+                    gate={sp.gates[gateVisible]!}
+                    definicion={plantilla.gates.find((g) => g.codigo === gateVisible)}
+                    homologacion={plantilla.homologacion}
+                    {...(indice.size > 0
+                      ? {
+                          responde: (revision: { id: string; nombre: string }) => {
+                            const area = areaDeRevision(indice, revision)
+                            if (!area) return null
+                            const uids = responsablesDe(area, sp.proyectoId)
+                            return uids.length === 0
+                              ? 'Sin responsable'
+                              : uids.map((u) => nombreUsuario(u)).join(', ')
+                          },
+                        }
+                      : {})}
                   />
-                ) : comentarios.datos.length === 0 ? (
-                  <EstadoVacio
-                    icono={<MessageSquare aria-hidden className="size-6" />}
-                    titulo="Sin comentarios"
-                    descripcion="Deja aqui el contexto que no cabe en una fecha."
-                  />
-                ) : (
-                  <ul className="flex flex-col divide-y divide-borde">
-                    {comentarios.datos.map((c) => (
-                      <li key={c.id} className="py-2">
-                        <div className="flex items-center gap-2 text-[11px] text-texto-3">
-                          <span className="font-medium text-texto-2">{c.nombre}</span>
-                          {c.gateCodigo && <InsigniaGate gate={c.gateCodigo} />}
-                          <span className="flex-1" />
-                          {formatearFechaHora(c.ts)}
-                        </div>
-                        <p className="mt-0.5 text-sm whitespace-pre-wrap">{c.texto}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {pestana === 'comentarios' && puedeHacer('sitioProyectos', 'comentar') && (
-                <form
-                  className="flex items-end gap-2 border-t border-borde p-2"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    if (!nuevoComentario.trim()) return
-                    agregarComentario(sp.id, nuevoComentario, gateVisible, actor).catch((err) =>
-                      avisar.error(mensajeDeError(err)),
+                </div>
+              )}
+              {gateVisible && (
+                <PanelChecklist
+                  sp={sp}
+                  plantilla={plantilla}
+                  codigo={gateVisible}
+                  editable={puedeEditar}
+                  onMarcar={marcar}
+                  onEditarFecha={(campo, valor) =>
+                    ejecutar(
+                      planRegistrarFecha(sp, plantilla, ctx, {
+                        codigo: gateVisible,
+                        campo,
+                        fecha: valor,
+                      }),
+                      'Fecha actualizada',
                     )
-                    setNuevoComentario('')
-                  }}
-                >
-                  <AreaTexto
-                    rows={2}
-                    value={nuevoComentario}
-                    onChange={(e) => setNuevoComentario(e.target.value)}
-                    placeholder="Escribe un comentario…"
-                    aria-label="Nuevo comentario"
-                  />
-                  <Boton
-                    type="submit"
-                    variante="primario"
-                    soloIcono
-                    aria-label="Publicar comentario"
-                    disabled={!nuevoComentario.trim()}
-                    icono={<Send aria-hidden className="size-4" />}
-                  />
-                </form>
+                  }
+                />
               )}
             </section>
-          </div>
 
-          {plantilla.campos.length > 0 && (
-            <details
-              open
-              aria-label="Campos del tracker"
-              className="group rounded border border-borde bg-superficie lg:col-start-2 lg:row-start-2 lg:self-start"
-            >
-              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-texto-2 select-none">
-                <ChevronRight
-                  aria-hidden
-                  className="size-3.5 transition-transform group-open:rotate-90"
-                />
-                Datos del tracker
-              </summary>
-              <div className="border-t border-borde p-3">
+            <div className="flex flex-col gap-3 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:self-start">
+              <Seccion
+                id="seguimiento.asignacion"
+                icono={<UserRound aria-hidden className="size-4" />}
+                titulo="Asignación"
+                resumen={sp.responsableUid ? nombreUsuario(sp.responsableUid) : 'Sin asignar'}
+              >
+                <div className="flex flex-col gap-2">
+                  <Campo etiqueta="Responsable" htmlFor="responsable">
+                    <Selector
+                      id="responsable"
+                      value={sp.responsableUid ?? ''}
+                      disabled={!puedeHacer('sitioProyectos', 'editar')}
+                      onChange={(e) => {
+                        asignarResponsable(
+                          sp,
+                          {
+                            responsableUid: e.target.value || null,
+                            proveedorId: sp.proveedorId,
+                            prioridad: sp.prioridad,
+                          },
+                          actor,
+                        ).catch((err) => avisar.error(mensajeDeError(err)))
+                        avisar.ok('Responsable actualizado')
+                      }}
+                    >
+                      <option value="">Sin asignar</option>
+                      {usuarios
+                        .filter((u) => u.activo && u.rol !== 'contratista')
+                        .map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nombre}
+                          </option>
+                        ))}
+                    </Selector>
+                  </Campo>
+
+                  <Campo etiqueta="Proveedor" htmlFor="proveedor">
+                    <Selector
+                      id="proveedor"
+                      value={sp.proveedorId ?? ''}
+                      disabled={!puedeHacer('sitioProyectos', 'editar')}
+                      onChange={(e) => {
+                        asignarResponsable(
+                          sp,
+                          {
+                            responsableUid: sp.responsableUid,
+                            proveedorId: e.target.value || null,
+                            prioridad: sp.prioridad,
+                          },
+                          actor,
+                        ).catch((err) => avisar.error(mensajeDeError(err)))
+                        avisar.ok('Proveedor actualizado')
+                      }}
+                    >
+                      <option value="">Sin proveedor</option>
+                      {proveedores.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre}
+                        </option>
+                      ))}
+                    </Selector>
+                  </Campo>
+
+                  <Campo etiqueta="Prioridad" htmlFor="prioridad">
+                    <Selector
+                      id="prioridad"
+                      value={sp.prioridad}
+                      disabled={!puedeHacer('sitioProyectos', 'editar')}
+                      onChange={(e) => {
+                        asignarResponsable(
+                          sp,
+                          {
+                            responsableUid: sp.responsableUid,
+                            proveedorId: sp.proveedorId,
+                            prioridad: e.target.value as Prioridad,
+                          },
+                          actor,
+                        ).catch((err) => avisar.error(mensajeDeError(err)))
+                        avisar.ok('Prioridad actualizada')
+                      }}
+                    >
+                      {PRIORIDADES.map((p) => (
+                        <option key={p} value={p}>
+                          {NOMBRES_PRIORIDAD[p]}
+                        </option>
+                      ))}
+                    </Selector>
+                  </Campo>
+
+                  <EnlaceBoton to={`/sitios/${encodeURIComponent(sp.sitioId)}`} tamano="sm">
+                    <ExternalLink aria-hidden className="size-3.5" />
+                    Ver ficha del sitio
+                  </EnlaceBoton>
+                </div>
+              </Seccion>
+
+              <section
+                aria-label="Comentarios e historial"
+                className="seccion flex min-h-64 flex-col overflow-hidden rounded-[var(--radio-xl)]"
+              >
+                <div className="border-b border-borde p-2">
+                  <Tabs
+                    pestanas={[
+                      { id: 'historial', etiqueta: 'Historial', conteo: historial.datos.length },
+                      {
+                        id: 'comentarios',
+                        etiqueta: 'Comentarios',
+                        conteo: comentarios.datos.length,
+                      },
+                    ]}
+                    activa={pestana}
+                    onCambiar={setPestana}
+                  />
+                </div>
+
+                <div className="panel-scroll max-h-96 flex-1 overflow-y-auto px-2">
+                  {pestana === 'historial' ? (
+                    <Historial
+                      eventos={historial.datos}
+                      cargando={historial.cargando}
+                      error={historial.error}
+                    />
+                  ) : comentarios.datos.length === 0 ? (
+                    <EstadoVacio
+                      icono={<MessageSquare aria-hidden className="size-6" />}
+                      titulo="Sin comentarios"
+                      descripcion="Deja aqui el contexto que no cabe en una fecha."
+                    />
+                  ) : (
+                    <ul className="flex flex-col divide-y divide-borde">
+                      {comentarios.datos.map((c) => (
+                        <li key={c.id} className="py-2">
+                          <div className="flex items-center gap-2 text-[11px] text-texto-3">
+                            <span className="font-medium text-texto-2">{c.nombre}</span>
+                            {c.gateCodigo && <InsigniaGate gate={c.gateCodigo} />}
+                            <span className="flex-1" />
+                            {formatearFechaHora(c.ts)}
+                          </div>
+                          <p className="mt-0.5 text-sm whitespace-pre-wrap">{c.texto}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {pestana === 'comentarios' && puedeHacer('sitioProyectos', 'comentar') && (
+                  <form
+                    className="flex items-end gap-2 border-t border-borde p-2"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!nuevoComentario.trim()) return
+                      agregarComentario(sp.id, nuevoComentario, gateVisible, actor).catch((err) =>
+                        avisar.error(mensajeDeError(err)),
+                      )
+                      setNuevoComentario('')
+                    }}
+                  >
+                    <AreaTexto
+                      rows={2}
+                      value={nuevoComentario}
+                      onChange={(e) => setNuevoComentario(e.target.value)}
+                      placeholder="Escribe un comentario…"
+                      aria-label="Nuevo comentario"
+                    />
+                    <Boton
+                      type="submit"
+                      variante="primario"
+                      soloIcono
+                      aria-label="Publicar comentario"
+                      disabled={!nuevoComentario.trim()}
+                      icono={<Send aria-hidden className="size-4" />}
+                    />
+                  </form>
+                )}
+              </section>
+            </div>
+
+            {plantilla.campos.length > 0 && (
+              <Seccion
+                id="seguimiento.tracker"
+                icono={<Sheet aria-hidden className="size-4" />}
+                titulo="Datos del tracker"
+                resumen={`${plantilla.campos.length} campos`}
+                className="lg:col-start-2 lg:row-start-2 lg:self-start"
+              >
                 <PanelCampos sp={sp} campos={plantilla.campos} />
-              </div>
-            </details>
-          )}
+              </Seccion>
+            )}
+          </div>
         </div>
       </div>
 
