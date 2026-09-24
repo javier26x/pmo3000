@@ -3,14 +3,20 @@ import { PLANTILLA_ESTANDAR } from '@/domain/gates/plantillaEstandar'
 import type { GateTemplate } from '@/domain/tipos/gate'
 import {
   analizarCambios,
+  cambiarCarril,
   codigoParaEtapa,
+  codigosDefinitivos,
   duplicarPlantilla,
   etapaNueva,
   evaluarImpacto,
   hayCambios,
+  etapasDelCarril,
   idParaItem,
+  insertarEnCarril,
   itemNuevo,
+  moverEnCarril,
   moverEtapa,
+  pendientesDeEtapa,
   plantillaEnBlanco,
   prepararGuardado,
   resumirCambios,
@@ -56,6 +62,77 @@ describe('moverEtapa', () => {
   it('no se sale de los bordes', () => {
     const gates = moverEtapa(base().gates, 0, -1)
     expect(gates[0]?.codigo).toBe('TSSR')
+  })
+})
+
+describe('carriles', () => {
+  // TSSR, FC(paralela), ING, AB: una importada puede traerlas intercaladas.
+  const intercalada = () => {
+    const [a, b, c, d] = base().gates
+    return [a!, { ...b!, tipo: 'paralela' as const }, c!, d!]
+  }
+  const codigos = (gates: { codigo: string }[]) => gates.map((g) => g.codigo)
+
+  it('mover dentro del recorrido no toca la posicion de las paralelas', () => {
+    const gates = intercalada()
+    const [a, b, c, d] = codigos(gates)
+    const movidas = moverEnCarril(gates, 'secuencial', 0, 2)
+    expect(codigos(movidas)).toEqual([c, b, d, a])
+    expect(movidas.map((g) => g.orden)).toEqual([0, 1, 2, 3])
+    expect(analizarCambios({ ...base(), gates }, { ...base(), gates: movidas }).reordenada).toBe(
+      true,
+    )
+  })
+
+  it('insertar en medio del recorrido deja la etapa en ese lugar', () => {
+    const gates = intercalada()
+    const nueva = etapaNueva('Permisos', gates)
+    const con = insertarEnCarril(gates, nueva, 1)
+    expect(codigos(etapasDelCarril(con, 'secuencial'))).toEqual([
+      gates[0]!.codigo,
+      nueva.codigo,
+      gates[2]!.codigo,
+      gates[3]!.codigo,
+    ])
+    expect(con[1]?.codigo).toBe(gates[1]!.codigo)
+  })
+
+  it('una paralela nueva va al final de su carril', () => {
+    const gates = intercalada()
+    const nueva = { ...etapaNueva('Contrato', gates), tipo: 'paralela' as const }
+    const con = insertarEnCarril(gates, nueva, 99)
+    expect(codigos(etapasDelCarril(con, 'paralela'))).toEqual([gates[1]!.codigo, nueva.codigo])
+  })
+
+  it('cambiar de carril la manda al final del otro', () => {
+    const gates = intercalada()
+    const primera = gates[0]!.codigo
+    const cambiadas = cambiarCarril(gates, primera, 'paralela')
+    expect(codigos(etapasDelCarril(cambiadas, 'paralela')).at(-1)).toBe(primera)
+    expect(cambiadas.find((g) => g.codigo === primera)?.tipo).toBe('paralela')
+  })
+
+  it('no deja una plantilla sin recorrido principal', () => {
+    const p = base()
+    p.gates = p.gates.map((g) => ({ ...g, tipo: 'paralela' as const }))
+    expect(validarPlantilla(p).join(' ')).toMatch(/recorrido principal/)
+  })
+
+  it('las etapas nuevas toman el codigo de su nombre final; las guardadas no cambian', () => {
+    const gates = base().gates
+    const reservados = new Set(gates.map((g) => g.codigo))
+    const nueva = { ...etapaNueva('Etapa nueva', gates), nombre: 'Permisos DOM' }
+    const repetida = { ...etapaNueva('Etapa nueva', [...gates, nueva]), nombre: gates[0]!.nombre }
+    const finales = codigosDefinitivos([...gates, nueva, repetida], reservados)
+    expect(finales.slice(0, gates.length)).toEqual(gates)
+    expect(finales.at(-2)?.codigo).toBe('PERMISOS_DOM')
+    expect(finales.at(-1)?.codigo).toBe(`${gates[0]!.codigo}_2`)
+  })
+
+  it('marca lo que le falta a una etapa', () => {
+    const g = { ...base().gates[0]!, nombre: ' ', slaDias: -1 }
+    expect(pendientesDeEtapa(g)).toEqual(['Falta el nombre', 'Revisa los días'])
+    expect(pendientesDeEtapa(base().gates[0]!)).toEqual([])
   })
 })
 

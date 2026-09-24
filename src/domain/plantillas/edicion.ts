@@ -22,7 +22,7 @@
  * Todo aca es logica pura: la pantalla la usa para avisar y el repositorio para
  * volver a comprobar justo antes de escribir.
  */
-import { CERRADO, COLORES_GATE, colorPorIndice } from '@/domain/gates/catalogo'
+import { CERRADO, COLORES_GATE, colorPorIndice, type TipoEtapa } from '@/domain/gates/catalogo'
 import { aTextoDeId } from '@/domain/tipos/identificadores'
 import {
   esquemaGateTemplate,
@@ -139,6 +139,125 @@ export function renumerar(gates: readonly GatePlantilla[]): GatePlantilla[] {
   return gates.map((g, orden) => (g.orden === orden ? g : { ...g, orden }))
 }
 
+// ------------------------------------------------------------------- carriles
+//
+// El editor muestra dos carriles: el recorrido (las etapas secuenciales, una
+// detras de otra) y lo que corre en paralelo. En la lista las dos se mezclan
+// por `orden`, y una plantilla importada puede traerlas intercaladas. Mover o
+// insertar dentro de un carril toca solo las posiciones de ese carril: si se
+// reacomodaran las paralelas de paso, analizarCambios veria un reordenamiento
+// que nadie hizo y avisaria de mas.
+
+const carrilDe = (g: GatePlantilla): TipoEtapa => g.tipo ?? 'secuencial'
+
+/** Las etapas de un carril, en el orden en que aparecen. */
+export function etapasDelCarril(gates: readonly GatePlantilla[], tipo: TipoEtapa): GatePlantilla[] {
+  return gates.filter((g) => carrilDe(g) === tipo)
+}
+
+/** Reemplaza las etapas de un carril por `nuevas`, en las mismas posiciones de la lista. */
+function reponerCarril(
+  gates: readonly GatePlantilla[],
+  tipo: TipoEtapa,
+  nuevas: readonly GatePlantilla[],
+): GatePlantilla[] {
+  const cola = [...nuevas]
+  const resultado: GatePlantilla[] = []
+  for (const g of gates) {
+    if (carrilDe(g) !== tipo) resultado.push(g)
+    else {
+      const siguiente = cola.shift()
+      if (siguiente) resultado.push(siguiente)
+    }
+  }
+  // Si el carril crecio, lo que sobra va detras de su ultima etapa.
+  if (cola.length > 0) {
+    const ultima = resultado.findLastIndex((g) => carrilDe(g) === tipo)
+    resultado.splice(ultima + 1, 0, ...cola)
+  }
+  return renumerar(resultado)
+}
+
+/** Mueve la etapa de la posicion `desde` a `hasta`, contadas dentro de su carril. */
+export function moverEnCarril(
+  gates: readonly GatePlantilla[],
+  tipo: TipoEtapa,
+  desde: number,
+  hasta: number,
+): GatePlantilla[] {
+  const carril = etapasDelCarril(gates, tipo)
+  if (desde < 0 || desde >= carril.length || hasta < 0 || hasta >= carril.length) {
+    return renumerar(gates)
+  }
+  const [etapa] = carril.splice(desde, 1)
+  if (etapa) carril.splice(hasta, 0, etapa)
+  return reponerCarril(gates, tipo, carril)
+}
+
+/** Agrega `nueva` en la posicion `posicion` de su carril (al final si se pasa). */
+export function insertarEnCarril(
+  gates: readonly GatePlantilla[],
+  nueva: GatePlantilla,
+  posicion: number,
+): GatePlantilla[] {
+  const tipo = carrilDe(nueva)
+  const carril = etapasDelCarril(gates, tipo)
+  carril.splice(Math.max(0, Math.min(posicion, carril.length)), 0, nueva)
+  return reponerCarril(gates, tipo, carril)
+}
+
+/**
+ * Pasa una etapa al otro carril: queda al final del recorrido, o al final de lo
+ * que corre en paralelo.
+ */
+export function cambiarCarril(
+  gates: readonly GatePlantilla[],
+  codigo: string,
+  tipo: TipoEtapa,
+): GatePlantilla[] {
+  const etapa = gates.find((g) => g.codigo === codigo)
+  if (!etapa || carrilDe(etapa) === tipo) return renumerar(gates)
+  const sin = gates.filter((g) => g.codigo !== codigo)
+  return insertarEnCarril(sin, { ...etapa, tipo }, Number.MAX_SAFE_INTEGER)
+}
+
+/**
+ * Codigo definitivo de las etapas nuevas, sacado de su nombre final.
+ *
+ * El editor crea una etapa con un nombre provisorio ("Etapa nueva") y la
+ * persona la renombra despues. Si el codigo se fijara al crearla quedaria
+ * ETAPA_NUEVA para siempre, y es lo que se ve en los filtros y en la URL. Por
+ * eso se recalcula al guardar, solo para las que no existian: el codigo de una
+ * etapa guardada no cambia nunca. `reservados` son todos los codigos que tuvo
+ * la plantilla, incluso los de etapas quitadas, para no reutilizarlos.
+ */
+export function codigosDefinitivos(
+  gates: readonly GatePlantilla[],
+  reservados: ReadonlySet<string>,
+): GatePlantilla[] {
+  const usados = new Set(reservados)
+  return gates.map((g) => {
+    if (reservados.has(g.codigo)) return g
+    const codigo = codigoParaEtapa(g.nombre, usados)
+    usados.add(codigo)
+    return codigo === g.codigo ? g : { ...g, codigo }
+  })
+}
+
+/**
+ * Lo que le falta a una etapa, en pocas palabras, para marcarla en su tarjeta.
+ * validarPlantilla da la explicacion completa; esto solo dice donde mirar.
+ */
+export function pendientesDeEtapa(g: GatePlantilla): string[] {
+  const pendientes: string[] = []
+  if (g.nombre.trim() === '') pendientes.push('Falta el nombre')
+  if (!Number.isInteger(g.slaDias) || g.slaDias < 0) pendientes.push('Revisa los días')
+  if (g.checklist.some((i) => i.texto.trim() === '')) pendientes.push('Hay un entregable vacío')
+  if (g.revisiones.some((r) => r.nombre.trim() === ''))
+    pendientes.push('Hay una revisión sin nombre')
+  return pendientes
+}
+
 /** Plantilla nueva desde cero: una sola etapa, para que sea valida de entrada. */
 export function plantillaEnBlanco(id: string, nombre: string): GateTemplate {
   return {
@@ -218,6 +337,11 @@ export function validarPlantilla(p: GateTemplate): string[] {
 
   if (p.nombre.trim() === '') errores.push('La plantilla no tiene nombre. Escribe uno.')
   if (p.gates.length === 0) errores.push('La plantilla no tiene etapas. Agrega al menos una.')
+  else if (p.gates.every((g) => g.tipo === 'paralela')) {
+    errores.push(
+      'Todas las etapas están en paralelo. Deja al menos una en el recorrido principal: es la que hace avanzar al sitio.',
+    )
+  }
 
   const codigos = new Set<string>()
   p.gates.forEach((g, i) => {

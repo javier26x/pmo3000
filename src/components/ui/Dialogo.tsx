@@ -22,7 +22,8 @@ export function Dialogo({
   descripcion?: string | undefined
   children: ReactNode
   pie?: ReactNode | undefined
-  ancho?: 'sm' | 'md' | 'lg' | 'xl'
+  /** `completo` es para editores de trabajo largo: casi toda la pantalla. */
+  ancho?: 'sm' | 'md' | 'lg' | 'xl' | 'completo'
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const idTitulo = useId()
@@ -59,7 +60,13 @@ export function Dialogo({
     return () => dialogo.removeEventListener('cancel', alCancelar)
   }, [onCerrar])
 
-  const anchos = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' }
+  const anchos = {
+    sm: 'max-w-sm',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-5xl',
+    completo: 'max-w-7xl',
+  }
 
   return (
     <dialog
@@ -96,7 +103,17 @@ export function Dialogo({
         />
       </div>
 
-      <div className="panel-scroll max-h-[70vh] overflow-y-auto px-4 py-3">{children}</div>
+      <div
+        className={cn(
+          // relative: lo absoluto de adentro (etiquetas sr-only, radios ocultos)
+          // se queda en esta caja que se desplaza. Sin esto se posiciona contra
+          // el <dialog> y lo estira, y el dialogo entero se corre al usar Espacio.
+          'panel-scroll relative overflow-y-auto px-4 py-3',
+          ancho === 'completo' ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[70vh]',
+        )}
+      >
+        {children}
+      </div>
 
       {pie && (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-borde bg-superficie-2 px-4 py-3">

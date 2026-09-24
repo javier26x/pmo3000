@@ -69,7 +69,8 @@ import { useActor, useSesion } from '@/hooks/useSesion'
 import { useCatalogos } from '@/hooks/useCatalogos'
 import { useTituloPagina } from '@/hooks/useTituloPagina'
 import { DialogoEliminar } from './DialogoEliminar'
-import { EditorPlantilla } from './EditorPlantilla'
+import { EditorPlantilla } from '@/features/plantillas/EditorPlantilla'
+import { RecorridoMini } from '@/features/plantillas/RecorridoMini'
 import { ProtegerSecuencias } from './ProtegerSecuencias'
 import { EditorSla } from './EditorSla'
 import { EditorArea } from './EditorArea'
@@ -83,6 +84,8 @@ interface EdicionPlantilla {
   inicial: GateTemplate
   /** Solo en altas: el id sale del nombre que se escriba. */
   idDesdeNombre: boolean
+  /** Alta desde cero: se ofrece copiar las etapas de una plantilla existente. */
+  conBases?: boolean
 }
 
 type PestanaConfig = 'estructura' | 'equipos' | 'integraciones'
@@ -325,6 +328,7 @@ export function PaginaConfiguracion() {
                             original: null,
                             inicial: plantillaEnBlanco('', ''),
                             idDesdeNombre: true,
+                            conBases: true,
                           })
                         }
                         icono={<Plus aria-hidden className="size-4" />}
@@ -345,25 +349,20 @@ export function PaginaConfiguracion() {
                 ) : (
                   <ul className="divide-y divide-borde">
                     {plantillas.map((p) => (
-                      <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
-                        <span className="min-w-0 flex-1">
-                          <span className="text-sm font-medium">{p.nombre}</span>
-                          <span className="ml-2 font-mono text-xs text-texto-3">{p.id}</span>
+                      <li key={p.id} className="flex flex-wrap items-start gap-2 px-3 py-2.5">
+                        <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium">{p.nombre}</span>
+                            {!p.activo && <Insignia tono="neutro">Inactiva</Insignia>}
+                            <Insignia tono="neutro">v{p.version}</Insignia>
+                          </span>
+                          <RecorridoMini etapas={p.gates} nombre={p.nombre} />
                         </span>
-                        {!p.activo && <Insignia tono="neutro">Inactiva</Insignia>}
-                        <Insignia tono="neutro">v{p.version}</Insignia>
-                        <Insignia tono="info">{p.gates.length} etapas</Insignia>
-                        <Insignia tono="neutro">
-                          {p.gates.reduce((n, g) => n + g.checklist.length, 0)} entregables
-                        </Insignia>
                         {puedeEditarPlantillas && (
                           <span className="flex items-center gap-1">
                             <Boton
-                              variante="fantasma"
                               tamano="sm"
-                              soloIcono
-                              aria-label={`Editar ${p.nombre}`}
-                              title="Editar"
+                              aria-label={`Editar las etapas de ${p.nombre}`}
                               onClick={() =>
                                 setEditandoPlantilla({
                                   original: p,
@@ -372,7 +371,9 @@ export function PaginaConfiguracion() {
                                 })
                               }
                               icono={<Pencil aria-hidden className="size-3.5" />}
-                            />
+                            >
+                              Editar
+                            </Boton>
                             <Boton
                               variante="fantasma"
                               tamano="sm"
@@ -638,6 +639,7 @@ export function PaginaConfiguracion() {
           original={editandoPlantilla.original}
           inicial={editandoPlantilla.inicial}
           generarId={editandoPlantilla.idDesdeNombre ? idNuevaPlantilla : undefined}
+          bases={editandoPlantilla.conBases ? plantillas : undefined}
           actor={actor}
           onCerrar={() => setEditandoPlantilla(null)}
         />

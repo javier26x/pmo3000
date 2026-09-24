@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { Boton, EnlaceBoton, Insignia } from '@/components/ui'
-import { EditorPlantilla } from '@/features/admin/EditorPlantilla'
+import { EditorPlantilla } from '@/features/plantillas/EditorPlantilla'
+import { RecorridoMini } from '@/features/plantillas/RecorridoMini'
 import type { GateTemplate, Proyecto, SitioProyecto } from '@/domain/tipos'
 import type { Actor } from '@/domain/tipos/comunes'
 
@@ -68,7 +69,6 @@ export function PlantillaDelProyecto({
     <div className="flex flex-col gap-4">
       {delProyecto.map((plantilla) => {
         const otros = [...(compartidaCon.get(plantilla.id) ?? [])].map(nombreProyecto)
-        const etapas = [...plantilla.gates].sort((a, b) => a.orden - b.orden)
         return (
           <div key={plantilla.id} className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -89,21 +89,7 @@ export function PlantillaDelProyecto({
                 </EnlaceBoton>
               </span>
             </div>
-            <ol className="flex flex-wrap gap-1.5" aria-label={`Etapas de ${plantilla.nombre}`}>
-              {etapas.map((g, i) => (
-                <li
-                  key={g.codigo}
-                  className="flex items-center gap-1.5 rounded border border-borde px-2 py-1 text-xs"
-                >
-                  <span className="tabular-nums text-texto-3">{i + 1}</span>
-                  <span>{g.nombre}</span>
-                  {g.tipo === 'paralela' && <Insignia tono="info">paralela</Insignia>}
-                  {g.revisiones.length > 0 && (
-                    <span className="text-texto-3">· {g.revisiones.length} revisiones</span>
-                  )}
-                </li>
-              ))}
-            </ol>
+            <RecorridoMini etapas={plantilla.gates} nombre={plantilla.nombre} />
             {otros.length > 0 && (
               <p className="text-xs text-texto-3">
                 También la usan: {otros.join(', ')}. Lo que cambies aquí les llega a esos proyectos.
