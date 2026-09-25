@@ -28,6 +28,7 @@ const cargarSitio = () => import('@/features/sitios/PaginaSitio')
 const cargarSeguimiento = () => import('@/features/gates/PaginaSeguimiento')
 const cargarRegulatorio = () => import('@/features/regulatorio/PaginaRegulatorio')
 const cargarExpediente = () => import('@/features/regulatorio/PaginaExpediente')
+const cargarTiempos = () => import('@/features/tiempos/PaginaTiempos')
 const cargarPaleta = () => import('./PaletaComandos')
 const cargarAyuda = () => import('./AyudaAtajos')
 
@@ -40,9 +41,7 @@ const PaginaUsuarios = lazy(() => cargarUsuarios().then((m) => ({ default: m.Pag
 const PaginaConfiguracion = lazy(() =>
   cargarConfiguracion().then((m) => ({ default: m.PaginaConfiguracion })),
 )
-const PaginaProyectos = lazy(() =>
-  cargarProyectos().then((m) => ({ default: m.PaginaProyectos })),
-)
+const PaginaProyectos = lazy(() => cargarProyectos().then((m) => ({ default: m.PaginaProyectos })))
 const PaginaProyecto = lazy(() => cargarProyecto().then((m) => ({ default: m.PaginaProyecto })))
 const PaginaRegulatorio = lazy(() =>
   cargarRegulatorio().then((m) => ({ default: m.PaginaRegulatorio })),
@@ -50,6 +49,7 @@ const PaginaRegulatorio = lazy(() =>
 const PaginaExpediente = lazy(() =>
   cargarExpediente().then((m) => ({ default: m.PaginaExpediente })),
 )
+const PaginaTiempos = lazy(() => cargarTiempos().then((m) => ({ default: m.PaginaTiempos })))
 const PaginaSitio = lazy(() => cargarSitio().then((m) => ({ default: m.PaginaSitio })))
 const PaginaSeguimiento = lazy(() =>
   cargarSeguimiento().then((m) => ({ default: m.PaginaSeguimiento })),
@@ -74,6 +74,7 @@ function precargarPantallas(): void {
     cargarProyectos,
     cargarRegulatorio,
     cargarExpediente,
+    cargarTiempos,
     cargarUsuarios,
     cargarAuditoria,
     cargarTracker,
@@ -153,6 +154,14 @@ export function Rutas() {
           />
           <Route path="/kanban" element={<PaginaKanban />} />
           <Route path="/pendientes" element={<PaginaPendientes />} />
+          <Route
+            path="/tiempos"
+            element={
+              <Suspense fallback={<Cargando texto="Calculando los tiempos…" />}>
+                <PaginaTiempos />
+              </Suspense>
+            }
+          />
           <Route
             path="/regulatorio"
             element={

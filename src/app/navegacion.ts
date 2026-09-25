@@ -9,6 +9,7 @@ import {
   Map as MapaIcono,
   Scale,
   SlidersHorizontal,
+  Timer,
   Upload,
   Users,
   type LucideIcon,
@@ -67,6 +68,13 @@ export const NAVEGACION: ItemNavegacion[] = [
     etiqueta: 'Pendientes',
     icono: Inbox,
     requiere: ['areas', 'ver'],
+  },
+  {
+    ruta: '/tiempos',
+    grupo: 'Seguimiento',
+    etiqueta: 'Tiempos',
+    icono: Timer,
+    requiere: ['sitioProyectos', 'ver'],
   },
   // Lo que sigue al On Air: el expediente legal y regulatorio de cada sitio.
   {

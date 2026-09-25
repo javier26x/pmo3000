@@ -8,6 +8,7 @@ import {
 } from '@/domain/tracker/estados'
 import type { GateSitio } from '@/domain/tipos/sitioProyecto'
 import type { GatePlantilla } from '@/domain/tipos/gate'
+import { textoDias, type TiempoEtapa } from '@/domain/tiempos'
 import { EstadoVacio, cn } from '@/components/ui'
 
 /**
@@ -23,12 +24,15 @@ export function PanelRevisiones({
   definicion,
   homologacion,
   responde,
+  tiempo,
 }: {
   gate: GateSitio
   definicion: GatePlantilla | undefined
   homologacion: Readonly<Record<string, EstadoSemantico>>
   /** Quienes responden por el area de esa revision, o null si no hay area. */
   responde?: (revision: { id: string; nombre: string }) => string | null
+  /** Cuanto tardo (o lleva) cada disciplina desde que arranco la etapa. */
+  tiempo?: TiempoEtapa | undefined
 }) {
   const definidas = definicion?.revisiones ?? []
   // Se muestran las de la plantilla, y ademas cualquiera que el documento traiga
@@ -55,6 +59,7 @@ export function PanelRevisiones({
         const rev = gate.revisiones[id]
         const texto = rev?.estado ?? ''
         const clase = clasificarEstado(texto, homologacion)
+        const reloj = tiempo?.revisiones.find((r) => r.id === id)
         return (
           <li key={id} className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -70,6 +75,21 @@ export function PanelRevisiones({
               </span>
               {rev?.fecha != null && (
                 <span className="text-xs text-texto-3">{formatearFecha(rev.fecha)}</span>
+              )}
+              {reloj?.dias != null && (
+                <span
+                  className={cn(
+                    'text-xs tabular-nums',
+                    reloj.corriendo ? 'font-medium text-[var(--riesgo-fg)]' : 'text-texto-2',
+                  )}
+                  title={
+                    reloj.corriendo
+                      ? 'Días desde que arrancó la etapa, y aún no aprueba'
+                      : 'Días desde que arrancó la etapa hasta que aprobó'
+                  }
+                >
+                  {reloj.corriendo ? 'lleva' : 'tardó'} {textoDias(reloj.dias)}
+                </span>
               )}
               {responde && (
                 <span className="ml-auto text-xs text-texto-3">

@@ -65,6 +65,7 @@ import { Historial } from './Historial'
 import { useMedidorSla } from '@/hooks/useSla'
 import { areaDeRevision, indiceAreas, responsablesDe } from '@/domain/areas'
 import { textoSla } from '@/domain/sla'
+import { textoDias, tiemposDelSitio } from '@/domain/tiempos'
 import { fechaAlAire } from '@/domain/regulatorio'
 import { LineaGates } from './LineaGates'
 import { PanelChecklist, type AccionChecklist } from './PanelChecklist'
@@ -88,6 +89,7 @@ export function PaginaSeguimiento() {
     etapas,
     areas,
     nombreUsuario,
+    proyectos,
   } = useCatalogos()
   const indice = useMemo(() => indiceAreas(areas), [areas])
 
@@ -187,6 +189,10 @@ export function PaginaSeguimiento() {
   const dias = diasAtraso(gateActual?.fechaPlan ?? null, gateActual?.fechaReal ?? null, hoy)
   const avance = porcentajeAvance(sp, plantilla)
   const sla = medirSla(sp, hoy)
+  const habiles = proyectos.find((p) => p.id === sp.proyectoId)?.sla?.habiles ?? false
+  const tiempoVisible = tiemposDelSitio(sp, plantilla, hoy, habiles).find(
+    (t) => t.codigo === gateVisible,
+  )
   // Hay algo a que volver si el gate actual tiene uno anterior en la secuencia
   // de ESTE documento (desde CERRADO, la ultima etapa). No se asume ningun
   // proceso en particular.
@@ -398,6 +404,14 @@ export function PaginaSeguimiento() {
                 {gateVisible && gateVisible === sp.gateActual && (
                   <span className="text-xs font-normal text-texto-3">Etapa actual</span>
                 )}
+                {tiempoVisible?.dias != null && (
+                  <span
+                    className="ml-auto text-xs font-normal text-texto-2 tabular-nums"
+                    title={`Desde el cierre de la etapa anterior (${formatearFecha(tiempoVisible.inicio)})`}
+                  >
+                    {tiempoVisible.corriendo ? 'Lleva' : 'Tomó'} {textoDias(tiempoVisible.dias)}
+                  </span>
+                )}
               </h2>
 
               {/* Un gate de la plantilla estandar se sigue con checklist; uno de
@@ -409,6 +423,7 @@ export function PaginaSeguimiento() {
                     gate={sp.gates[gateVisible]!}
                     definicion={plantilla.gates.find((g) => g.codigo === gateVisible)}
                     homologacion={plantilla.homologacion}
+                    tiempo={tiempoVisible}
                     {...(indice.size > 0
                       ? {
                           responde: (revision: { id: string; nombre: string }) => {
