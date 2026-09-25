@@ -584,6 +584,50 @@ service cloud.firestore {
       }
     }
 
+    // ------------------------------------------------------- regulatorio
+
+    // Expediente legal y regulatorio de un sitio al aire (terreno, DOM,
+    // SUBTEL, recepcion). Un documento por seguimiento, con su mismo id. Lo
+    // ven los internos de su alcance y lo marca quien gestiona el avance; el
+    // contratista no entra: es trabajo de la PMO con los organismos.
+    //
+    // La identidad (sitio, proyecto, programa, celula) se compara con el
+    // seguimiento en cada escritura: sin eso, alguien acotado podria colgar un
+    // expediente de un proyecto que no le toca poniendo un proyectoId suyo.
+    match /regulatorio/{spId} {
+      function rutaSeguimiento() {
+        return /databases/$(database)/documents/sitioProyectos/$(spId);
+      }
+
+      function calzaConSeguimiento(d) {
+        let sp = get(rutaSeguimiento()).data;
+        return d.sitioId == sp.sitioId
+          && d.proyectoId == sp.proyectoId
+          && d.programaId == sp.programaId
+          && d.get('celulaId', null) == sp.get('celulaId', null);
+      }
+
+      function formaValida(d) {
+        return d.keys().hasOnly(['sitioId', 'proyectoId', 'programaId', 'celulaId',
+                                 'modalidad', 'items', 'actualizadoEn', 'actualizadoPor'])
+          && d.get('items', {}) is map
+          && d.get('modalidad', null) in [null, 'normal', 'concurso']
+          && d.actualizadoPor == request.auth.uid
+          && d.actualizadoEn == request.time;
+      }
+
+      allow get, list: if esInterno() && enAlcance(resource.data);
+
+      allow create, update: if puedeGestionar()
+        && exists(rutaSeguimiento())
+        && formaValida(request.resource.data)
+        && calzaConSeguimiento(request.resource.data)
+        && enAlcance(request.resource.data)
+        && (resource == null || enAlcance(resource.data));
+
+      allow delete: if esAdmin();
+    }
+
     // ---------------------------------------------------------------- tareas
 
     match /tareas/{tareaId} {

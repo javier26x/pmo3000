@@ -26,6 +26,8 @@ const cargarProyecto = () => import('@/features/proyectos/PaginaProyecto')
 // desde la tabla, asi que el precargador las tiene listas antes de ese clic.
 const cargarSitio = () => import('@/features/sitios/PaginaSitio')
 const cargarSeguimiento = () => import('@/features/gates/PaginaSeguimiento')
+const cargarRegulatorio = () => import('@/features/regulatorio/PaginaRegulatorio')
+const cargarExpediente = () => import('@/features/regulatorio/PaginaExpediente')
 const cargarPaleta = () => import('./PaletaComandos')
 const cargarAyuda = () => import('./AyudaAtajos')
 
@@ -42,6 +44,12 @@ const PaginaProyectos = lazy(() =>
   cargarProyectos().then((m) => ({ default: m.PaginaProyectos })),
 )
 const PaginaProyecto = lazy(() => cargarProyecto().then((m) => ({ default: m.PaginaProyecto })))
+const PaginaRegulatorio = lazy(() =>
+  cargarRegulatorio().then((m) => ({ default: m.PaginaRegulatorio })),
+)
+const PaginaExpediente = lazy(() =>
+  cargarExpediente().then((m) => ({ default: m.PaginaExpediente })),
+)
 const PaginaSitio = lazy(() => cargarSitio().then((m) => ({ default: m.PaginaSitio })))
 const PaginaSeguimiento = lazy(() =>
   cargarSeguimiento().then((m) => ({ default: m.PaginaSeguimiento })),
@@ -64,6 +72,8 @@ function precargarPantallas(): void {
     cargarAyuda,
     cargarConfiguracion,
     cargarProyectos,
+    cargarRegulatorio,
+    cargarExpediente,
     cargarUsuarios,
     cargarAuditoria,
     cargarTracker,
@@ -143,6 +153,26 @@ export function Rutas() {
           />
           <Route path="/kanban" element={<PaginaKanban />} />
           <Route path="/pendientes" element={<PaginaPendientes />} />
+          <Route
+            path="/regulatorio"
+            element={
+              <RutaProtegida requiere={['regulatorio', 'ver']}>
+                <Suspense fallback={<Cargando texto="Cargando el regulatorio…" />}>
+                  <PaginaRegulatorio />
+                </Suspense>
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/regulatorio/:seguimientoId"
+            element={
+              <RutaProtegida requiere={['regulatorio', 'ver']}>
+                <Suspense fallback={<Cargando texto="Abriendo el expediente…" />}>
+                  <PaginaExpediente />
+                </Suspense>
+              </RutaProtegida>
+            }
+          />
           <Route
             path="/proyectos"
             element={

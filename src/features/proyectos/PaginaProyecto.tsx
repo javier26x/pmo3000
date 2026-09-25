@@ -7,6 +7,7 @@ import {
   ListChecks,
   MapPin,
   Pencil,
+  Scale,
   Timer,
   Upload,
 } from 'lucide-react'
@@ -137,6 +138,12 @@ function FichaProyecto({ proyecto }: { proyecto: Proyecto }) {
             <EnlaceBoton to={`/sitios?proy=${encodeURIComponent(proyecto.id)}`}>
               Ver sus sitios
             </EnlaceBoton>
+            {puedeHacer('regulatorio', 'ver') && (
+              <EnlaceBoton to={`/regulatorio?proyecto=${encodeURIComponent(proyecto.id)}`}>
+                <Scale aria-hidden className="size-4" />
+                Regulatorio
+              </EnlaceBoton>
+            )}
             {puedeHacer('sitios', 'importar') && (
               <EnlaceBoton to="/tracker">
                 <Upload aria-hidden className="size-4" />

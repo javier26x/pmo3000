@@ -9,6 +9,7 @@ import {
   MapPin,
   MessageSquare,
   Send,
+  Scale,
   Sheet,
   Unlock,
   UserRound,
@@ -64,6 +65,7 @@ import { Historial } from './Historial'
 import { useMedidorSla } from '@/hooks/useSla'
 import { areaDeRevision, indiceAreas, responsablesDe } from '@/domain/areas'
 import { textoSla } from '@/domain/sla'
+import { fechaAlAire } from '@/domain/regulatorio'
 import { LineaGates } from './LineaGates'
 import { PanelChecklist, type AccionChecklist } from './PanelChecklist'
 import { PanelRevisiones } from './PanelRevisiones'
@@ -293,6 +295,13 @@ export function PaginaSeguimiento() {
               <MapPin aria-hidden className="size-4" />
               Ver en el mapa
             </EnlaceBoton>
+            {/* Al aire, el sitio entra al proceso legal y regulatorio. */}
+            {puedeHacer('regulatorio', 'ver') && fechaAlAire(sp).alAire && (
+              <EnlaceBoton to={`/regulatorio/${encodeURIComponent(sp.id)}`}>
+                <Scale aria-hidden className="size-4" />
+                Regulatorio
+              </EnlaceBoton>
+            )}
             <AdministrarSeguimiento sp={sp} />
           </>
         }

@@ -110,4 +110,5 @@ export const COLECCIONES = {
   raid: 'raid',
   config: 'config',
   solicitudesCarpeta: 'solicitudesCarpeta',
+  regulatorio: 'regulatorio',
 } as const

@@ -22,6 +22,7 @@ export const RECURSOS = [
   'celulas',
   'areas',
   'raid',
+  'regulatorio',
   'config',
 ] as const
 export type Recurso = (typeof RECURSOS)[number]
@@ -67,6 +68,8 @@ const MATRIZ: Record<Rol, readonly (Permiso | typeof TODO)[]> = {
     'raid:ver',
     'raid:crear',
     'raid:editar',
+    'regulatorio:ver',
+    'regulatorio:editar',
     'usuarios:ver',
     'auditoria:ver',
     'portafolios:ver',
@@ -101,6 +104,8 @@ const MATRIZ: Record<Rol, readonly (Permiso | typeof TODO)[]> = {
     'raid:ver',
     'raid:crear',
     'raid:editar',
+    'regulatorio:ver',
+    'regulatorio:editar',
     'usuarios:ver',
     'auditoria:ver',
     'portafolios:ver',
@@ -132,6 +137,7 @@ const MATRIZ: Record<Rol, readonly (Permiso | typeof TODO)[]> = {
     'sitioProyectos:ver',
     'tareas:ver',
     'raid:ver',
+    'regulatorio:ver',
     'auditoria:ver',
     'portafolios:ver',
     'programas:ver',

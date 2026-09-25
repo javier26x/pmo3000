@@ -7,6 +7,7 @@ import {
   Inbox,
   LayoutGrid,
   Map as MapaIcono,
+  Scale,
   SlidersHorizontal,
   Upload,
   Users,
@@ -66,6 +67,14 @@ export const NAVEGACION: ItemNavegacion[] = [
     etiqueta: 'Pendientes',
     icono: Inbox,
     requiere: ['areas', 'ver'],
+  },
+  // Lo que sigue al On Air: el expediente legal y regulatorio de cada sitio.
+  {
+    ruta: '/regulatorio',
+    grupo: 'Seguimiento',
+    etiqueta: 'Regulatorio',
+    icono: Scale,
+    requiere: ['regulatorio', 'ver'],
   },
   {
     ruta: '/proyectos',
